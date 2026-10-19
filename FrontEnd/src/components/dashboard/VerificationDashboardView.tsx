@@ -304,32 +304,39 @@ export const VerificationDashboardView: React.FC = () => {
           <div>
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-slate-700" />
-              时点、CISG与涉外法源合规门禁
+              前置合规门禁清单 (Precheck Checklist)
             </h3>
             <p className="text-slate-500 text-[11px] mt-1">
-              依据最高院涉外民事关系法律适用规则中立质检与风险拦截
+              依据最高院涉外民事关系法律适用规则中立质检与时点风险拦截
             </p>
           </div>
 
           <div className="space-y-3">
-            {/* 时点两态状态 (红/黄，不设绿) */}
-            <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200/80 space-y-2">
+            {/* 前置合规门禁清单项 1：法律时间效力核验 */}
+            <div className="p-3.5 bg-slate-50/70 rounded-2xl border border-slate-200/70 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-amber-900">
-                  法律时间效力核验
-                </span>
-                <span className="text-[10px] bg-amber-100/90 px-2.5 py-0.5 rounded-md font-mono text-amber-900 font-semibold border border-amber-200/70">
-                  司法审慎 · 提示时点核验
-                </span>
+                <div>
+                  <span className="font-semibold text-slate-800 block">
+                    法律时间效力核验 (Timepoint Precheck)
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    严格比对东道国法律生效与案件事实发生时点
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 font-mono font-medium text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-lg text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  <span>提示核验</span>
+                </div>
               </div>
-              <p className="text-[11px] text-amber-800/90 leading-relaxed">
-                收录现行有效成文法版本，严格提示承办人核对法律生效施行与案件事实发生时点：
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-amber-900 text-[11px]">
-                {(currentCase.timepoint?.reasons || []).map((r, idx) => (
-                  <li key={idx}>{r}</li>
-                ))}
-              </ul>
+              {currentCase.timepoint?.reasons && currentCase.timepoint.reasons.length > 0 && (
+                <div className="pt-2 border-t border-slate-200/60">
+                  <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
+                    {currentCase.timepoint.reasons.map((r, idx) => (
+                      <li key={idx}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* 域外法律概念审慎过滤 */}
