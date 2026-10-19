@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { lawAgentApi } from '../../api/lawAgentApi';
 import {
   Layers,
   Search,
@@ -50,7 +51,13 @@ export const CaseAnalysisView: React.FC = () => {
     isDrawerOpen,
     setIsDrawerOpen,
     casesList,
+    loadCase,
   } = useApp();
+
+  // 跨生命周期阶段流转弹窗
+  const [showTransitionModal, setShowTransitionModal] = useState<boolean>(false);
+  const [transitionNote, setTransitionNote] = useState<string>('');
+  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   // 一级子视图：overview (结论总览) | issues (争点与要件审查) | red-team (攻防博弈沙盘) | evidence-chain (法源关系图谱) | compliance (司法合规报告)
   const [subPage, setSubPage] = useState<
@@ -427,6 +434,30 @@ export const CaseAnalysisView: React.FC = () => {
     }));
   }, [currentCase]);
 
+  const handleConfirmTransition = async () => {
+    if (!currentCase) return;
+    setIsTransitioning(true);
+    try {
+      const currentStage = currentCase.meta?.lifecycle_stage || 'execution_dispute';
+      const targetStage = currentStage === 'pre_investment' ? 'execution_dispute' : 'pre_investment';
+      await lawAgentApi.transitionStage(currentCase.case_id, {
+        target_stage: targetStage,
+        transition_note: transitionNote.trim() || undefined,
+      });
+      showToast(
+        `案件已成功流转至【${targetStage === 'execution_dispute' ? '履约索赔与争议推演' : '投前合规审查'}】阶段！`,
+        'success'
+      );
+      await loadCase(currentCase.case_id, true);
+      setShowTransitionModal(false);
+      setTransitionNote('');
+    } catch {
+      showToast('阶段流转失败，请稍后重试', 'error');
+    } finally {
+      setIsTransitioning(false);
+    }
+  };
+
   // 当前激活的争点
   const activeIssue = useMemo(
     () => issues.find((i) => i.id === selectedIssueId) || issues[0],
@@ -488,8 +519,22 @@ export const CaseAnalysisView: React.FC = () => {
             ))}
           </div>
 
-          {/* 幽灵测试按钮与法源对照入口 */}
+          {/* 快捷操作区：阶段流转 + 推演测试 + 法源对照 */}
           <div className="flex items-center gap-2">
+            {/* 跨生命周期阶段平滑流转入口 */}
+            <button
+              type="button"
+              onClick={() => setShowTransitionModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50/90 hover:bg-blue-100/90 border border-blue-200/80 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+              title="切换项目生命周期阶段（投前合规审查 ⇄ 履约争议索赔）"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
+              <span>
+                {currentCase?.meta?.lifecycle_stage === 'pre_investment'
+                  ? '转入履约争议阶段'
+                  : '转入投前合规审查'}
+              </span>
+            </button>
             <button
               type="button"
               onClick={openPipelineAnimation}
@@ -1780,6 +1825,107 @@ export const CaseAnalysisView: React.FC = () => {
                 <span>法理模型更新</span>
                 <span>{recalcStep === 1 ? '35%' : recalcStep === 2 ? '75%' : '100%'}</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 跨项目生命周期阶段平滑流转弹窗 */}
+      {showTransitionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md antialiased apple-modal-backdrop"
+          onClick={() => setShowTransitionModal(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-[28px] shadow-[0_24px_64px_rgba(0,0,0,0.18)] border border-black/[0.08] overflow-hidden flex flex-col apple-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 弹窗头部 */}
+            <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200/60 shadow-2xs">
+                  <RotateCcw className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                    项目生命周期跨阶段平滑流转
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    支持在【投前合规】与【履约争议】之间保持案卷血缘平滑流转
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTransitionModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 弹窗主体 */}
+            <div className="p-6 space-y-4 text-xs">
+              <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+                <span className="text-[11px] font-mono text-slate-400 font-bold block uppercase tracking-wider">
+                  阶段转换走向
+                </span>
+                <div className="flex items-center justify-between font-medium">
+                  <span className="px-2.5 py-1 rounded-lg bg-white text-slate-700 border border-slate-200/80 shadow-2xs font-sans">
+                    {currentCase?.meta?.lifecycle_stage === 'pre_investment'
+                      ? '投前并购与签约合规审查'
+                      : '履约索赔、保函止付与争议解决'}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-blue-600" />
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold shadow-xs font-sans">
+                    {currentCase?.meta?.lifecycle_stage === 'pre_investment'
+                      ? '履约索赔、保函止付与争议解决'
+                      : '投前并购与签约合规审查'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <span>流转说明与事实补充备忘 (可选)</span>
+                </label>
+                <textarea
+                  value={transitionNote}
+                  onChange={(e) => setTransitionNote(e.target.value)}
+                  placeholder="例如：由于东道国政府调整并网电价政策且当地征地迟延，项目由前期投资论证转入工程索赔与保函止付争议推演..."
+                  rows={3}
+                  className="w-full rounded-2xl border border-slate-200/90 bg-slate-50/50 p-3 text-xs text-slate-800 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 transition-all outline-hidden resize-none"
+                />
+              </div>
+            </div>
+
+            {/* 弹窗底栏 */}
+            <div className="p-5 px-6 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowTransitionModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-all cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={isTransitioning}
+                onClick={handleConfirmTransition}
+                className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] rounded-xl transition-all cursor-pointer shadow-xs shadow-blue-500/25 disabled:opacity-50"
+              >
+                {isTransitioning ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>流转中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>确认流转并更新案卷</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

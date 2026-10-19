@@ -39,7 +39,7 @@ def client():
 @pytest.fixture(scope="module")
 def state_db():
     """StateDBManager 实例并确保基础示范案已就绪"""
-    db = StateDBManager("data/state.sqlite")
+    db = StateDBManager("data/state/state.sqlite")
     seed_asean_demo_cases(db, overwrite=False)
     return db
 

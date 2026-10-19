@@ -140,11 +140,6 @@ def build_pure_asean_kb(snapshot_id: str = "20261010-gii-v0.7"):
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"未找到快照数据库: {db_path}")
 
-    # 1. 备份原数据库
-    backup_path = db_path + ".bak_step3"
-    shutil.copy2(db_path, backup_path)
-    print(f"-> 已备份原数据库至: {backup_path}")
-
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -338,6 +333,16 @@ def build_pure_asean_kb(snapshot_id: str = "20261010-gii-v0.7"):
     bm25 = BM25Engine(index_dir=index_dir)
     bm25.build_from_chunks(chunks)
     print("-> 纯净 BM25 稀疏索引重构持久化成功！")
+
+    # 11. 重建 FAISS 稠密向量检索索引 (Dense Vector Index)
+    print("-> 正在重构并持久化纯净 FAISS 向量索引与 chunk_ids_vec.pkl...")
+    from lawagent.store.vec import DenseVectorEngine
+    try:
+        vec_engine = DenseVectorEngine(index_dir=index_dir)
+        vec_engine.build_from_chunks(chunks)
+        print("-> 纯净 FAISS 向量索引与 chunk_ids_vec.pkl 重构持久化成功！")
+    except Exception as e:
+        print(f"-> 向量索引构建警告: {e}")
 
     cur.execute("SELECT count(*) FROM norms")
     post_norms = cur.fetchone()[0]

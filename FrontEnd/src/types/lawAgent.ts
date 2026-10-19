@@ -103,6 +103,10 @@ export interface Evidence {
   text_de: string; // 兼容性字段 (自动镜像 text_original)
   text_en?: string; // 英文对照
   text_zh?: string; // 权威中文译本
+  language_mode?: 'bilingual' | 'trilingual';
+  translation_source?: string;
+  fidic_tier?: string;
+  fidic_edition?: string;
   source_url: string;
   stand?: string;
   fetched_at: string;

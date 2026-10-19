@@ -128,6 +128,10 @@ class Evidence(BaseModel):
     text_de: str = ""                    # 兼容性镜像：自动同步自 text_original
     text_en: Optional[str] = None        # 英文对照
     text_zh: Optional[str] = None        # 权威中文释义
+    language_mode: Literal["bilingual", "trilingual"] = "bilingual"
+    translation_source: Optional[str] = "MOJ_FATONG_2026"
+    fidic_tier: Optional[str] = None
+    fidic_edition: Optional[str] = None
     source_url: str = ""
     stand: Optional[str] = None
     fetched_at: str = ""

@@ -217,3 +217,28 @@ class SnapshotManager:
             )
             rows = cur.fetchall()
         return [dict(r) for r in rows]
+
+    def get_norms_batch(self, norm_ids: List[str], snapshot_id: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+        """批量获取法条记录 (避免单条循环查询 N+1 开销)"""
+        if not norm_ids:
+            return {}
+        conn = self.get_connection(snapshot_id)
+        if not conn:
+            return {}
+        cur = conn.cursor()
+        clean_ids = [n.replace("NORM:", "").strip() for n in norm_ids]
+        placeholders = ",".join(["?"] * len(clean_ids))
+        cur.execute(f"SELECT * FROM norms WHERE norm_id IN ({placeholders})", clean_ids)
+        return {r["norm_id"]: dict(r) for r in cur.fetchall()}
+
+    def get_chunks_batch(self, chunk_ids: List[str], snapshot_id: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+        """批量获取分块记录 (避免单条循环查询 N+1 开销)"""
+        if not chunk_ids:
+            return {}
+        conn = self.get_connection(snapshot_id)
+        if not conn:
+            return {}
+        cur = conn.cursor()
+        placeholders = ",".join(["?"] * len(chunk_ids))
+        cur.execute(f"SELECT * FROM chunks WHERE chunk_id IN ({placeholders})", chunk_ids)
+        return {r["chunk_id"]: dict(r) for r in cur.fetchall()}

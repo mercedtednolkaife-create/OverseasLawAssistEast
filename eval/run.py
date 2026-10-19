@@ -24,46 +24,16 @@ from lawagent.flow.critic import FORBIDDEN_PREDICTIVE_WORDS
 
 GOLD_RETRIEVAL_DATASET = [
     {
-        "qid": "eval_q1",
-        "query": "德国法下买卖合同物之瑕疵的法定定义与构成要件",
-        "gold_norms": ["BGB:§434", "BGB:§433"],
-        "gold_cases": []
-    },
-    {
-        "qid": "eval_q2",
-        "query": "Sachmangel Nacherfüllung Kaufvertrag BGB § 437",
-        "gold_norms": ["BGB:§437", "BGB:§439"],
-        "gold_cases": []
-    },
-    {
-        "qid": "eval_q3",
-        "query": "商事买卖双方为商人时的即刻检验与通知义务及失权后果",
-        "gold_norms": ["HGB:§377"],
-        "gold_cases": ["BGH VIII ZR 12/20"]
-    },
-    {
-        "qid": "eval_q4",
-        "query": "买受人行使解除权之前提与合理期限届满",
-        "gold_norms": ["BGB:§323", "BGB:§281"],
-        "gold_cases": ["BGH VIII ZR 12/20"]
-    },
-    {
-        "qid": "eval_q5",
-        "query": "债务人给付迟延的构成要件与迟延利息计算标准",
-        "gold_norms": ["BGB:§286", "BGB:§288"],
-        "gold_cases": []
-    },
-    {
         "qid": "eval_asean_q1",
         "query": "印尼涉外合同语言要求与最高法院善意履约通告",
         "gold_norms": ["ID:SEMA_3_2023"],
-        "gold_cases": []
+        "gold_cases": ["ID_MA:SEMA_3_2023:2023"]
     },
     {
         "qid": "eval_asean_q2",
         "query": "马来西亚建设工程快速裁决法背靠背付款条款法定无效",
         "gold_norms": ["MY:CIPAA_2012:Sec35"],
-        "gold_cases": []
+        "gold_cases": ["MY_FC:Bauer_CIPAA_Sec35:2019"]
     },
     {
         "qid": "eval_asean_q3",
@@ -81,6 +51,24 @@ GOLD_RETRIEVAL_DATASET = [
         "qid": "eval_asean_q5",
         "query": "中国印尼双边投资保护协定间接征收补偿标准",
         "gold_norms": ["TREATY:CN_ID_BIT_1992:Art4"],
+        "gold_cases": []
+    },
+    {
+        "qid": "eval_asean_q6",
+        "query": "印尼建筑服务法施工资质与BUJKA属地联营连带责任",
+        "gold_norms": ["ID:UU_2_2017:Art57"],
+        "gold_cases": []
+    },
+    {
+        "qid": "eval_asean_q7",
+        "query": "新加坡SOPA付款保障法禁止背靠背付款",
+        "gold_norms": ["SG:SOPA_2004:Sec9"],
+        "gold_cases": ["SG_HC:BSMountSophia:2016"]
+    },
+    {
+        "qid": "eval_asean_q8",
+        "query": "FIDIC 银皮书承包商28天索赔通知时效与失权除斥抗辩",
+        "gold_norms": ["FIDIC:Silver_1999:Clause_20.1"],
         "gold_cases": []
     }
 ]
@@ -129,17 +117,18 @@ async def eval_e2e_suite(runner: LawWorkflowRunner) -> Dict[str, Any]:
         case_id=f"eval_e2e_{int(time.time())}",
         snapshot_id="20261010-gii-v0.7",
         mode="lite",
-        facts_zh="2023年4月1日，原告中国进出口公司与德方汉堡制造公司签订《精密机床采购合同》，约定德国法为准据法。货款已全额付清。2023年6月10日货物运抵中国港口，原告开箱检验即发现主轴精度偏离公差达0.15mm，存在严重瑕疵。原告于2023年6月12日以书面邮件向德方提出质量异议，并要求于15日内派员检修更换。德方逾期未予回应修复。原告遂主张解除合同并索赔损失。",
-        claims_zh="请求解除买卖合同；请求退还全额货款并赔偿损失",
+        facts_zh="2023年4月1日，原告中资总承包商与印尼电力项目业主签订《光伏与燃煤混合电站EPC总承包合同》，约定适用印尼法及FIDIC银皮书标准条件。履约期间因原住民习惯法土地征拆受阻迟延交地180天，承包商发出索赔通知要求工期顺延。业主以未签印尼语版本及本土化率未达标为由拒付工程进度款并企图索兑履约保函。",
+        claims_zh="1. 主张不可归责之工期顺延(EOT)并免除延误违约金；2. 依据SEMA 3/2023确认合同效力并阻断履约保函索兑；3. 索赔窝工补偿款项",
         meta=CaseMeta(
-            jurisdiction="de_federal",
-            contract_type="国际货物买卖合同",
-            parties=["中国进出口公司", "汉堡制造公司"],
+            jurisdiction="asean_id",
+            lifecycle_stage="execution_dispute",
+            contract_type="国际建设工程EPC总承包合同",
+            parties=["中资总承包商", "印尼电力项目业主"],
             contract_date="2023-04-01",
             event_date="2023-06-10",
-            choice_of_law="德国法",
+            choice_of_law="印尼法及FIDIC银皮书条件",
             cisg_excluded=True,
-            both_merchants=True
+            project_archetypes=["EPC_CONTRACTING"]
         )
     )
 

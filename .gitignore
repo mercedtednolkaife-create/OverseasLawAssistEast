@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.sqlite-wal
+*.sqlite-shm
+node_modules/
+dist/
+.env
+.DS_Store

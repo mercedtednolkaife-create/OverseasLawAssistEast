@@ -45,7 +45,7 @@ from scripts.seed_asean_cases import (
 @pytest.fixture(scope="module")
 def seeded_db():
     """初始化数据库并播种东盟四大金标准示范案"""
-    db = StateDBManager("data/state.sqlite")
+    db = StateDBManager("data/state/state.sqlite")
     seed_asean_demo_cases(db, overwrite=True)
     return db
 

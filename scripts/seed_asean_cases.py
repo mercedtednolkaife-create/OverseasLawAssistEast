@@ -672,6 +672,6 @@ def seed_asean_demo_cases(db: StateDBManager, overwrite: bool = False):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    db = StateDBManager("data/state.sqlite")
+    db = StateDBManager("data/state/state.sqlite")
     seed_asean_demo_cases(db, overwrite=True)
     print("ASEAN demonstration cases C101~C104 seeded successfully!")

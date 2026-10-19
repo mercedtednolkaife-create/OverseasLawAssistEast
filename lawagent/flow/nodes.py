@@ -11,7 +11,8 @@ import datetime
 from typing import Dict, Any, List, Optional
 from lawagent.core.types import (
     CaseState, Fact, Claim, Material, Issue, LegalQuestion,
-    ElementState, Evidence, Finding, Statement, CaseMeta, ElementEvidence
+    ElementState, Evidence, Finding, Statement, CaseMeta, ElementEvidence,
+    EntryCheckItem
 )
 from lawagent.llm.client import LLMClient
 from lawagent.store.retriever import HybridRetriever
@@ -94,14 +95,51 @@ async def s1_extract_node(state: CaseState) -> Dict[str, Any]:
 # S2: Precheck (预检与入口清单)
 # =====================================================================
 async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
-    """S2 节点：入口检查清单、时点红黄两态初筛、与央国企国家安全哨兵扫描"""
+    """S2 节点：入口检查清单、时点红黄两态初筛、央国企安全哨兵与三大东盟建设工程专项算子"""
     entry_checks = generate_entry_checks(state.meta)
     all_refs = [ev.ref_id for ev in state.evidence.values()]
     tp_level, tp_reasons = timepoint_level(state.meta, all_refs)
 
-    # 触发安全哨兵评估 (Tier 1 & Tier 2) - 全局常设针对东盟出海建设工程与海外投资
-    from lawagent.flow.security_sentinel import SecuritySentinel
+    # 1. 触发安全哨兵评估 (Tier 1 & Tier 2) - 全局常设针对东盟出海建设工程与海外投资
+    from lawagent.flow.security_sentinel import (
+        SecuritySentinel,
+        evaluate_tkdn_compliance,
+        evaluate_eot_delay_claim,
+        evaluate_interface_transmission
+    )
     security_alerts = SecuritySentinel.evaluate(state)
+
+    # 2. 准备事实文本与业务元数据以驱动专项算子
+    facts_text = f"{state.facts_zh or ''} {' '.join([f.text_zh for f in state.facts])}"
+    jur = state.meta.jurisdiction or "asean_id"
+    archetypes = [a.value if hasattr(a, "value") else str(a) for a in (state.meta.project_archetypes or [])]
+    contract_type = state.meta.contract_type or "FIDIC_SILVER"
+
+    # 3. 运行三大东盟工程专项审查算子并注入入口检查清单
+    tkdn_eval = evaluate_tkdn_compliance(facts_text, jur)
+    if tkdn_eval.get("applicable"):
+        entry_checks.append(EntryCheckItem(
+            name="印尼能矿部 MEMR 11/2024 本地化率 (TKDN) 配额合规与部委特许豁免审查",
+            status="satisfied" if tkdn_eval.get("overall_status") == "safe" else "uncertain",
+            detail=tkdn_eval.get("recommendation", "")
+        ))
+
+    eot_eval = evaluate_eot_delay_claim(facts_text, contract_type, jur)
+    if eot_eval.get("applicable"):
+        entry_checks.append(EntryCheckItem(
+            name="FIDIC 8.4 / 20.1 竣工工期顺延 (EOT) 与 28 天通知时效前置要件审查",
+            status="satisfied",
+            detail=eot_eval.get("recommended_defense", "")
+        ))
+
+    interface_eval = evaluate_interface_transmission(facts_text, archetypes, jur)
+    if interface_eval.get("applicable") and interface_eval.get("interface_risks"):
+        for risk in interface_eval["interface_risks"]:
+            entry_checks.append(EntryCheckItem(
+                name=f"投建营接口传导风险：{risk['interface']}",
+                status="uncertain",
+                detail=f"{risk['legal_rule']}。应对对策：{risk['counter_measure']}"
+            ))
 
     status = state.status
     if status == "draft":
@@ -281,23 +319,6 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
         # 3. 评估要件充分性
         elements = await evaluate_sufficiency_llm(q, elements, evidence_dict, client=client)
 
-        # 4. 运行东盟出海建设工程专业审查算子 (TKDN 本地化率, EOT 工期索赔, 投建营接口传导)
-        from lawagent.flow.security_sentinel import (
-            evaluate_tkdn_compliance,
-            evaluate_eot_delay_claim,
-            evaluate_interface_transmission
-        )
-        jur = state.meta.jurisdiction or "asean_id"
-        archetypes = [a.value if hasattr(a, 'value') else str(a) for a in (state.meta.project_archetypes or [])]
-        tkdn_res = evaluate_tkdn_compliance(state.facts_zh, jur)
-        eot_res = evaluate_eot_delay_claim(state.facts_zh, "FIDIC_SILVER", jur)
-        interface_res = evaluate_interface_transmission(state.facts_zh, archetypes, jur)
-        if tkdn_res.get("applicable"):
-            state.state_assessments["tkdn_compliance"] = f"【TKDN审查】{tkdn_res.get('recommendation')}"
-        if eot_res.get("applicable"):
-            state.state_assessments["eot_delay_claim"] = f"【EOT工期审查】{eot_res.get('recommended_defense')}"
-        if interface_res.get("applicable"):
-            state.state_assessments["interface_transmission"] = f"【接口传导审查】识别出 {len(interface_res.get('interface_risks', []))} 项接口传导风险"
 
         # 5. 针对 missing/partial 要素尝试至多 1 次改写深潜检索
         missing_elems = [el for el in elements if el.status in ("missing", "partial") and el.rounds < 2]

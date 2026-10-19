@@ -10,13 +10,13 @@ import pickle
 import sqlite3
 from typing import List, Tuple, Optional, Dict, Any
 from rank_bm25 import BM25Okapi
-from lawagent.store.compound import GermanTextProcessor, VocabSplitter
+from lawagent.store.compound import AseanTextProcessor, GermanTextProcessor, VocabSplitter
 
 
 class BM25Engine:
     def __init__(self, index_dir: str = "data/snapshots/20261010-gii-v0.7/index"):
         self.index_dir = index_dir
-        self.processor = GermanTextProcessor()
+        self.processor = AseanTextProcessor()
         self.bm25: Optional[BM25Okapi] = None
         self.chunk_ids: List[str] = []
         self.chunk_metadata: Dict[str, Dict[str, Any]] = {}

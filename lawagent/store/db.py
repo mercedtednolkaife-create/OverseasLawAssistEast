@@ -442,32 +442,38 @@ class StateDBManager:
             conn.close()
 
     def list_cases(self, role: Optional[str] = None) -> List[Any]:
-        """列出案件概要清单（严格保障释放数据库句柄）"""
+        """列出案件概要清单（采用 SQLite 原生 json_extract 避免全量大 JSON 反序列化）"""
         from lawagent.core.types import CaseSummary
         conn = self.get_connection()
         try:
             cur = conn.cursor()
-            cur.execute("SELECT case_id, snapshot_id, mode, status, title, contract_type, contract_date, created_at, updated_at, state_json FROM cases ORDER BY updated_at DESC")
+            cur.execute("""
+                SELECT 
+                    case_id, snapshot_id, mode, status, title, contract_type, contract_date, created_at, updated_at,
+                    json_array_length(json_extract(state_json, '$.issues')) AS issues_cnt,
+                    json_extract(state_json, '$.meta.lifecycle_stage') AS lifecycle_stage,
+                    json_extract(state_json, '$.meta.project_archetypes') AS project_archetypes_raw,
+                    json_extract(state_json, '$.meta.jurisdiction') AS jurisdiction,
+                    coalesce(json_extract(state_json, '$.parent_case_id'), json_extract(state_json, '$.meta.parent_case_id')) AS parent_case_id
+                FROM cases 
+                ORDER BY updated_at DESC
+            """)
             rows = cur.fetchall()
             summaries = []
             for r in rows:
-                issues_cnt = 1
-                lifecycle_stage = None
+                issues_cnt = r["issues_cnt"] or 1
+                lifecycle_stage = r["lifecycle_stage"] or "execution_dispute"
+                jurisdiction = r["jurisdiction"]
+                parent_case_id = r["parent_case_id"]
+
                 project_archetypes = []
-                jurisdiction = None
-                parent_case_id = None
-                raw_json = r["state_json"]
-                if raw_json:
+                arch_raw = r["project_archetypes_raw"]
+                if arch_raw:
                     try:
-                        sdata = json.loads(raw_json)
-                        issues_cnt = len(sdata.get("issues", [])) or 1
-                        meta_d = sdata.get("meta", {}) or {}
-                        lifecycle_stage = meta_d.get("lifecycle_stage") or "execution_dispute"
-                        project_archetypes = meta_d.get("project_archetypes", [])
-                        jurisdiction = meta_d.get("jurisdiction")
-                        parent_case_id = sdata.get("parent_case_id") or meta_d.get("parent_case_id")
+                        project_archetypes = json.loads(arch_raw)
                     except Exception:
-                        pass
+                        project_archetypes = []
+
                 summaries.append(CaseSummary(
                     case_id=r["case_id"],
                     title=r["title"] or f"涉外法查明案件-{r['case_id']}",

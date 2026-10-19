@@ -57,39 +57,51 @@ class VocabSplitter:
         return best or [w]
 
 
-class GermanTextProcessor:
-    """德语全文检索分词与索引标记生成器"""
+class AseanTextProcessor:
+    """东盟涉外建设工程与国际经贸全文检索分词与索引标记生成器 (支持中/英/印尼/越/泰跨语言检索)"""
     def __init__(self, splitter: Optional[VocabSplitter] = None):
-        self.stemmer = snowballstemmer.stemmer("german")
+        self.en_stemmer = snowballstemmer.stemmer("english")
         self.splitter = splitter or VocabSplitter()
 
-    def normalize_umlauts(self, text: str) -> str:
-        """保持 ä, ö, ü, ß 但统一大小写与多余空白"""
-        return re.sub(r"\s+", " ", text).strip()
-
     def tokenize(self, text: str) -> List[str]:
-        """将德语长文本切分为用于 BM25 检索与加权的高质量 token 集合"""
-        norm_text = self.normalize_umlauts(text)
-        # 保护 §433 等整体条号
-        norm_text = RE_SECTION.sub(r" §\1 ", norm_text)
-        raw_words = RE_CLEAN.sub(" ", norm_text).split()
+        """将多语言混合法律文本切分为用于 BM25 检索的高质量 token 集合"""
+        if not text:
+            return []
 
-        tokens: List[str] = []
-        for rw in raw_words:
-            w = rw.lower()
-            if not w or len(w) < 2:
-                continue
+        # 1. 规范化空白
+        t = re.sub(r"\s+", " ", text).strip()
 
-            # 保持条号整体
-            if w.startswith("§"):
-                tokens.append(w)
-                continue
+        # 2. 提取并保留关键法条编号与英文缩写 (如 Clause 20.1, Art.57, Sec.35, SEMA 3/2023, CIPAA 2012)
+        clause_matches = re.findall(r"(?:clause|art(?:icle)?|sec(?:tion)?|uu|law|decree|sema|cipaa|sopa|fidic)[\s_\-\.:]*\d+(?:[\.:]\d+)*", t, re.IGNORECASE)
+        norm_tokens = [re.sub(r"[\s_\-]+", "_", m.lower()) for m in clause_matches]
 
-            # 对称拆分：保留原词 + 拆出的词根并进行词干化
-            parts = self.splitter.split(w)
-            all_parts = {w} | set(parts)
-            for p in all_parts:
-                stemmed = self.stemmer.stemWord(p)
-                tokens.append(stemmed)
+        # 3. 英文与拉丁字母词汇 (印尼语/英语/越南语无音标)
+        latin_words = re.findall(r"[a-zA-Z0-9_\-\.]{2,}", t)
+        stemmed_words: List[str] = []
+        for w in latin_words:
+            wl = w.lower().strip(".-_")
+            if len(wl) >= 2:
+                stemmed_words.append(wl)
+                stemmed = self.en_stemmer.stemWord(wl)
+                if stemmed != wl:
+                    stemmed_words.append(stemmed)
 
-        return tokens
+        # 4. 中文字符与连续词组 (2-4字 n-gram 提升中文召回)
+        chinese_chars = re.findall(r"[\u4e00-\u9fa5]+", t)
+        zh_tokens: List[str] = []
+        for segment in chinese_chars:
+            if len(segment) <= 4:
+                zh_tokens.append(segment)
+            else:
+                zh_tokens.append(segment)
+                for i in range(len(segment) - 1):
+                    zh_tokens.append(segment[i:i+2])
+                for i in range(len(segment) - 2):
+                    zh_tokens.append(segment[i:i+3])
+
+        all_tokens = norm_tokens + stemmed_words + zh_tokens
+        return [tok for tok in all_tokens if len(tok) >= 2]
+
+
+# 兼容性别名
+GermanTextProcessor = AseanTextProcessor

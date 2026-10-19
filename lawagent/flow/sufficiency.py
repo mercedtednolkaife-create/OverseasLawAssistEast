@@ -11,11 +11,11 @@ from lawagent.core.types import LegalQuestion, ElementState, Evidence
 from lawagent.llm.client import LLMClient
 
 
-SUFFICIENCY_SYSTEM_PROMPT = """你是一名严谨的德国联邦法域外法查明研究员。
-你的任务是评估给定的法律检索证据（Evidence）是否充分覆盖了特定的德国法规范构成要件（Tatbestandsmerkmale）。
+SUFFICIENCY_SYSTEM_PROMPT = """你是一名严谨的东盟出海建设工程与投资争端域外法查明研究员。
+你的任务是评估给定的法律检索证据（Evidence）是否充分覆盖了特定的东盟东道国强行法与FIDIC合同规范构成要件。
 
 判定标准：
-1. covered：检索证据中包含直接规制该要件的德国联邦法具体法条（如精确到条、款、项）或具有拘束力/参考价值的联邦最高法院（BGH）判例裁判要旨，权利基础与要件内涵明确。
+1. covered：检索证据中包含直接规制该要件的东盟东道国成文法具体法条（如明确到条、款、项）或具有约束力/参考价值的东盟最高裁判机构、新加坡国际商事法庭（SICC）、SIAC仲裁庭裁决裁判要旨或FIDIC标准条款，权利义务基础与要件内涵明确。
 2. partial：仅检索到上位法或一般性原则条款，或缺少具体效果规定（如仅有总则定义，缺少违约救济对应条款），需要进一步下钻检索。
 3. missing：完全未检索到能够支撑该要件的有效规范或裁判，或检索结果与该要件无关。
 
