@@ -44,6 +44,7 @@ export const ReportReviewView: React.FC = () => {
     () => (currentCase?.findings || []).flatMap((f) => f.statements || []),
     [currentCase?.findings]
   );
+  const isPreInvestment = currentCase?.meta?.lifecycle_stage === 'pre_investment' || (currentCase as any)?.stage === 'pre_investment';
   const evidenceList = useMemo(
     () => Object.values(currentCase?.evidence || {}),
     [currentCase?.evidence]
@@ -143,7 +144,9 @@ export const ReportReviewView: React.FC = () => {
     try {
       const reportVer = currentCase.dashboard?.report_version || 1;
       const contentHash = currentCase.dashboard?.content_hash || '';
-      const filename = `ASEAN_Engineering_Compliance_Report_${currentCase.case_id}_v${reportVer}.${format}`;
+      const filename = isPreInvestment
+        ? `ASEAN_Pre_Investment_Compliance_Opinion_${currentCase.case_id}_v${reportVer}.${format}`
+        : `ASEAN_Engineering_Compliance_Report_${currentCase.case_id}_v${reportVer}.${format}`;
 
       if (format === 'docx') {
         const blob = await lawAgentApi.exportDocx(currentCase.case_id);
@@ -153,9 +156,16 @@ export const ReportReviewView: React.FC = () => {
         a.download = filename;
         a.click();
         URL.revokeObjectURL(url);
-        showToast(`已生成并下载最高院标准 Word 报告 ${filename}`, 'success');
+        showToast(
+          isPreInvestment
+            ? `已生成并下载发改委/国资委合规标准 Word 意见书 ${filename}`
+            : `已生成并下载最高院标准 Word 报告 ${filename}`,
+          'success'
+        );
       } else {
-        const reportTitle = '# 东盟国家建设工程法律风险防范与合规指引意见书 (最高院解释二标准报告)';
+        const reportTitle = isPreInvestment
+          ? '# 东盟国家投资准入与合规审查专家意见书 (国家发改委境外投资备案与央企合规呈报标准)'
+          : '# 东盟国家建设工程法律风险防范与合规指引意见书 (最高院解释二标准报告)';
         const content =
           format === 'json'
             ? JSON.stringify(currentCase, null, 2)
@@ -197,21 +207,31 @@ export const ReportReviewView: React.FC = () => {
               {currentCase.case_id}
             </span>
             <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-              {currentCase.title || currentCase.meta?.title || currentCase.meta?.contract_type || '东盟涉外建设工程与特许经营争议查明'}
+              {currentCase.title || currentCase.meta?.title || currentCase.meta?.contract_type || (isPreInvestment ? '东盟海外投资准入与合规审查' : '东盟涉外建设工程与特许经营争议查明')}
             </h1>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-              <span className="font-medium">双语查明报告</span>
+              <span className="font-medium">{isPreInvestment ? '境外投资合规审查意见书' : '涉外工程履约与争议查明报告'}</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 pl-11.5">
-            <span>当事人: {currentCase.meta?.parties?.join(' vs ') || '中资总承包商/投资方 vs 东道国业主/特许权授予方'}</span>
-            <span className="text-slate-300">·</span>
-            <span>准据法: {currentCase.meta?.choice_of_law || '东道国现行实体法与 FIDIC 银皮书标准条件'}</span>
-            <span className="text-slate-300">·</span>
-            <span>强行法审查: {currentCase.meta?.cisg_excluded ? '建设工程排他管辖 / 排除公约' : '属地强行法与工程资质合规'}</span>
-          </div>
+          {isPreInvestment ? (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 pl-11.5">
+              <span>投资主体/标的: {currentCase.meta?.parties?.join(' / ') || '中资出海企业 / 境外投资标的与东道国监管'}</span>
+              <span className="text-slate-300">·</span>
+              <span>目标法域: {currentCase.meta?.choice_of_law || currentCase.jurisdiction || '东盟东道国外资与外汇监管法'}</span>
+              <span className="text-slate-300">·</span>
+              <span>呈报标准: 发改委外资备案 (11号令) / 国资委央企境外合规标准</span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 pl-11.5">
+              <span>当事人: {currentCase.meta?.parties?.join(' vs ') || '中资总承包商/投资方 vs 东道国业主/特许权授予方'}</span>
+              <span className="text-slate-300">·</span>
+              <span>准据法: {currentCase.meta?.choice_of_law || '东道国现行实体法与 FIDIC 银皮书标准条件'}</span>
+              <span className="text-slate-300">·</span>
+              <span>强行法审查: {currentCase.meta?.cisg_excluded ? '建设工程排他管辖 / 排除公约' : '属地强行法与工程资质合规'}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -301,7 +321,7 @@ export const ReportReviewView: React.FC = () => {
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 hover:text-blue-600 transition-colors duration-150 border-r border-slate-200/80 cursor-pointer disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>导出材料包 (DOCX)</span>
+              <span>{isPreInvestment ? '导出合规意见书 (DOCX)' : '导出材料包 (DOCX)'}</span>
             </button>
             <button
               onClick={() => handleExport('json')}
@@ -338,7 +358,7 @@ export const ReportReviewView: React.FC = () => {
               type="text"
               value={followupText}
               onChange={(e) => setFollowupText(e.target.value)}
-              placeholder="例如：依据 FIDIC Clause 20.1，承包商 28 天通知时效未满足时属地法院是否有豁免先例？"
+              placeholder={isPreInvestment ? "例如：依据印尼总统令 2021 年第 49 号，涉及特许经营权转让时外资持股比例是否有追溯豁免先例？" : "例如：依据 FIDIC Clause 20.1，承包商 28 天通知时效未满足时属地法院是否有豁免先例？"}
               className="flex-1 px-3 py-1.5 text-xs border border-zinc-200 rounded-lg bg-zinc-50/50 focus:bg-white focus:outline-none focus:border-zinc-400"
             />
             <button
@@ -358,7 +378,7 @@ export const ReportReviewView: React.FC = () => {
           <div className="lg:col-span-7 space-y-3">
             <div className="flex items-center justify-between text-xs text-slate-500 px-1">
               <span className="font-bold text-slate-900">
-                中文查明陈述与认定依据 ({allStatements.length}条)
+                {isPreInvestment ? '投资准入与监管合规陈述与认定依据' : '中文查明陈述与认定依据'} ({allStatements.length}条)
               </span>
               <span className="text-[11px] text-slate-400">点击语句即可于右侧联动定位外文法源出处</span>
             </div>

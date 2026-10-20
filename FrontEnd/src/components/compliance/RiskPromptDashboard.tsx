@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { lawAgentApi } from '../../api/lawAgentApi';
 import {
   AlertTriangle,
   Info,
@@ -105,13 +106,64 @@ const ASEAN_COUNTRIES = [
 ];
 
 export const RiskPromptDashboard: React.FC = () => {
-  const { openLawDrawer } = useApp();
+  const { openLawDrawer, loadCase, openPipelineAnimation, setCurrentView, showToast } = useApp();
+  const [isLaunching, setIsLaunching] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     domain: string;
     country: string;
+    countryId: string;
     flag: string;
     data: RiskCellData;
   } | null>(null);
+
+  const handleLaunchRiskSandbox = async () => {
+    if (!selectedCell) return;
+    try {
+      setIsLaunching(true);
+      showToast(`正在为【${selectedCell.country} · ${selectedCell.domain}】立项并启动专项推演流水线...`, 'info');
+
+      const isPre =
+        selectedCell.domain.includes('准入') ||
+        selectedCell.domain.includes('股比') ||
+        selectedCell.domain.includes('土地') ||
+        selectedCell.domain.includes('外资');
+      const stage = isPre ? 'pre_investment' : 'execution_dispute';
+
+      const res = await lawAgentApi.createCase({
+        title: `【${selectedCell.country}专项风险审查】${selectedCell.domain}`,
+        facts_zh: `针对${selectedCell.country}建设工程投资合规，专项查明【${selectedCell.domain}】风险要件：\n\n【典型触发场景与发难手法】\n${selectedCell.data.scenario}\n\n【现行法定依据】\n${selectedCell.data.statute}: "${selectedCell.data.statuteText}"\n\n【合规红线禁令】\n${selectedCell.data.donts.join('；')}`,
+        claims_zh: `1. 查明${selectedCell.country}法律对“${selectedCell.domain}”的具体强制性规定及属地裁判裁判尺度；\n2. 提出针对“${selectedCell.data.summary}”的合同防御与履约救济方案。`,
+        meta: {
+          title: `【${selectedCell.country}专项风险审查】${selectedCell.domain}`,
+          jurisdiction: selectedCell.countryId,
+          lifecycle_stage: stage,
+          contract_type: '涉外建设工程与海外投资专项合规审查',
+          contract_date: new Date().toISOString().split('T')[0],
+          parties: ['中资出海企业/总承包商', `${selectedCell.country}东道国业主/属地监管当局`],
+          choice_of_law: `${selectedCell.country}现行实体法与强制性规范`,
+          dispute_resolution: 'SIAC',
+        },
+        materials: [
+          {
+            name: selectedCell.data.statute,
+            desc_zh: selectedCell.domain,
+            excerpt_zh: selectedCell.data.statuteText,
+          },
+        ],
+        consent_version: 'v1.0',
+      });
+
+      setSelectedCell(null);
+      await loadCase(res.case_id, true);
+      openPipelineAnimation();
+      setCurrentView('workspace');
+      showToast(`已成功为【${selectedCell.country} · ${selectedCell.domain}】创建专项审查案卷！`, 'success');
+    } catch (err: any) {
+      showToast(err.message || '立项推演启动失败', 'error');
+    } finally {
+      setIsLaunching(false);
+    }
+  };
 
   // 模拟并计算单元格数据
   const getCellData = (domainIdx: number, countryId: string): RiskCellData => {
@@ -414,6 +466,7 @@ export const RiskPromptDashboard: React.FC = () => {
                             setSelectedCell({
                               domain,
                               country: c.name,
+                              countryId: c.id,
                               flag: c.flag,
                               data,
                             })
@@ -535,10 +588,19 @@ export const RiskPromptDashboard: React.FC = () => {
             </div>
 
             {/* 底栏按钮 */}
-            <div className="pt-2 border-t border-zinc-100 flex justify-end">
+            <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
+              <button
+                onClick={handleLaunchRiskSandbox}
+                disabled={isLaunching}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                <Compass className="w-4 h-4" />
+                <span>{isLaunching ? '正在立项并启动...' : '针对该国别风险启动专项审查推演'}</span>
+              </button>
+
               <button
                 onClick={() => setSelectedCell(null)}
-                className="px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-semibold hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="px-4 py-2 bg-zinc-100 text-zinc-700 rounded-xl text-xs font-semibold hover:bg-zinc-200 transition-colors cursor-pointer"
               >
                 已了解并关闭
               </button>

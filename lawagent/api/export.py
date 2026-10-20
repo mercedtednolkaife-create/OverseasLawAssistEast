@@ -40,11 +40,21 @@ def generate_case_docx(state: CaseState) -> BytesIO:
     doc = Document()
 
 
+    is_pre_inv = (
+        state.meta.lifecycle_stage == "pre_investment" or
+        getattr(state.meta.lifecycle_stage, 'value', '') == "pre_investment" or
+        "pre_investment" in str(state.meta.lifecycle_stage).lower()
+    )
+
     # 1. 设置主标题
     title_p = doc.add_paragraph()
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    main_title_text = "东盟国家建设工程与海外投资跨境查明与合规咨询报告"
-    sub_title_text = "ASEAN Infrastructure & Cross-Border Investment Legal Ascertainment & Advisory Dossier"
+    if is_pre_inv:
+        main_title_text = "东盟东道国重大基建与海外投资项目投前准入与国资委合规审查意见书"
+        sub_title_text = "ASEAN Cross-Border Infrastructure Pre-Investment Regulatory Compliance & Deal Structuring Dossier"
+    else:
+        main_title_text = "东盟国家建设工程与海外投资跨境查明与合规咨询报告"
+        sub_title_text = "ASEAN Infrastructure & Cross-Border Investment Legal Ascertainment & Advisory Dossier"
 
     title_run = title_p.add_run(main_title_text)
     title_run.font.size = Pt(20)
@@ -94,8 +104,12 @@ def generate_case_docx(state: CaseState) -> BytesIO:
     doc.add_paragraph()
 
     # 3. 第一部分：A包 域外法规范查明材料包
-    part_a_title = "二、第一部分：东盟现行有效工程法规与 FIDIC 标准合同材料包 (Part A)"
-    p_a_intro_text = "依据司法部‘法通’网权威译本、东盟东道国2026现行有效成文法及 FIDIC 国际工程标准合同，系统严格定位并提取支撑本案争议焦点之法定权利基础及构成要件条款如下："
+    if is_pre_inv:
+        part_a_title = "二、第一部分：东道国外资准入强行法与法通网法源查明材料包 (Part A)"
+        p_a_intro_text = "依据司法部‘法通’网权威译本、东盟东道国2026现行有效外商投资法、建筑服务法及双边投资保护协定 (BIT)，系统严格定位并提取拟投资项目之东道国法定准入与强制合规条款如下："
+    else:
+        part_a_title = "二、第一部分：东盟现行有效工程法规与 FIDIC 标准合同材料包 (Part A)"
+        p_a_intro_text = "依据司法部‘法通’网权威译本、东盟东道国2026现行有效成文法及 FIDIC 国际工程标准合同，系统严格定位并提取支撑本案争议焦点之法定权利基础及构成要件条款如下："
     col2_label = "官方语言原文 (Statute / FIDIC)"
 
     doc.add_heading(part_a_title, level=1)
@@ -131,15 +145,23 @@ def generate_case_docx(state: CaseState) -> BytesIO:
 
     doc.add_paragraph()
 
-    # 4. 第二部分：B包 事实涵摄与律师咨询准备包
-    doc.add_heading("三、第二部分：事实涵摄与涉外法律咨询准备包 (Part B)", level=1)
-    target_lawyer = "涉外工程仲裁大律师与央企海外合规法务"
-    p_b_intro = doc.add_paragraph(
-        f"本部分聚焦案件事实与法律构成要件之深度涵摄分析，提炼事实举证状态、案情缺口并形成向{target_lawyer}咨询之专业问询清单，供仲裁庭审与出海合规谈判决策之用。"
-    )
+    # 4. 第二部分：B包 事实涵摄与合规/咨询准备包
+    if is_pre_inv:
+        doc.add_heading("三、第二部分：央国企境外投资合规审查意见与交易架构比选 (Part B)", level=1)
+        target_lawyer = "集团投资决策委员会 (投委会) 与国资合规风控法务"
+        p_b_intro = doc.add_paragraph(
+            f"本部分聚焦投前投资标的事实与东道国法、国资委35号令及数据安全法之六维合规核验，提炼合规缺口并形成向{target_lawyer}呈报之决策建议与保护性条款设计。"
+        )
+    else:
+        doc.add_heading("三、第二部分：事实涵摄与涉外法律咨询准备包 (Part B)", level=1)
+        target_lawyer = "涉外工程仲裁大律师与央企海外合规法务"
+        p_b_intro = doc.add_paragraph(
+            f"本部分聚焦案件事实与法律构成要件之深度涵摄分析，提炼事实举证状态、案情缺口并形成向{target_lawyer}咨询之专业问询清单，供仲裁庭审与出海合规谈判决策之用。"
+        )
 
     if state.elements:
-        doc.add_heading("3.1 构成要件事实匹配与涵摄状态表", level=2)
+        heading_3_1 = "3.1 准入合规要件核对与监管审核状态表 (SASAC Checklist)" if is_pre_inv else "3.1 构成要件事实匹配与涵摄状态表"
+        doc.add_heading(heading_3_1, level=2)
         elem_table = doc.add_table(rows=len(state.elements) + 1, cols=4)
         elem_table.alignment = WD_TABLE_ALIGNMENT.CENTER
 

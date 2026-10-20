@@ -115,24 +115,25 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
     archetypes = [a.value if hasattr(a, "value") else str(a) for a in (state.meta.project_archetypes or [])]
     contract_type = state.meta.contract_type or "FIDIC_SILVER"
 
-    # 3. 运行三大东盟工程专项审查算子并注入入口检查清单
-    tkdn_eval = evaluate_tkdn_compliance(facts_text, jur)
+    # 3. 运行三大东盟工程专项审查算子并注入入口检查清单与结构化审计对象
+    eng_params = getattr(state.meta, "engineering_params", None) or {}
+    tkdn_eval = evaluate_tkdn_compliance(facts_text, jur, engineering_params=eng_params)
     if tkdn_eval.get("applicable"):
         entry_checks.append(EntryCheckItem(
             name="印尼能矿部 MEMR 11/2024 本地化率 (TKDN) 配额合规与部委特许豁免审查",
-            status="satisfied" if tkdn_eval.get("overall_status") == "safe" else "uncertain",
+            status="satisfied" if tkdn_eval.get("overall_status") in ("safe", "compliant") else "uncertain",
             detail=tkdn_eval.get("recommendation", "")
         ))
 
-    eot_eval = evaluate_eot_delay_claim(facts_text, contract_type, jur)
+    eot_eval = evaluate_eot_delay_claim(facts_text, contract_type, jur, engineering_params=eng_params)
     if eot_eval.get("applicable"):
         entry_checks.append(EntryCheckItem(
             name="FIDIC 8.4 / 20.1 竣工工期顺延 (EOT) 与 28 天通知时效前置要件审查",
-            status="satisfied",
+            status="satisfied" if not eot_eval.get("is_time_barred") else "uncertain",
             detail=eot_eval.get("recommended_defense", "")
         ))
 
-    interface_eval = evaluate_interface_transmission(facts_text, archetypes, jur)
+    interface_eval = evaluate_interface_transmission(facts_text, archetypes, jur, engineering_params=eng_params)
     if interface_eval.get("applicable") and interface_eval.get("interface_risks"):
         for risk in interface_eval["interface_risks"]:
             entry_checks.append(EntryCheckItem(
@@ -140,6 +141,13 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
                 status="uncertain",
                 detail=f"{risk['legal_rule']}。应对对策：{risk['counter_measure']}"
             ))
+
+    engineering_audit = {
+        "tkdn_eval": tkdn_eval,
+        "eot_eval": eot_eval,
+        "interface_eval": interface_eval,
+        "updated_at": _now()
+    }
 
     status = state.status
     if status == "draft":
@@ -149,6 +157,7 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
         "entry_checks": entry_checks,
         "timepoint": {"level": tp_level, "reasons": tp_reasons},
         "security_alerts": security_alerts,
+        "engineering_audit": engineering_audit,
         "status": status,
         "current_node": "s2_precheck",
         "updated_at": _now()

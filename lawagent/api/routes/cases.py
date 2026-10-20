@@ -1286,3 +1286,86 @@ def transition_case_stage(
     return child_state
 
 
+class SimulateEngineeringPayload(BaseModel):
+    declared_tkdn_pct: Optional[float] = None
+    delay_days: Optional[int] = None
+    notice_days: Optional[int] = None
+    main_ld_cap_pct: Optional[float] = None
+    sub_ld_cap_pct: Optional[float] = None
+    foreign_equity_pct: Optional[float] = None
+
+
+@router.post("/{case_id}/simulate-engineering", response_model=CaseState)
+def simulate_engineering(
+    case_id: str,
+    payload: SimulateEngineeringPayload,
+    db: StateDBManager = Depends(get_state_db)
+):
+    """工程合规与争议交互式沙盘试算接口 (What-If Engineering Simulation)
+    接收前端调整后的 TKDN 本地化率、EOT 延误天数、索赔通知天数、主分包违约金比例，
+    实时重新运行 security_sentinel 专项审查算子，持久化并返回最新状态与结构化审计指标。
+    """
+    state = db.get_case(case_id)
+    if not state:
+        raise HTTPException(status_code=404, detail=f"案件 [{case_id}] 不存在")
+
+    current_params = getattr(state.meta, "engineering_params", None) or {}
+    updated_params = dict(current_params)
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        if v is not None:
+            updated_params[k] = v
+    state.meta.engineering_params = updated_params
+
+    from lawagent.flow.security_sentinel import (
+        evaluate_tkdn_compliance,
+        evaluate_eot_delay_claim,
+        evaluate_interface_transmission,
+        SecuritySentinel
+    )
+    from lawagent.core.types import EntryCheckItem
+
+    facts_text = f"{state.facts_zh or ''} {' '.join([f.text_zh for f in state.facts])}"
+    jur = state.meta.jurisdiction or "asean_id"
+    archetypes = [a.value if hasattr(a, "value") else str(a) for a in (state.meta.project_archetypes or [])]
+    contract_type = state.meta.contract_type or "FIDIC_SILVER"
+
+    tkdn_eval = evaluate_tkdn_compliance(facts_text, jur, engineering_params=updated_params)
+    eot_eval = evaluate_eot_delay_claim(facts_text, contract_type, jur, engineering_params=updated_params)
+    interface_eval = evaluate_interface_transmission(facts_text, archetypes, jur, engineering_params=updated_params)
+
+    # 刷新 entry_checks
+    updated_entry_checks = [c for c in state.entry_checks if not any(k in c.name for k in ["TKDN", "EOT", "接口传导"])]
+    if tkdn_eval.get("applicable"):
+        updated_entry_checks.append(EntryCheckItem(
+            name="印尼能矿部 MEMR 11/2024 本地化率 (TKDN) 配额合规与部委特许豁免审查",
+            status="satisfied" if tkdn_eval.get("overall_status") in ("safe", "compliant") else "uncertain",
+            detail=tkdn_eval.get("recommendation", "")
+        ))
+    if eot_eval.get("applicable"):
+        updated_entry_checks.append(EntryCheckItem(
+            name="FIDIC 8.4 / 20.1 竣工工期顺延 (EOT) 与 28 天通知时效前置要件审查",
+            status="satisfied" if not eot_eval.get("is_time_barred") else "uncertain",
+            detail=eot_eval.get("recommended_defense", "")
+        ))
+    if interface_eval.get("applicable") and interface_eval.get("interface_risks"):
+        for risk in interface_eval["interface_risks"]:
+            updated_entry_checks.append(EntryCheckItem(
+                name=f"投建营接口传导风险：{risk['interface']}",
+                status="uncertain",
+                detail=f"{risk['legal_rule']}。应对对策：{risk['counter_measure']}"
+            ))
+
+    state.entry_checks = updated_entry_checks
+    state.engineering_audit = {
+        "tkdn_eval": tkdn_eval,
+        "eot_eval": eot_eval,
+        "interface_eval": interface_eval,
+        "simulation_params": updated_params,
+        "updated_at": datetime.now().isoformat()
+    }
+    state.security_alerts = SecuritySentinel.evaluate(state)
+    state.updated_at = datetime.now().isoformat()
+    db.save_case(state)
+    return state
+
+

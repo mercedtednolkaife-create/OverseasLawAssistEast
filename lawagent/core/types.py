@@ -73,6 +73,7 @@ class CaseMeta(BaseModel):
     fidic_book_edition: Optional[str] = None # '1999_SILVER' | '1999_YELLOW' | '1999_RED' 等
     host_country: Optional[str] = None       # 'ID' | 'VN' | 'MY' | 'SG' | 'TH' | 'PH'
     dispute_resolution: Optional[str] = None # 'SIAC' | 'BANI' | 'AIAC' | 'ICC' | 'Court' 等
+    engineering_params: Dict[str, Any] = Field(default_factory=dict) # 结构化工程参数: declared_tkdn_pct, delay_days, main_ld_cap_pct, sub_ld_cap_pct 等
 
     # 历史字段废弃兼容器
     cisg_excluded: Optional[bool] = None
@@ -311,6 +312,7 @@ class CaseState(BaseModel):
     dashboard: DashboardMetrics = Field(default_factory=DashboardMetrics)
     parent_case_id: Optional[str] = None
     security_alerts: List[SecurityAlertItem] = Field(default_factory=list)
+    engineering_audit: Optional[Dict[str, Any]] = None  # 结构化工程专项算子(TKDN, EOT, 接口传导)与合规核对表结果
     status: CaseWorkflowStatus = "draft"
     created_at: str = ""
     updated_at: str = ""

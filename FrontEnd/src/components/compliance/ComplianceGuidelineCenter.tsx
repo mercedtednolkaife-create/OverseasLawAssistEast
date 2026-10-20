@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { lawAgentApi } from '../../api/lawAgentApi';
 import {
   Download,
   CheckCircle2,
@@ -14,7 +15,28 @@ import {
   Clock,
   ArrowRight,
   ChevronDown,
+  AlertTriangle,
+  Activity,
+  Sparkles,
 } from 'lucide-react';
+
+type CheckStatus = 'passed' | 'flawed' | 'failed';
+
+const JUR_NAMES: Record<string, string> = {
+  asean_id: '印度尼西亚',
+  asean_vn: '越南',
+  asean_my: '马来西亚',
+  asean_sg: '新加坡',
+  asean_th: '泰国',
+  asean_ph: '菲律宾',
+};
+
+const ARCHETYPE_NAMES: Record<string, string> = {
+  EPC_CONTRACTING: 'EPC 总承包',
+  PPP_CONCESSION: 'BOT / PPP 特许经营',
+  CROSS_BORDER_MA: '跨境股权并购',
+  JV_CONSORTIUM: '属地联营体 (KSO/JO)',
+};
 
 interface StageGuideline {
   id: string;
@@ -228,14 +250,152 @@ const LIFECYCLE_GUIDELINES: StageGuideline[] = [
 ];
 
 export const ComplianceGuidelineCenter: React.FC = () => {
-  const { showToast } = useApp();
+  const { showToast, loadCase, openPipelineAnimation, setCurrentView } = useApp();
   const [activeStageId, setActiveStageId] = useState<string>('stage_1');
   const [activeDefenseLine, setActiveDefenseLine] = useState<'line1' | 'line2' | 'line3'>('line1');
   const [exportJur, setExportJur] = useState<string>('asean_id');
   const [exportArchetype, setExportArchetype] = useState<string>('EPC_CONTRACTING');
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isCreatingCase, setIsCreatingCase] = useState<boolean>(false);
+
+  // 在线自测打分系统状态
+  const [itemStatuses, setItemStatuses] = useState<Record<string, CheckStatus>>(() => {
+    const init: Record<string, CheckStatus> = {};
+    LIFECYCLE_GUIDELINES.forEach((stage) => {
+      (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
+        const line = stage.defenseLines[lineKey];
+        line.checklists.forEach((_, idx) => {
+          const key = `${stage.id}_${lineKey}_${idx}`;
+          if (stage.id === 'stage_1' && lineKey === 'line1_operational' && idx === 1) {
+            init[key] = 'flawed'; // 土地原住民 Hak Ulayat 瑕疵
+          } else if (stage.id === 'stage_3' && lineKey === 'line2_legal' && idx === 0) {
+            init[key] = 'flawed'; // 印尼双语签署瑕疵
+          } else if (stage.id === 'stage_4' && lineKey === 'line1_operational' && idx === 1) {
+            init[key] = 'failed'; // 28天索赔通知时效未满足
+          } else {
+            init[key] = 'passed';
+          }
+        });
+      });
+    });
+    return init;
+  });
 
   const currentStage = LIFECYCLE_GUIDELINES.find((s) => s.id === activeStageId) || LIFECYCLE_GUIDELINES[0];
+
+  // 当前阶段所有核验点
+  const currentStageItems = useMemo(() => {
+    const items: Array<{
+      key: string;
+      lineKey: string;
+      lineTitle: string;
+      text: string;
+      status: CheckStatus;
+    }> = [];
+    (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
+      const line = currentStage.defenseLines[lineKey];
+      line.checklists.forEach((text, idx) => {
+        const key = `${currentStage.id}_${lineKey}_${idx}`;
+        items.push({
+          key,
+          lineKey,
+          lineTitle: line.title,
+          text,
+          status: itemStatuses[key] || 'passed',
+        });
+      });
+    });
+    return items;
+  }, [currentStage, itemStatuses]);
+
+  // 当前阶段未达标或瑕疵项
+  const currentUnmetItems = useMemo(() => {
+    return currentStageItems.filter((it) => it.status === 'flawed' || it.status === 'failed');
+  }, [currentStageItems]);
+
+  // 当前阶段得分 (0-100)
+  const stageScore = useMemo(() => {
+    if (currentStageItems.length === 0) return 100;
+    const totalPoints = currentStageItems.reduce((acc, it) => {
+      return acc + (it.status === 'passed' ? 100 : it.status === 'flawed' ? 50 : 0);
+    }, 0);
+    return Math.round(totalPoints / currentStageItems.length);
+  }, [currentStageItems]);
+
+  // 全项目总得分 (0-100)
+  const overallScore = useMemo(() => {
+    let totalItems = 0;
+    let totalPoints = 0;
+    LIFECYCLE_GUIDELINES.forEach((stage) => {
+      (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
+        const line = stage.defenseLines[lineKey];
+        line.checklists.forEach((_, idx) => {
+          const key = `${stage.id}_${lineKey}_${idx}`;
+          const status = itemStatuses[key] || 'passed';
+          totalItems += 1;
+          totalPoints += status === 'passed' ? 100 : status === 'flawed' ? 50 : 0;
+        });
+      });
+    });
+    return totalItems > 0 ? Math.round(totalPoints / totalItems) : 100;
+  }, [itemStatuses]);
+
+  // 一键将未达标项立项并启动专项推演
+  const handleGenerateComplianceCase = async () => {
+    if (currentUnmetItems.length === 0) {
+      showToast('当前阶段所有审查要件均已达标，无须启动未达标专项查明！', 'info');
+      return;
+    }
+    try {
+      setIsCreatingCase(true);
+      showToast(`正在将 ${currentUnmetItems.length} 项未达标要件汇编并启动专项法律推演...`, 'info');
+
+      const jurName = JUR_NAMES[exportJur] || '东盟法域';
+      const archName = ARCHETYPE_NAMES[exportArchetype] || '建设工程';
+      const isPre = currentStage.id === 'stage_1';
+      const stage = isPre ? 'pre_investment' : 'execution_dispute';
+
+      const factsText = `本项目（${archName}，目标法域：${jurName}）在“${currentStage.stageName}”全周期合规自测中发现以下 ${currentUnmetItems.length} 项未达标或瑕疵要件：\n\n` +
+        currentUnmetItems.map((u, i) => `${i + 1}. [${u.status === 'failed' ? '严重未达标' : '存在瑕疵'}] 【${u.lineTitle}】: ${u.text}`).join('\n\n') +
+        `\n\n【防线红线禁令与监管警示】\n` +
+        `- 实操红线：${currentStage.defenseLines.line1_operational.riskTip}\n` +
+        `- 法务红线：${currentStage.defenseLines.line2_legal.riskTip}\n` +
+        `- 审计红线：${currentStage.defenseLines.line3_audit.riskTip}`;
+
+      const claimsText = `1. 专项查明${jurName}现行法律及属地行业监管对上述【${currentUnmetItems.map((u) => u.text.slice(0, 10)).join('、')}】未达标事实的法律效力、行政处罚或失权后果；\n2. 依据 FIDIC 标准条件与属地强行法，输出合规补救措施与条款谈判对冲方案。`;
+
+      const res = await lawAgentApi.createCase({
+        title: `【${currentStage.stageName}自检专项查明】${currentUnmetItems.length}项未达标风险点`,
+        facts_zh: factsText,
+        claims_zh: claimsText,
+        meta: {
+          title: `【${currentStage.stageName}自检专项查明】${currentUnmetItems.length}项未达标风险点`,
+          jurisdiction: exportJur,
+          lifecycle_stage: stage,
+          contract_type: `${archName} (FIDIC 银皮书标准条件)`,
+          contract_date: new Date().toISOString().split('T')[0],
+          parties: ['中资出海企业/央企施工总包', `${jurName}东道国业主/属地监管主管机关`],
+          choice_of_law: `${jurName}现行实体法与强制性规范`,
+          dispute_resolution: 'SIAC',
+        },
+        materials: currentUnmetItems.map((u) => ({
+          name: `${currentStage.stageName}合规自检记录`,
+          desc_zh: u.lineTitle,
+          excerpt_zh: u.text,
+        })),
+        consent_version: 'v1.0',
+      });
+
+      await loadCase(res.case_id, true);
+      openPipelineAnimation();
+      setCurrentView('workspace');
+      showToast(`已成功将 ${currentUnmetItems.length} 项未达标点转化为专项查明案卷并启动多 Agent 推演流水线！`, 'success');
+    } catch (err: any) {
+      showToast(err.message || '专项立项推演失败', 'error');
+    } finally {
+      setIsCreatingCase(false);
+    }
+  };
 
   const handleExportHandbook = async () => {
     try {
@@ -319,6 +479,87 @@ export const ComplianceGuidelineCenter: React.FC = () => {
             <Download className="w-3.5 h-3.5" />
             <span>{isExporting ? '正在汇编...' : '导出合规手册 (Word)'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* 全项目与阶段合规健康度仪表板 */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
+        {/* 全项目综合得分 */}
+        <div className="md:col-span-5 bg-white p-4.5 rounded-2xl border border-zinc-200/80 shadow-xs flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-blue-600" />
+              <span className="text-xs font-bold text-zinc-900">
+                出海工程全周期合规健康指数
+              </span>
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              综合评估全生命周期五阶段三道防线实操核查点
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="flex items-baseline gap-1 justify-end">
+              <span className={`text-2xl font-bold font-mono ${
+                overallScore >= 80 ? 'text-emerald-600' : overallScore >= 60 ? 'text-amber-600' : 'text-rose-600'
+              }`}>
+                {overallScore}
+              </span>
+              <span className="text-xs text-zinc-400 font-mono">/ 100</span>
+            </div>
+            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border mt-0.5 ${
+              overallScore >= 80
+                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                : overallScore >= 60
+                ? 'text-amber-700 bg-amber-50 border-amber-200'
+                : 'text-rose-700 bg-rose-50 border-rose-200'
+            }`}>
+              {overallScore >= 80 ? '合规健康 · 低风险' : overallScore >= 60 ? '审慎关注 · 中风险' : '警报隐患 · 高风险'}
+            </span>
+          </div>
+        </div>
+
+        {/* 当前阶段健康度与一键立项推演卡片 */}
+        <div className="md:col-span-7 bg-white p-4.5 rounded-2xl border border-zinc-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-zinc-900">
+                Phase {currentStage.stageNumber} ({currentStage.stageName}) 健康度:
+              </span>
+              <span className={`font-mono text-sm font-bold ${
+                stageScore >= 80 ? 'text-emerald-600' : stageScore >= 60 ? 'text-amber-600' : 'text-rose-600'
+              }`}>
+                {stageScore} 分
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+              <span>达标: {currentStageItems.filter(i => i.status === 'passed').length}项</span>
+              <span>·</span>
+              <span className="text-amber-600 font-medium">瑕疵: {currentStageItems.filter(i => i.status === 'flawed').length}项</span>
+              <span>·</span>
+              <span className="text-rose-600 font-medium">未达标: {currentStageItems.filter(i => i.status === 'failed').length}项</span>
+            </div>
+          </div>
+
+          <div>
+            <button
+              onClick={handleGenerateComplianceCase}
+              disabled={isCreatingCase || currentUnmetItems.length === 0}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-150 shadow-xs cursor-pointer ${
+                currentUnmetItems.length > 0
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>
+                {isCreatingCase
+                  ? '正在立项推演...'
+                  : currentUnmetItems.length > 0
+                  ? `将未达标项(${currentUnmetItems.length})生成专项案卷推演`
+                  : '本阶段全部达标'}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -443,15 +684,77 @@ export const ComplianceGuidelineCenter: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {lineData.checklists.map((check, idx) => (
-              <div
-                key={idx}
-                className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/70 flex items-start gap-2.5 text-xs text-zinc-800 font-medium leading-relaxed"
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>{check}</span>
-              </div>
-            ))}
+            {lineData.checklists.map((check, idx) => {
+              const currentLineKey = activeDefenseLine === 'line1' ? 'line1_operational' : activeDefenseLine === 'line2' ? 'line2_legal' : 'line3_audit';
+              const itemKey = `${currentStage.id}_${currentLineKey}_${idx}`;
+              const currentStatus = itemStatuses[itemKey] || 'passed';
+
+              return (
+                <div
+                  key={idx}
+                  className={`p-3.5 rounded-xl border transition-all text-xs space-y-2.5 ${
+                    currentStatus === 'passed'
+                      ? 'bg-zinc-50/80 border-zinc-200/70'
+                      : currentStatus === 'flawed'
+                      ? 'bg-amber-50/30 border-amber-200/80'
+                      : 'bg-rose-50/30 border-rose-200/80'
+                  }`}
+                >
+                  <div className="flex items-start gap-2 text-zinc-800 font-medium leading-relaxed">
+                    {currentStatus === 'passed' && (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    )}
+                    {currentStatus === 'flawed' && (
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    )}
+                    {currentStatus === 'failed' && (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <span className="flex-1">{check}</span>
+                  </div>
+
+                  {/* 状态三选一切换器 */}
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-200/40 text-[11px]">
+                    <span className="text-zinc-400 font-medium">合规自检判定:</span>
+                    <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-zinc-200/70 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setItemStatuses((prev) => ({ ...prev, [itemKey]: 'passed' }))}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                          currentStatus === 'passed'
+                            ? 'bg-emerald-600 text-white'
+                            : 'text-zinc-500 hover:text-emerald-700'
+                        }`}
+                      >
+                        ✓ 已满足
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setItemStatuses((prev) => ({ ...prev, [itemKey]: 'flawed' }))}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                          currentStatus === 'flawed'
+                            ? 'bg-amber-500 text-white'
+                            : 'text-zinc-500 hover:text-amber-700'
+                        }`}
+                      >
+                        ! 瑕疵
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setItemStatuses((prev) => ({ ...prev, [itemKey]: 'failed' }))}
+                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                          currentStatus === 'failed'
+                            ? 'bg-rose-600 text-white'
+                            : 'text-zinc-500 hover:text-rose-700'
+                        }`}
+                      >
+                        ✕ 未达标
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* 专属风险红线警示框 */}

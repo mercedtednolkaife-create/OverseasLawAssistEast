@@ -109,6 +109,40 @@ class SnapshotManager:
         if row:
             return dict(row)
 
+        # 1. FIDIC 条号与跨版本等效降级检索支持
+        if "FIDIC" in clean_input.upper():
+            import re
+            m = re.search(r'(\d+\.\d+)', clean_input)
+            if m:
+                clause_num = m.group(1)
+                edition_kw = ""
+                if "RED" in clean_input.upper():
+                    edition_kw = "%Red%"
+                elif "YELLOW" in clean_input.upper():
+                    edition_kw = "%Yellow%"
+                elif "2017" in clean_input.upper():
+                    edition_kw = "%2017%"
+                elif "SILVER" in clean_input.upper():
+                    edition_kw = "%Silver%"
+
+                if edition_kw:
+                    cur.execute(
+                        "SELECT * FROM norms WHERE norm_id LIKE ? AND (norm_id LIKE ? OR enbez LIKE ?) LIMIT 1",
+                        (edition_kw, f"%Clause_{clause_num}%", f"%{clause_num}%")
+                    )
+                    r = cur.fetchone()
+                    if r:
+                        return dict(r)
+
+                # 跨版本同条号降级召回：若特定版本未命中，降级召回该条号核心条款
+                cur.execute(
+                    "SELECT * FROM norms WHERE (law = 'FIDIC' OR norm_id LIKE 'FIDIC%') AND (norm_id LIKE ? OR enbez LIKE ?) ORDER BY norm_id ASC LIMIT 1",
+                    (f"%Clause_{clause_num}%", f"%{clause_num}%")
+                )
+                r = cur.fetchone()
+                if r:
+                    return dict(r)
+
         if enbez is None and ":" in clean_input:
             parts = clean_input.split(":", 1)
             law, enbez_str = parts[0].strip(), parts[1].strip()

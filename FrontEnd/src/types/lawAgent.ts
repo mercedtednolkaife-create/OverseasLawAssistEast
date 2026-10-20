@@ -52,6 +52,7 @@ export interface CaseMeta {
   parent_case_id?: string;
   fidic_book_edition?: string;
   host_country?: string;
+  engineering_params?: Record<string, any>;
 }
 
 export interface Claim {
@@ -261,6 +262,7 @@ export interface CaseState {
   unparsed_refs: { raw: string; span?: [number, number] }[];
   parent_case_id?: string;
   security_alerts?: SecurityAlertItem[];
+  engineering_audit?: Record<string, any>;
   status: CaseWorkflowStatus;
   created_at: string;
   updated_at: string;
@@ -313,8 +315,19 @@ export interface NormOrCaseItem {
   }>;
 }
 
+export interface ContractRedlineItem {
+  clause_snippet: string;
+  risk_level: 'critical' | 'high' | 'medium' | 'safe';
+  violated_rule_title: string;
+  violated_norm_id: string;
+  mandatory_rule_desc: string;
+  recommended_revision: string;
+}
+
 export interface MaterialVerificationResult {
   raw_text: string;
+  mode?: 'CITATION_CHECK' | 'CONTRACT_REDLINE_AUDIT';
+  redline_items?: ContractRedlineItem[];
   items: Array<{
     ref_id: string;
     in_db: boolean;
@@ -329,6 +342,7 @@ export interface MaterialVerificationResult {
   }>;
   summary: {
     total: number;
+    redline_risk_count?: number;
     verified_count: number;
     unverified_count: number;
     risk_count: number;

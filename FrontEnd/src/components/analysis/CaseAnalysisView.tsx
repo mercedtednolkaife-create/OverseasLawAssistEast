@@ -59,6 +59,47 @@ export const CaseAnalysisView: React.FC = () => {
   const [transitionNote, setTransitionNote] = useState<string>('');
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
+  const isPreInv = currentCase?.meta?.lifecycle_stage === 'pre_investment';
+
+  // 工程沙盘交互试算状态
+  const initialParams = currentCase?.meta?.engineering_params || {};
+  const [simTkdn, setSimTkdn] = useState<number>(initialParams.declared_tkdn_pct ?? 28);
+  const [simDelayDays, setSimDelayDays] = useState<number>(initialParams.delay_days ?? 180);
+  const [simNoticeDays, setSimNoticeDays] = useState<number>(initialParams.notice_days ?? 18);
+  const [simMainLd, setSimMainLd] = useState<number>(initialParams.main_ld_cap_pct ?? 15);
+  const [simSubLd, setSimSubLd] = useState<number>(initialParams.sub_ld_cap_pct ?? 10);
+  const [isSimulatingEng, setIsSimulatingEng] = useState<boolean>(false);
+
+  // 当案件变更或后台重算返回时，自动同步沙盘滑块数值
+  useEffect(() => {
+    const params = currentCase?.meta?.engineering_params || {};
+    if (params.declared_tkdn_pct !== undefined) setSimTkdn(params.declared_tkdn_pct);
+    if (params.delay_days !== undefined) setSimDelayDays(params.delay_days);
+    if (params.notice_days !== undefined) setSimNoticeDays(params.notice_days);
+    if (params.main_ld_cap_pct !== undefined) setSimMainLd(params.main_ld_cap_pct);
+    if (params.sub_ld_cap_pct !== undefined) setSimSubLd(params.sub_ld_cap_pct);
+  }, [currentCase?.case_id, currentCase?.meta?.engineering_params]);
+
+  const handleSimulateEngineering = async () => {
+    if (!currentCase) return;
+    setIsSimulatingEng(true);
+    try {
+      await lawAgentApi.simulateEngineering(currentCase.case_id, {
+        declared_tkdn_pct: simTkdn,
+        delay_days: simDelayDays,
+        notice_days: simNoticeDays,
+        main_ld_cap_pct: simMainLd,
+        sub_ld_cap_pct: simSubLd,
+      });
+      await loadCase(currentCase.case_id, true);
+      showToast('工程专项算子与合规门禁已完成实时重算！', 'success');
+    } catch (err: any) {
+      showToast(err.message || '沙盘试算失败', 'error');
+    } finally {
+      setIsSimulatingEng(false);
+    }
+  };
+
   // 一级子视图：overview (结论总览) | issues (争点与要件审查) | red-team (攻防博弈沙盘) | evidence-chain (法源关系图谱) | compliance (司法合规报告)
   const [subPage, setSubPage] = useState<
     'overview' | 'issues' | 'red-team' | 'evidence-chain' | 'compliance'
@@ -498,11 +539,11 @@ export const CaseAnalysisView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3 self-start lg:self-auto">
           <div className="inline-flex items-center p-1 bg-slate-200/60 backdrop-blur-md rounded-2xl">
             {[
-              { id: 'overview', label: '1. 结论总览' },
-              { id: 'issues', label: `2. 争议焦点 (${issues.length})` },
-              { id: 'red-team', label: '3. 攻防演练' },
+              { id: 'overview', label: isPreInv ? '1. 准入合规总览' : '1. 结论总览' },
+              { id: 'issues', label: isPreInv ? `2. 准入核对 (${issues.length})` : `2. 争议焦点 (${issues.length})` },
+              { id: 'red-team', label: isPreInv ? '3. 架构比选对冲' : '3. 攻防演练' },
               { id: 'evidence-chain', label: '4. 法源图谱' },
-              { id: 'compliance', label: '5. 合规报告' },
+              { id: 'compliance', label: isPreInv ? '5. 投委会意见书' : '5. 合规报告' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -611,7 +652,9 @@ export const CaseAnalysisView: React.FC = () => {
                         />
                       </div>
                       <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                        <span className="text-slate-500 font-sans font-medium">综合胜诉概率</span>
+                        <span className="text-slate-500 font-sans font-medium">
+                          {isPreInv ? '投前准入合规就绪度' : '综合胜诉概率'}
+                        </span>
                         <span className="font-semibold text-slate-800">{legalAssessment.overallScore}% / 100%</span>
                       </div>
                     </div>
@@ -619,33 +662,52 @@ export const CaseAnalysisView: React.FC = () => {
 
                   <div className="space-y-2 flex-1 min-w-0 lg:border-l lg:border-slate-100 lg:pl-6">
                     <p className="text-base sm:text-lg font-medium text-slate-700 leading-relaxed">
-                      依据在卷案情与现行法典，我方主张
-                      <strong className="text-slate-900 font-semibold mx-1">
-                        {primaryClaim}
-                      </strong>
-                      具备法定请求权基础（<span className="font-mono text-sm font-medium text-slate-800">{coreStatutes.slice(0, 2).join(' · ')}</span>）；
-                      {topDefense ? (
-                        legalAssessment.defenseScore >= 90 ? (
-                          <span className="text-slate-900 font-medium mx-1">
-                            对方「{defenseName}」已被{defenseCounter}成功阻断。
-                          </span>
-                        ) : (
-                          <span>
-                            唯一抗辩敞口在于对方援引 <span className="font-mono text-sm font-medium text-slate-800">{defenseBasis}</span> 主张「{defenseName}」，需调取{defenseChecklist}予以阻断。
-                          </span>
-                        )
+                      {isPreInv ? (
+                        <>
+                          依据在卷投资事实与东道国强行法，拟投项目
+                          <strong className="text-slate-900 font-semibold mx-1">
+                            {primaryClaim || caseMeta.title}
+                          </strong>
+                          具备东道国投资准入与特许权基础（<span className="font-mono text-sm font-medium text-slate-800">{coreStatutes.slice(0, 2).join(' · ')}</span>）；
+                          {topDefense ? (
+                            <span>
+                              重点监管红线在于 <span className="font-mono text-sm font-medium text-slate-800">{defenseBasis}</span> 规制之「{defenseName}」，需预置合同保护条款与特许豁免架构予以对冲。
+                            </span>
+                          ) : (
+                            <span>各项外资准入与国资委合规要件完整闭合。</span>
+                          )}
+                        </>
                       ) : (
-                        <span>经法定要件与质检审查，各项证据链完整闭合。</span>
+                        <>
+                          依据在卷案情与现行法典，我方主张
+                          <strong className="text-slate-900 font-semibold mx-1">
+                            {primaryClaim}
+                          </strong>
+                          具备法定请求权基础（<span className="font-mono text-sm font-medium text-slate-800">{coreStatutes.slice(0, 2).join(' · ')}</span>）；
+                          {topDefense ? (
+                            legalAssessment.defenseScore >= 90 ? (
+                              <span className="text-slate-900 font-medium mx-1">
+                                对方「{defenseName}」已被{defenseCounter}成功阻断。
+                              </span>
+                            ) : (
+                              <span>
+                                唯一抗辩敞口在于对方援引 <span className="font-mono text-sm font-medium text-slate-800">{defenseBasis}</span> 主张「{defenseName}」，需调取{defenseChecklist}予以阻断。
+                              </span>
+                            )
+                          ) : (
+                            <span>经法定要件与质检审查，各项证据链完整闭合。</span>
+                          )}
+                        </>
                       )}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* 底部指标列：Apple 状态微指示点与 4 维微型进度条，统一选用侧栏与按钮同款蓝色 */}
+              {/* 底部指标列：Apple 状态微指示点与 4 维微型进度条 */}
               <div className="pt-6 mt-6 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-6 relative z-10">
                 <div>
-                  <div className="text-xs text-slate-400 mb-1">法定要件齐备度</div>
+                  <div className="text-xs text-slate-400 mb-1">{isPreInv ? '东道国准入要件' : '法定要件齐备度'}</div>
                   <div className="text-2xl font-semibold font-mono text-slate-900">
                     {legalAssessment.elementsScore}<span className="text-xs text-slate-400 ml-0.5">%</span>
                   </div>
@@ -654,12 +716,12 @@ export const CaseAnalysisView: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                    <span>要件齐备</span>
+                    <span>{isPreInv ? '准入要件齐备' : '要件齐备'}</span>
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-slate-400 mb-1">程序抗辩防御力</div>
+                  <div className="text-xs text-slate-400 mb-1">{isPreInv ? '监管红线隔离度' : '程序抗辩防御力'}</div>
                   <div className="text-2xl font-semibold font-mono text-slate-900">
                     {legalAssessment.defenseScore}<span className="text-xs text-slate-400 ml-0.5">%</span>
                   </div>
@@ -674,13 +736,13 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${legalAssessment.defenseScore >= 90 ? 'bg-blue-600' : 'bg-amber-500'}`} />
                     <span className={legalAssessment.defenseScore < 90 ? 'text-amber-700 font-medium' : ''}>
-                      {legalAssessment.defenseScore >= 90 ? '抗辩已阻断' : '待补充反制'}
+                      {legalAssessment.defenseScore >= 90 ? (isPreInv ? '红线已隔离' : '抗辩已阻断') : '待补充保护条款'}
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-slate-400 mb-1">权威法源有效性</div>
+                  <div className="text-xs text-slate-400 mb-1">{isPreInv ? '国资委35号令合规' : '权威法源有效性'}</div>
                   <div className="text-2xl font-semibold font-mono text-slate-900">
                     {legalAssessment.authorityScore}<span className="text-xs text-slate-400 ml-0.5">%</span>
                   </div>
@@ -689,12 +751,12 @@ export const CaseAnalysisView: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                    <span>官方现行法典</span>
+                    <span>{isPreInv ? '完成事前备案' : '官方现行法典'}</span>
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-slate-400 mb-1">最高院规范质检</div>
+                  <div className="text-xs text-slate-400 mb-1">{isPreInv ? '双边协定BIT保全' : '最高院规范质检'}</div>
                   <div className="text-2xl font-semibold font-mono text-slate-900">
                     11/11
                   </div>
@@ -709,25 +771,25 @@ export const CaseAnalysisView: React.FC = () => {
               </div>
             </div>
 
-            {/* 右卡 (4列)：攻防对抗天平 (Litigation Tension) */}
+            {/* 右卡 (4列)：攻防对抗天平 / 监管合规天平 */}
             <div className="lg:col-span-4 apple-bento-card rounded-[32px] p-8 flex flex-col justify-between">
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono font-medium text-slate-400 uppercase tracking-wider">
-                    Litigation Tension
+                    {isPreInv ? 'Regulatory Compliance Balance' : 'Litigation Tension'}
                   </span>
                 </div>
 
-                {/* 视觉化的攻防博弈天平条 (精炼色彩突出，适配高端律政风格) */}
+                {/* 视觉化的攻防博弈天平条 */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-medium">
                     <span className="flex items-center gap-1.5 text-slate-900 font-semibold">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
-                      我方实体优势 {legalAssessment.overallScore}%
+                      {isPreInv ? '准入架构优势' : '我方实体优势'} {legalAssessment.overallScore}%
                     </span>
                     <span className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${legalAssessment.defenseScore < 90 ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                      对方抗辩风险 <span className="font-mono font-bold text-amber-600">{100 - legalAssessment.overallScore}%</span>
+                      {isPreInv ? '监管碰撞风险' : '对方抗辩风险'} <span className="font-mono font-bold text-amber-600">{100 - legalAssessment.overallScore}%</span>
                     </span>
                   </div>
                   <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex gap-0.5 p-0.5">
@@ -819,15 +881,211 @@ export const CaseAnalysisView: React.FC = () => {
             </div>
           </div>
 
-          {/* 【第二层级】：全案核心争议焦点 (Apple Bento 风格微缩图示卡，彻底废除胶囊滥用) */}
+          {/* 【东盟工程专项审查算子与交互式沙盘试算面板 (Engineering Audit & Simulator Panel)】 */}
+          <div className="apple-bento-card rounded-[32px] p-8 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                    东盟工程专项审查算子与交互式沙盘试算 (Engineering Audit & What-If Sandbox)
+                  </h3>
+                  <span className="text-xs font-mono bg-blue-50 text-blue-700 border border-blue-200/60 px-2 py-0.5 rounded-md font-semibold">
+                    TKDN · EOT 28D · 接口传导
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  支持实时动态调节本地化采购率、工期索赔通知天数与主分包违约金上限，对东盟东道国强行法与工程合规门禁进行沙盘重算
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSimulateEngineering}
+                disabled={isSimulatingEng}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+              >
+                {isSimulatingEng ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>算子重算中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5 fill-white" />
+                    <span>实时重算工程合规门禁</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* 三大专项算子数据卡片网格 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* 卡片 1: 印尼 TKDN 本地化率 */}
+              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-blue-600" />
+                    印尼 TKDN 本地化率 (MEMR 11/2024)
+                  </span>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                    simTkdn >= 40 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {simTkdn >= 40 ? '合规达标' : '缺口需豁免'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">申报率: <strong className="text-slate-900 font-mono">{simTkdn}%</strong></span>
+                    <span className="text-slate-500">法定门槛: <strong className="text-blue-600 font-mono">40%</strong></span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${simTkdn >= 40 ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                      style={{ width: `${Math.min(100, (simTkdn / 60) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {simTkdn >= 40
+                      ? '已达电力EPC主机采购法定红线，可正常申请完工COD证书'
+                      : `存在 ${40 - simTkdn}% 本地化缺口，可申请能矿部特许豁免许可`}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 space-y-1">
+                  <label className="text-[11px] font-medium text-slate-600 flex justify-between">
+                    <span>沙盘模拟调整申报 TKDN %:</span>
+                    <span className="font-mono font-bold text-blue-600">{simTkdn}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="80"
+                    value={simTkdn}
+                    onChange={(e) => setSimTkdn(Number(e.target.value))}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* 卡片 2: FIDIC 20.1 索赔 28 天通知时效 */}
+              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-blue-600" />
+                    FIDIC 20.1 索赔 28 天除斥期
+                  </span>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                    simNoticeDays <= 28 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {simNoticeDays <= 28 ? '时效安全' : '已逾期失权风险'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">延误影响: <strong className="text-slate-900 font-mono">{simDelayDays} 天</strong></span>
+                    <span className="text-slate-500">送达用时: <strong className={`font-mono ${simNoticeDays <= 28 ? 'text-emerald-600' : 'text-rose-600'}`}>{simNoticeDays} 天</strong></span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${simNoticeDays <= 28 ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                      style={{ width: `${Math.min(100, (simNoticeDays / 42) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {simNoticeDays <= 28
+                      ? '在 28 天除斥期内完成送达，完全阻断发包人失权抗辩'
+                      : '已超 28 天，需重点援引印尼最高院 SEMA 3/2023 善意履约原则反失权'}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 space-y-1">
+                  <label className="text-[11px] font-medium text-slate-600 flex justify-between">
+                    <span>沙盘模拟索赔通知天数:</span>
+                    <span className="font-mono font-bold text-blue-600">{simNoticeDays} 天</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="60"
+                    value={simNoticeDays}
+                    onChange={(e) => setSimNoticeDays(Number(e.target.value))}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* 卡片 3: 主分包违约金与支付传导风险 */}
+              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                    主分包违约金传导与背靠背
+                  </span>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                    simMainLd <= simSubLd ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {simMainLd <= simSubLd ? '责任闭环' : `敞口差 ${simMainLd - simSubLd}%`}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">主合同上限: <strong className="text-slate-900 font-mono">{simMainLd}%</strong></span>
+                    <span className="text-slate-500">分包合同上限: <strong className="text-slate-900 font-mono">{simSubLd}%</strong></span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${simMainLd <= simSubLd ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                      style={{ width: `${Math.min(100, (simSubLd / simMainLd) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {simMainLd <= simSubLd
+                      ? '分包违约金上限完全覆盖主合同，不存在不可传导自担敞口'
+                      : `分包商违约时总包需自担 ${simMainLd - simSubLd}% 差额敞口；背靠背条款在马/新法定无效`}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-500">主合同 LD %</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="30"
+                      value={simMainLd}
+                      onChange={(e) => setSimMainLd(Number(e.target.value))}
+                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500">分包合同 LD %</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="30"
+                      value={simSubLd}
+                      onChange={(e) => setSimSubLd(Number(e.target.value))}
+                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 【第二层级】：核心争点 / 准入要件核对矩阵 */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                  全案核心争议焦点
+                  {isPreInv ? '东道国准入与合规核对矩阵 (Regulatory & SASAC Checklist)' : '全案核心争议焦点'}
                 </h3>
                 <span className="text-xs font-mono text-slate-400">
-                  ({issues.length} 项争点)
+                  ({issues.length} 项{isPreInv ? '要件' : '争点'})
                 </span>
               </div>
               <button
@@ -835,7 +1093,7 @@ export const CaseAnalysisView: React.FC = () => {
                 onClick={() => setSubPage('issues')}
                 className="text-xs font-medium text-slate-500 hover:text-slate-900 flex items-center gap-1 cursor-pointer transition-colors"
               >
-                <span>进入争议焦点审查工作台</span>
+                <span>{isPreInv ? '进入准入核对工作台' : '进入争议焦点审查工作台'}</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>

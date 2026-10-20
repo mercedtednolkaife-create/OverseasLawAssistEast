@@ -478,26 +478,34 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
             </div>
           </div>
 
-          {/* 3. 案情经过与核心诉求 */}
+          {/* 3. 案情经过与核心诉求 (针对投前合规审查自适应调整术语) */}
           <div className="apple-bento-card rounded-2xl p-5 space-y-4">
             <label className="block text-xs font-bold text-slate-900 tracking-tight">
-              3. 客观事实经过与诉求主张
+              {lifecycleStage === 'pre_investment'
+                ? '3. 拟投资项目客观概况与核心合规审查诉求'
+                : '3. 客观事实经过与诉求主张'}
             </label>
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-700">
-                  案件事实经过 <span className="text-rose-500">*</span>
+                  {lifecycleStage === 'pre_investment' ? '拟投资项目概况与交易架构说明' : '案件事实经过'} <span className="text-rose-500">*</span>
                 </span>
                 <span className="text-[11px] text-slate-400">
-                  详细说明合同订立、交地受阻、通知时效、牌照资质、TKDN认证及各方函件往来
+                  {lifecycleStage === 'pre_investment'
+                    ? '说明东道国股权架构、习惯法土地、设备采购计划、国资委35号令备案与出境数据'
+                    : '详细说明合同订立、交地受阻、通知时效、牌照资质、TKDN认证及各方函件往来'}
                 </span>
               </div>
               <textarea
                 rows={4}
                 value={factsZh}
                 onChange={(e) => setFactsZh(e.target.value)}
-                placeholder="请详述案件事实：合同版本与专用条件、现场征地与原住民习惯法受阻时间线、监理指令、28天索赔函件发出时间、本地化率审计与业主拒付理由..."
+                placeholder={
+                  lifecycleStage === 'pre_investment'
+                    ? "请详述拟投资/并购项目概况：东道国属地公司股权比例、特许经营权期限、土地不动产性质（是否涉及原住民习惯法土地）、拟采购设备进口与本地化计划、国资委35号令合规备案进展..."
+                    : "请详述案件事实：合同版本与专用条件、现场征地与原住民习惯法受阻时间线、监理指令、28天索赔函件发出时间、本地化率审计与业主拒付理由..."
+                }
                 className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 leading-relaxed bg-white transition-all shadow-2xs font-sans"
                 required
               />
@@ -505,13 +513,17 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
 
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-slate-700 block">
-                各方主张诉求与抗辩意见
+                {lifecycleStage === 'pre_investment' ? '核心合规审查诉求（股比/土地/TKDN/国资备案等）' : '各方主张诉求与抗辩意见'}
               </span>
               <textarea
                 rows={3}
                 value={claimsZh}
                 onChange={(e) => setClaimsZh(e.target.value)}
-                placeholder="承包商主张：请求工期顺延EOT及费用补偿；主张无恶意事实下外文协议有效；申请保函止付...&#10;业主抗辩：28天时效已过失权；协议未签印尼语无效；TKDN违约罚金..."
+                placeholder={
+                  lifecycleStage === 'pre_investment'
+                    ? "投资人审查诉求：1. 评估东道国外商投资负面清单与施工资质持牌门槛；2. 核验印尼 MEMR 11/2024 本地化率豁免可行性；3. 论证特许经营合同与双边投资保护协定 (BIT) 保护架构..."
+                    : "承包商主张：请求工期顺延EOT及费用补偿；主张无恶意事实下外文协议有效；申请保函止付...&#10;业主抗辩：28天时效已过失权；协议未签印尼语无效；TKDN违约罚金..."
+                }
                 className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 leading-relaxed bg-white transition-all shadow-2xs font-sans"
               />
             </div>

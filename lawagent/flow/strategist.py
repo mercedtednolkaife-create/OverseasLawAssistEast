@@ -382,6 +382,145 @@ def _build_asean_concession_ppp_assessment(state: CaseState) -> StrategicAssessm
     )
 
 
+def _build_asean_pre_investment_compliance_assessment(state: CaseState) -> StrategicAssessment:
+    """东盟出海建设工程与央企重大境外投资投前准入合规审查推演 (PRE_INVESTMENT_COMPLIANCE)
+    核心任务：东道国准入六维合规核验、监管红线碰撞与保护条款设计、投资准入与交易架构比选。
+    """
+    pivotal_factors = [
+        "东道国外资准入负面清单与法定施工资质持牌审查 (印尼 BUJKA、马来 CIDB、菲律宾 PCAB 等法定要求)",
+        "工程用地物权与属地习惯法冲突 (如印尼原住民习惯法土地 Hak Ulayat 征拆与权属瑕疵风险)",
+        "印尼能矿部 MEMR 11/2024 本地化率 (TKDN) 强制配额达标与部委特许豁免许可取得可行性",
+        "国资委35号令《中央企业境外投资监督管理办法》重大项目事前尽调备案与境内终身追责问责",
+        "《数据安全法》第36条工程地质勘测、高精度地理图纸跨境出境审批与商业机密安全脱敏",
+        "东道国主权外汇出境管制与中国信保海外投资政治风险保险 (Sinosure Policy) 30日出险保全对接"
+    ]
+
+    outcome_branches = [
+        OutcomeBranch(
+            branch_type="favorable",
+            title="方案 A（推荐基准）：中资相对控股 + 属地联营体 (KSO/JO) 风险隔离交易架构",
+            condition_precedent="假定投资人与东道国信誉良好之本土持牌承包商组建联合运营体 (KSO)，通过联营协议锁定各自工程界面与责任内部分担，既满足东道国外资准入股比红线，又锁定属地劳工与本地采购配额指标。",
+            substantive_basis=[
+                "印尼《建筑服务法》(UU 2/2017) 第57条 (KSO 联营体责任)",
+                "菲律宾最高法院 Manila Water 判例 (外资控股企业资质平等权准入)",
+                "国资委35号令第12条 (特别监管类重大境外项目事前审核合规路径)"
+            ],
+            key_evidence_required=[
+                "经东道国投资部 (BKPM/BOI) 备案的中外联营协议 (Joint Operation Agreement)",
+                "属地独立第三方土地尽职调查报告与习惯法土地补偿无纠纷公证书",
+                "印尼 Surveyor Indonesia 出具的 TKDN 本地化采购实施达标测算方案"
+            ],
+            outcome_summary="该架构在东道国监管层面合规性高，完全契合国资委境外投资事前审查指引，能有效分散属地劳务纠纷与土地征拆风险，综合合规就绪度评级为 A 级。",
+            risk_level="low"
+        ),
+        OutcomeBranch(
+            branch_type="uncertain",
+            title="方案 B：纯离岸设备供货 (Offshore Supply) + 在岸持牌施工分包架构（低风险保守路径）",
+            condition_precedent="若央企选择不直接作为在岸承包商出资，转而由境内主体仅签署离岸设备供货与技术支持合同，在岸土建由东道国本土承包商独立承担并实行无追索背靠背结算。",
+            substantive_basis=[
+                "FIDIC 银皮书标准条件与离岸涉外准据法约定 (新加坡国际商事法庭 SICC 管辖)",
+                "联合国国际货物销售合同公约 (CISG) 货物交付与质量责任除外条款"
+            ],
+            key_evidence_required=[
+                "离岸与在岸双合同结构物理隔离协议 (Split Contract Structure Agreement)",
+                "在岸独立承包商全套 BUJKA / PCAB 施工牌照及完税凭证",
+                "离岸供货见索即付信用证 (L/C) 结算保证函"
+            ],
+            outcome_summary="彻底规避在岸劳工法强行法与习惯法侵权连带风险，但可能面临东道国海关针对离岸拆分合同的穿透式转让定价反避税审查与关税补缴风险，合规就绪度评级为 B 级。",
+            risk_level="medium"
+        ),
+        OutcomeBranch(
+            branch_type="unfavorable",
+            title="方案 C：特许经营 BOT/PPP + 政府主权担保架构（收益最大化但政治风险高）",
+            condition_precedent="假定项目拟直接采取特许经营特许权模式开发，要求东道国财政部或国家电力公司签发主权担保函，但在可行性研究阶段未妥善落实双边投资保护协定 (BIT) 间接征收防范架构。",
+            substantive_basis=[
+                "中国-东盟双边投资协定 (BIT) 第6条 (征收与国有化充分补偿)",
+                "泰国最高行政法院 Hopewell 基础设施特许经营政府单方撤销补偿先例",
+                "中国信保海外投资保险标准保单第15条 (政治风险30日法定出险通知)"
+            ],
+            key_evidence_required=[
+                "东道国议会或特许经营委员会正式批准特许权协议 (Concession Agreement)",
+                "项目购电协议 (PPA) 包含不可撤销之主权外汇汇出与政府违约兜底条款",
+                "中国信保正式出具的海外投资险保单承保确认函"
+            ],
+            outcome_summary="面临东道国政府换届政策反转、强制调降上网电价或以‘公共利益正当监管’为由单方撤销特许权的隐性征收风险，若未投保中信保可能导致巨额沉没资产无法求偿，风险等级为高危。",
+            risk_level="high"
+        )
+    ]
+
+    red_team_defenses = [
+        RedTeamDefense(
+            defense_id="D1",
+            opposing_claim="涉外合同语言有效性监管红线碰撞：东道国法律要求所有合同必须签署印尼语官方版本，否则可能被裁定绝对无效",
+            lethal_index="critical",
+            opposing_basis="印尼 2009 年第 24 号《国旗、语言法》第 31 条及原旧判例",
+            counter_weapons=[
+                "印尼最高法院 SEMA 3/2023 善意通告：除非证明存在欺诈恶意，法院不得仅因缺少印尼语版本宣布合同自始无效",
+                "双语同等效力条款设计：在合同专用条件中约定‘印尼语与英语同时签署，二者发生冲突时以英文技术表述为准’",
+                "国际仲裁排他管辖：将准据法及争议解决约定为新加坡国际仲裁中心 (SIAC) 或香港国际仲裁中心 (HKIAC)"
+            ],
+            factual_counter_point="核实中资总包商已备妥经印尼法务部宣誓翻译官认证的印尼语对照全套草案，在签约仪式上同步完成双语签署。",
+            evidence_checklist=[
+                "印尼宣誓翻译官 (Penerjemah Tersumpah) 盖章之印尼语合同译本",
+                "双方关于合同工作语言与争议解释以英文为准的缔约前往来备忘录",
+                "印尼最高法院 SEMA No. 3 Tahun 2023 裁判通告官方正本"
+            ]
+        ),
+        RedTeamDefense(
+            defense_id="D2",
+            opposing_claim="马来西亚/新加坡工程分包背靠背付款绝对无效监管红线碰撞：强行法宣告 Pay-when-paid 条款自始无效",
+            lethal_index="high",
+            opposing_basis="马来西亚 CIPAA 2012 第 35 条 / 新加坡 SOPA 2004 第 9 条法定付款保障强行法",
+            counter_weapons=[
+                "以里程碑核验周期替代条件付款：在分包合同中废除‘业主付款作为分包付款前提’表述，改用‘工程师签发质量合格证明后45日内付款’",
+                "分包违约金上限同步锁闭：在分包专用条件中将误期损害赔偿金上限对齐主合同标准 (10%~15%)，避免不可传导风险",
+                "阶段快速裁决争议对冲：建立分包纠纷快速调解前置程序，并在主合同中争取业主直付本地分包商特许授权"
+            ],
+            factual_counter_point="法务合同体检对招标文件标准条件全面红线扫描，删除全部背靠背苛刻字眼，改用客观里程碑进度款核销条款。",
+            evidence_checklist=[
+                "经法务红线修正后的 EPC 分包协议标准化范本 (Subcontract Standard Form)",
+                "马来西亚联邦法院 Bauer 案 CIPAA 第 35 条背靠背绝对无效判例裁判要旨",
+                "总包方与属地主要分包商签署的工程节点验收与进度款结算流程细则"
+            ]
+        ),
+        RedTeamDefense(
+            defense_id="D3",
+            opposing_claim="见索即付无条件履约保函恶意扣兑保护缺口：业主利用无条件独立保函随时向开立行发起突袭索兑",
+            lethal_index="high",
+            opposing_basis="国际商会 URDG 758 规则及东道国独立保函即付原则",
+            counter_weapons=[
+                "新加坡 BS Mount Sophia 显失公平止付先例：确立‘显失公平 (Unconscionability)’作为保函止付独立法定事由",
+                "保函开立双重前置条件约定：要求开立行在索兑通知中必须附具‘工程师出具的承包商实质违约未纠正证明函’",
+                "管辖权隔离保护：保函开立行约定为具有中资背景的跨国银行雅加达/新加坡分行，受新加坡法院司法管辖"
+            ],
+            factual_counter_point="中资承包商坚决拒绝签署‘无条件放弃一切保函禁令救济’的业主特设条款，在保函文本中保留显失公平救济权利。",
+            evidence_checklist=[
+                "新加坡高等法院 BS Mount Sophia [2016] SGHC 81 显失公平止付权威判决书",
+                "中国进出口银行/中国银行出具的具备实质违约通知前置要件的保函标准格式",
+                "工程现场履约进度正常、无任何工期违约事件发生之监理工程师例会纪要"
+            ]
+        )
+    ]
+
+    actionable_checklist = [
+        "对照东道国 2026 最新外资投资负面清单，核验外资股权比例上限并取得属地施工资质牌照 (BUJKA/CIDB/PCAB)",
+        "委托属地权威律所出具不动产土地产权专项尽调报告，核验习惯法土地 (Hak Ulayat) 权属无争议证明文件",
+        "编制设备与劳务属地化预算方案，对照印尼 MEMR 11/2024 计算 TKDN 本地化率，必要时申请能矿部特许豁免",
+        "按照国资委 35 号令完成重大境外投资可行性研究论证，提交集团党委会、董事会审批并向国资委办理备案",
+        "对拟出境的工程图纸与地质勘测数据实施商业与机密脱敏，完成《数据安全法》第36条数据出境安全评估审查",
+        "向中国出口信用保险公司正式提交《海外投资险承保申请》，固定30日出险保全指引，建立应急对冲预案"
+    ]
+
+    return StrategicAssessment(
+        case_id=state.case_id,
+        pivotal_factors=pivotal_factors,
+        outcome_branches=outcome_branches,
+        red_team_defenses=red_team_defenses,
+        actionable_checklist=actionable_checklist,
+        updated_at=_now()
+    )
+
+
 def build_strategic_assessment(state: CaseState) -> StrategicAssessment:
     """同步基准策略评估构造函数（根据东盟涉外工程与海外投资案件事实要素智能路由）"""
     cid = state.case_id or ""
@@ -390,12 +529,21 @@ def build_strategic_assessment(state: CaseState) -> StrategicAssessment:
     issues_text = " ".join([i.text_zh for i in state.issues]) if state.issues else ""
     full_text = f"{cid} {facts} {claims} {issues_text} {state.meta.contract_type or ''} {state.meta.choice_of_law or ''}"
 
+    stage_val = ""
+    if hasattr(state.meta, "lifecycle_stage"):
+        ls = state.meta.lifecycle_stage
+        stage_val = ls.value if hasattr(ls, "value") else str(ls)
+
+    # 0. 优先判断是否处于投前合规审查阶段 (PRE_INVESTMENT_COMPLIANCE)
+    if "pre_investment" in stage_val.lower() or any(k in full_text for k in ["投前", "准入", "国资委", "35号令", "TKDN", "特许经营审查", "C102"]):
+        return _build_asean_pre_investment_compliance_assessment(state)
+
     # 1. 见索即付保函索兑与显失公平止付
     if "保函" in full_text or "BS Mount Sophia" in full_text or "止付" in full_text or "Unconscionability" in full_text or "C103" in cid:
         return _build_asean_bond_unconscionability_assessment(state)
 
     # 2. 特许经营权撤销、外资准入限制与双边投资协定 (BIT) 间接征收
-    if any(k in full_text for k in ["特许", "征收", "BIT", "Manila Water", "水务", "风电", "并购", "M&A", "C102", "C104"]):
+    if any(k in full_text for k in ["特许", "征收", "BIT", "Manila Water", "水务", "风电", "并购", "M&A", "C104"]):
         return _build_asean_concession_ppp_assessment(state)
 
     # 3. 默认为典型 EPC 工期顺延 (EOT)、28日索赔除斥期间与善意抗辩 (C101 等)

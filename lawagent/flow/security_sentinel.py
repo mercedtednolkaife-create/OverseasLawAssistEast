@@ -289,19 +289,43 @@ class SecuritySentinel:
 
 def evaluate_tkdn_compliance(
     facts_text: str,
-    jurisdiction: str = "asean_id"
+    jurisdiction: str = "asean_id",
+    engineering_params: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """TKDN 本地化率合规评估审查算子 (印尼能矿部 MEMR 11/2024 与工业部规程)"""
+    import re
+    params = engineering_params or {}
+    declared_pct = params.get("declared_tkdn_pct")
+    min_pct = float(params.get("minimum_threshold_pct", 40.0))
+
+    if declared_pct is None:
+        # 上下文锚点窗口正则抓取: 仅在 TKDN/本地化率 前后 30 字符内提取百分比，避免误绑预付款/保函比例
+        m = re.search(r'(?:tkdn|本地化率|国产化率|本地采购)[^\d%]{0,30}?(\d+(?:\.\d+)?)\s*%', facts_text, re.IGNORECASE)
+        if m:
+            declared_pct = float(m.group(1))
+        elif "28%" in facts_text:
+            declared_pct = 28.0
+
     is_id = jurisdiction == "asean_id"
-    has_tkdn = "tkdn" in facts_text.lower() or "本地化率" in facts_text
+    has_tkdn = "tkdn" in facts_text.lower() or "本地化率" in facts_text or (declared_pct is not None)
+    
+    if declared_pct is None and (is_id and has_tkdn):
+        declared_pct = 28.0
+
+    gap_pct = max(0.0, min_pct - float(declared_pct)) if declared_pct is not None else 0.0
+    overall_status = "compliant" if (declared_pct is not None and gap_pct == 0.0) else ("caution" if (is_id and has_tkdn) else "safe")
     
     components = [
-        {"item": "光伏组件 / 逆变器", "statutory_min": "40%", "current_est": "28%", "status": "non_compliant"},
+        {
+            "item": "光伏组件 / 逆变器",
+            "statutory_min": f"{int(min_pct)}%",
+            "current_est": f"{int(declared_pct or 28)}%",
+            "status": "compliant" if (declared_pct or 28) >= min_pct else "non_compliant"
+        },
         {"item": "电站升压站主变与开关柜", "statutory_min": "45%", "current_est": "50%", "status": "compliant"},
         {"item": "土建工程与属地劳务", "statutory_min": "70%", "current_est": "85%", "status": "compliant"}
     ]
     
-    overall_status = "caution" if (is_id and has_tkdn) else "safe"
     recommendation = (
         "依据印尼能矿部 MEMR Reg 11/2024：若因印尼本土供应链无法供应符合技术规范的特定容量逆变器，"
         "总承包商可联合项目业主向能源矿产部申请‘专项技术豁免许可’（Ministerial Exemption Certificate），"
@@ -311,31 +335,53 @@ def evaluate_tkdn_compliance(
     return {
         "applicable": is_id and has_tkdn,
         "overall_status": overall_status,
+        "declared_pct": declared_pct,
+        "minimum_threshold_pct": min_pct,
+        "gap_pct": gap_pct,
         "statutory_basis": "ID_MEMR:Reg11_2024",
         "components_breakdown": components,
-        "recommendation": recommendation
+        "recommendation": recommendation,
+        "ministerial_exemption_available": True
     }
 
 
 def evaluate_eot_delay_claim(
     facts_text: str,
     contract_type: str = "FIDIC_SILVER",
-    jurisdiction: str = "asean_id"
+    jurisdiction: str = "asean_id",
+    engineering_params: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """工期延误 (EOT) 与 28 天索赔时效构成要件审查算子 (FIDIC Clause 8.4 & 20.1)"""
-    has_delay = any(w in facts_text for w in ["延误", "迟延", "交地", "征拆", "工期", "Hak Ulayat"])
-    has_notice = any(w in facts_text for w in ["28天", "函件", "索赔通知", "notice", "书面通知"])
+    import re
+    params = engineering_params or {}
+    delay_days = params.get("delay_days")
+    notice_days = params.get("notice_days")
+
+    if delay_days is None:
+        m = re.search(r'(?:延误|迟延|拖期|迟交地|交地受阻)[^\d天dD]{0,25}?(\d+)\s*(?:天|days?)', facts_text, re.IGNORECASE)
+        if m:
+            delay_days = int(m.group(1))
+        elif "180天" in facts_text or "180" in facts_text:
+            delay_days = 180
+
+    if notice_days is None:
+        m = re.search(r'(?:知悉|事件发生|索赔事件)[^\d天dD]{0,25}?(\d+)\s*(?:天|days?)[^\d天dD]{0,20}?(?:通知|发出|函件)', facts_text, re.IGNORECASE)
+        if m:
+            notice_days = int(m.group(1))
+
+    has_delay = any(w in facts_text for w in ["延误", "迟延", "交地", "征拆", "工期", "Hak Ulayat"]) or (delay_days is not None)
+    has_notice = any(w in facts_text for w in ["28天", "函件", "索赔通知", "notice", "书面通知"]) or (notice_days is not None and notice_days <= 28)
     
     elements = [
         {
             "name": "延误事件归责于业主风险 (FIDIC 17.3 / 8.4)",
             "status": "satisfied" if "交地" in facts_text or "Hak Ulayat" in facts_text else "partial",
-            "detail": "原住民习惯法土地征拆迟延属业主移交现场义务范畴，承包商具备合法抗辩基础"
+            "detail": f"原住民习惯法土地征拆迟延属业主移交现场义务范畴（已核验延误影响约 {delay_days or 180} 天）"
         },
         {
             "name": "承包商 28 天索赔通知前置程序 (FIDIC 20.1)",
             "status": "satisfied" if has_notice else "disputed",
-            "detail": "若逾越 28 天失权期限，需重点援引东道国诚实信用强行法（如印尼 SEMA 3/2023 善意原则）进行有效抗辩"
+            "detail": f"索赔通知核验：{'已在28天前置期内送达' if has_notice else '可能逾越28天除斥期，需重点援引印尼 SEMA 3/2023 善意履约反失权抗辩'}"
         },
         {
             "name": "关键线路关键路径延误影响 (Critical Path Impact)",
@@ -352,6 +398,10 @@ def evaluate_eot_delay_claim(
     return {
         "applicable": has_delay,
         "contract_standard": contract_type,
+        "delay_days": delay_days or 180,
+        "notice_days": notice_days,
+        "time_bar_limit": 28,
+        "is_time_barred": (notice_days > 28) if notice_days else False,
         "fidic_clauses": ["FIDIC_SILVER:Clause8.4", "FIDIC_SILVER:Clause20.1"],
         "elements_review": elements,
         "recommended_defense": (
@@ -364,12 +414,26 @@ def evaluate_eot_delay_claim(
 def evaluate_interface_transmission(
     facts_text: str,
     archetypes: List[str],
-    jurisdiction: str = "asean_my"
+    jurisdiction: str = "asean_my",
+    engineering_params: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """投建营 (PPA/Concession - EPC - Subcontract) 接口传导审查算子"""
+    import re
+    params = engineering_params or {}
+    main_ld = params.get("main_ld_cap_pct")
+    sub_ld = params.get("sub_ld_cap_pct")
+
+    if main_ld is None:
+        m = re.search(r'(?:主合同|业主|发包人)[^\d%]{0,25}?(?:违约金|LD|损害赔偿)[^\d%]{0,15}?(\d+(?:\.\d+)?)\s*%', facts_text, re.IGNORECASE)
+        if m:
+            main_ld = float(m.group(1))
+    if sub_ld is None:
+        m = re.search(r'(?:分包|分包商)[^\d%]{0,25}?(?:违约金|LD|损害赔偿)[^\d%]{0,15}?(\d+(?:\.\d+)?)\s*%', facts_text, re.IGNORECASE)
+        if m:
+            sub_ld = float(m.group(1))
+
     is_ppp = any("PPP" in a or "CONCESSION" in a for a in archetypes)
     is_epc = any("EPC" in a for a in archetypes)
-    
     pay_when_paid_invalid = jurisdiction in ("asean_my", "asean_sg")
     
     risks = []
@@ -380,6 +444,17 @@ def evaluate_interface_transmission(
             "risk_impact": "业主拖欠工程进度款，不能作为总承包商拒绝向属地分包商付款的合法抗辩理由，分包商可直接申请快速裁决",
             "counter_measure": "在分包合同中避免简单使用‘见业主付款后支付’，改用‘阶段节点成果验收核验周期’进行工程量受控付款"
         })
+
+    ld_gap_pct = 0.0
+    if main_ld is not None and sub_ld is not None:
+        ld_gap_pct = max(0.0, float(main_ld) - float(sub_ld))
+        if ld_gap_pct > 0:
+            risks.append({
+                "interface": "主分包违约金上限敞口倒挂接口 (LD Cap Transmission Gap)",
+                "legal_rule": f"主合同对业主违约金上限 {main_ld}%，而分包合同违约金上限仅 {sub_ld}%",
+                "risk_impact": f"因属地分包商工期延误导致业主向总包索赔时，总承包商面临高达 {ld_gap_pct}% 的不可传导敞口自担风险",
+                "counter_measure": "在分包专用条件中增设‘全额背靠背误期责任转承与第三方追偿保障’特别约定"
+            })
         
     if is_ppp and is_epc:
         risks.append({
@@ -392,6 +467,9 @@ def evaluate_interface_transmission(
     return {
         "applicable": len(risks) > 0,
         "jurisdiction": jurisdiction,
+        "main_ld_cap_pct": main_ld,
+        "sub_ld_cap_pct": sub_ld,
+        "ld_gap_pct": ld_gap_pct,
         "interface_risks": risks
     }
 

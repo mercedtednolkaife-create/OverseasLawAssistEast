@@ -163,13 +163,16 @@ export const lawAgentApi = {
   },
 
   /**
-   * 当事人外国法材料核验 (F16)
+   * 当事人外国法材料核验与工程合同条款强行法红线扫描 (F16)
    * 对应 POST /verify-materials
    */
-  async verifyForeignMaterials(text: string): Promise<MaterialVerificationResult> {
+  async verifyForeignMaterials(
+    text: string,
+    mode: 'CITATION_CHECK' | 'CONTRACT_REDLINE_AUDIT' = 'CONTRACT_REDLINE_AUDIT'
+  ): Promise<MaterialVerificationResult> {
     return await request<MaterialVerificationResult>('/verify-materials', {
       method: 'POST',
-      body: JSON.stringify({ raw_text: text }),
+      body: JSON.stringify({ raw_text: text, mode }),
     });
   },
 
@@ -347,6 +350,27 @@ export const lawAgentApi = {
     return await request<CaseState>(`/cases/${caseId}/transition-stage`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * 工程合规与争议交互式沙盘试算接口 (What-If Engineering Simulation)
+   * 对应 POST /cases/{id}/simulate-engineering
+   */
+  async simulateEngineering(
+    caseId: string,
+    params: {
+      declared_tkdn_pct?: number;
+      delay_days?: number;
+      notice_days?: number;
+      main_ld_cap_pct?: number;
+      sub_ld_cap_pct?: number;
+      foreign_equity_pct?: number;
+    }
+  ): Promise<CaseState> {
+    return await request<CaseState>(`/cases/${caseId}/simulate-engineering`, {
+      method: 'POST',
+      body: JSON.stringify(params),
     });
   },
 
