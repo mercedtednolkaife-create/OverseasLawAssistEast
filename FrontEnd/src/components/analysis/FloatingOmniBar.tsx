@@ -32,13 +32,17 @@ export const FloatingOmniBar: React.FC<FloatingOmniBarProps> = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // 快捷键 ⌘ K / Ctrl + K 唤醒并聚焦推演舱
+  // 快捷键 ⌘ K / Ctrl + K 唤醒并聚焦推演舱，Esc 退出聚焦并关闭浮层
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsHovered(true);
         setTimeout(() => inputRef.current?.focus(), 80);
+      } else if (e.key === 'Escape') {
+        inputRef.current?.blur();
+        setIsFocused(false);
+        setLatestReply(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);

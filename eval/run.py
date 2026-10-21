@@ -115,7 +115,7 @@ async def eval_e2e_suite(runner: LawWorkflowRunner) -> Dict[str, Any]:
     """E2 & E9 端到端全流程评测：一票否决项核验"""
     state = CaseState(
         case_id=f"eval_e2e_{int(time.time())}",
-        snapshot_id="20261010-gii-v0.7",
+        snapshot_id="20261021-asean-v2.2",
         mode="lite",
         facts_zh="2023年4月1日，原告中资总承包商与印尼电力项目业主签订《光伏与燃煤混合电站EPC总承包合同》，约定适用印尼法及FIDIC银皮书标准条件。履约期间因原住民习惯法土地征拆受阻迟延交地180天，承包商发出索赔通知要求工期顺延。业主以未签印尼语版本及本土化率未达标为由拒付工程进度款并企图索兑履约保函。",
         claims_zh="1. 主张不可归责之工期顺延(EOT)并免除延误违约金；2. 依据SEMA 3/2023确认合同效力并阻断履约保函索兑；3. 索赔窝工补偿款项",
@@ -179,7 +179,7 @@ async def eval_e2e_suite(runner: LawWorkflowRunner) -> Dict[str, Any]:
     }
 
 
-def run_all_evaluations(snapshot_id: str = "20261010-gii-v0.7") -> Dict[str, Any]:
+def run_all_evaluations(snapshot_id: str = "20261021-asean-v2.2") -> Dict[str, Any]:
     """执行评测全集并持久化输出报告"""
     run_id = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     report_dir = os.path.join("eval", "reports", run_id)
@@ -235,6 +235,6 @@ def run_all_evaluations(snapshot_id: str = "20261010-gii-v0.7") -> Dict[str, Any
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Evaluation Suites E1-E9")
-    parser.add_argument("--snapshot", default="20261010-gii-v0.7", help="Snapshot ID")
+    parser.add_argument("--snapshot", default="20261021-asean-v2.2", help="Snapshot ID")
     args = parser.parse_args()
     run_all_evaluations(snapshot_id=args.snapshot)

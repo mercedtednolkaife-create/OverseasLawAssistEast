@@ -32,7 +32,7 @@ class SnapshotManager:
             dirs = sorted([d for d in os.listdir(self.base_dir) if os.path.isdir(os.path.join(self.base_dir, d))])
             if dirs:
                 return dirs[-1]
-        return "20261008-gii-rii-v0.7"
+        return "20261021-asean-v2.2"
 
     def set_current_snapshot_id(self, snapshot_id: str):
         """原子切换当前快照指针"""
@@ -85,6 +85,15 @@ class SnapshotManager:
             if conn:
                 self._conns[snap_id] = conn
                 return conn
+            # 若指定的历史快照在磁盘上不存在，优雅自动回退至当前主快照
+            cur_id = self.get_current_snapshot_id()
+            if cur_id != snap_id:
+                if cur_id in self._conns:
+                    return self._conns[cur_id]
+                fallback_conn = self._open_conn(cur_id)
+                if fallback_conn:
+                    self._conns[cur_id] = fallback_conn
+                    return fallback_conn
             return None
 
     def norm_lookup(self, law_or_id: str, enbez: Optional[str] = None, snapshot_id: Optional[str] = None) -> Optional[Dict[str, Any]]:

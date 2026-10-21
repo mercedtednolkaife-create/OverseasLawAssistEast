@@ -57,10 +57,15 @@ RE_ASEAN_CASE_DETECT = re.compile(
     re.IGNORECASE
 )
 
-# 东盟工程合同五大强行法红线与高危规则定义库
+# 东盟工程合同核心强行法红线与高危规则定义库（涵盖语义变体与东盟六国前沿实务）
 ASEAN_CONTRACT_REDLINES = [
     {
-        "keywords": ["pay when paid", "pay if paid", "back to back payment", "以业主付款为前提", "收到业主款项后", "背靠背付款", "业主支付后方才支付"],
+        "keywords": [
+            "pay when paid", "pay if paid", "back to back payment", "pay-when-paid", "pay-if-paid",
+            "以业主付款为前提", "收到业主款项后", "背靠背付款", "业主支付后方才支付",
+            "conditional upon receipt of payment", "condition precedent to the contractor's obligation to pay",
+            "subject to receipt of payment from employer"
+        ],
         "risk_level": "critical",
         "title": "马来西亚 CIPAA 2012 第35条 / 新加坡 SOPA 第9条：背靠背条件付款条款法定绝对无效",
         "norm_id": "MY:CIPAA_2012:Sec35",
@@ -68,7 +73,11 @@ ASEAN_CONTRACT_REDLINES = [
         "revision": "Payment Milestone Clause: Payments to Subcontractor shall become due within 30 days of the Engineer certifying the interim work evaluation, irrespective of whether the Main Contractor has received corresponding payment from the Employer."
     },
     {
-        "keywords": ["solely in english", "english version shall prevail", "no indonesian version", "仅以英文为准", "无印尼语版本", "仅签署英文", "不签署印尼语", "印尼语仅供参考"],
+        "keywords": [
+            "solely in english", "english version shall prevail", "no indonesian version",
+            "仅以英文为准", "无印尼语版本", "仅签署英文", "不签署印尼语", "印尼语仅供参考",
+            "exclude indonesian language", "solely executed in the english language"
+        ],
         "risk_level": "high",
         "title": "印尼 2009 年第 24 号法律第 31 条：单语种英文合同行政与司法绝对无效隐患",
         "norm_id": "ID:SEMA_3_2023",
@@ -76,7 +85,11 @@ ASEAN_CONTRACT_REDLINES = [
         "revision": "Bilingual Execution Clause: This Contract shall be executed concurrently in both the Indonesian language (Bahasa Indonesia) and English. Both language versions shall be authentic. In case of divergence, the English technical terms shall guide interpretation."
     },
     {
-        "keywords": ["waive any injunction", "unconditional and irrevocable", "without demur", "放弃任何禁令", "放弃保函止付救济", "不可撤销且无条件即付且放弃抗辩", "严禁申请法院禁令"],
+        "keywords": [
+            "waive any injunction", "unconditional and irrevocable", "without demur",
+            "放弃任何禁令", "放弃保函止付救济", "不可撤销且无条件即付且放弃抗辩", "严禁申请法院禁令",
+            "waive any right to seek court injunctions", "stop payment on the performance security", "alleged unconscionability"
+        ],
         "risk_level": "high",
         "title": "新加坡 BS Mount Sophia 案：见索即付保函排除‘显失公平 (Unconscionability)’止付救济红线",
         "norm_id": "SG:Precedent:BS_Mount_Sophia",
@@ -84,7 +97,11 @@ ASEAN_CONTRACT_REDLINES = [
         "revision": "Performance Security Restriction: The Employer shall not demand payment under the Performance Security without providing 28 days prior written notice specifying the remediable breach. The equitable doctrine of unconscionability remains available to Contractor."
     },
     {
-        "keywords": ["no adjustment for change in law", "delete clause 13.7", "unlimited liquidated damages", "排除法律变更调价", "不按法律变动调整", "无上限违约金", "违约金无封顶", "放弃eot顺延"],
+        "keywords": [
+            "no adjustment for change in law", "delete clause 13.7", "unlimited liquidated damages",
+            "排除法律变更调价", "不按法律变动调整", "无上限违约金", "违约金无封顶", "放弃eot顺延",
+            "sub-clause 13.7 of fidic is deleted", "no adjustment to contract price shall be made for changes in laws"
+        ],
         "risk_level": "high",
         "title": "严重背离 FIDIC 黄金原则 (GP3 风险平衡原则) 与越南 2025 新建设法调价合规红线",
         "norm_id": "FIDIC:Silver_1999:Clause_13.7",
@@ -92,12 +109,36 @@ ASEAN_CONTRACT_REDLINES = [
         "revision": "Adjustments for Change in Laws: The Contract Price shall be adjusted to account for any increase or decrease in Cost resulting from changes in the Laws of the Host Country (including TKDN quotas and environmental permits) enacted after the Base Date. Liquidated damages for delay shall be capped at 10% of Contract Value."
     },
     {
-        "keywords": ["7 days notice of claim", "3 days notice", "7天内索赔", "3天内通知", "逾期自始放弃全部索赔", "5天内提出工期顺延"],
+        "keywords": [
+            "7 days notice of claim", "3 days notice", "5 days notice", "14 days notice", "7 calendar days",
+            "7天内索赔", "3天内通知", "逾期自始放弃全部索赔", "5天内提出工期顺延", "逾期即视为放弃索赔"
+        ],
         "risk_level": "medium",
         "title": "FIDIC 第 20.1 款索赔通知期过度压缩陷阱（苛刻失权条款）",
         "norm_id": "FIDIC:Silver_1999:Clause_20.1",
         "desc": "将 FIDIC 标准的 28 天索赔通知期苛刻压缩至 7 天甚至更短，构成程序性失权陷阱。在重大海外地质或原住民征拆复杂工程中，极易导致承包商实体索赔权自始丧失。",
         "revision": "Notice of Claim Period: The Contractor shall give notice to the Engineer describing the event giving rise to the claim not later than 28 days (or no less than 21 days) after becoming aware of the event."
+    },
+    {
+        "keywords": [
+            "foreign business license", "foreign business act", "list 3(10)", "fba 1999", "boi category 7",
+            "外商经营许可证", "外商经营法", "泰国fba", "boi投资促进"
+        ],
+        "risk_level": "high",
+        "title": "泰国《外商经营法》(FBA 1999) 附件三外资施工限制与 BOI 投资优惠审查红线",
+        "norm_id": "TH:FBA_1999:List3_Sec10",
+        "desc": "外资持股超过 49% 的外国总承包商在泰国从事建筑施工属于 FBA 限制类商业，开工前必须向商业部 (DBD) 申请取得外商经营许可证 (FBL) 或依托泰国投资促进委员会 (BOI) 获得特许投资优惠。",
+        "revision": "Regulatory Compliance & BOI Incentive Clause: Contractor shall maintain all necessary licenses under the Thai Foreign Business Act B.E. 2542, or maintain valid Board of Investment (BOI) Category 7 investment privileges granting 100% foreign ownership rights for project execution."
+    },
+    {
+        "keywords": [
+            "pcab", "regular license", "special license", "ra 4566", "manila water", "承包商执照", "菲律宾pcab"
+        ],
+        "risk_level": "high",
+        "title": "菲律宾 PCAB 资质准入 (RA 4566) 与最高院 Manila Water 案平等待遇保障",
+        "norm_id": "PH:RA_4566:Contractor_License",
+        "desc": "外资持股超 40% 的承包商以往被限制仅能申请单项项目 Special License。依菲律宾最高院 PCAB v. Manila Water 终审判例，外资股比限制违宪，中资承包商享有平等申办执照或与本地企业组建联营体的权利。",
+        "revision": "Licensing Compliance Clause: The Contractor shall hold either a valid Special License or Regular Contractor License issued by the Philippine Contractors Accreditation Board (PCAB), protected under Supreme Court precedent G.R. No. 217590 (PCAB v. Manila Water)."
     }
 ]
 

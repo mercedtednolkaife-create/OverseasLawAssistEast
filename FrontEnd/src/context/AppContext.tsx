@@ -75,7 +75,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRoleState] = useState<UserRole>('practitioner'); // 默认实务专业端
   const [currentView, setCurrentView] = useState<ActiveView>('home'); // 默认进入查明 Agent 主页
-  const [currentCaseId, setCurrentCaseId] = useState<string | null>('C001');
+  const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
   const [currentCase, setCurrentCase] = useState<CaseState | null>(null);
   const [casesList, setCasesList] = useState<CaseSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -208,8 +208,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     lawAgentApi.getCases().then((list) => {
-      if (Array.isArray(list)) {
+      if (Array.isArray(list) && list.length > 0) {
         setCasesList(list);
+        setCurrentCaseId((prev) => {
+          if (!prev || !list.some((c) => c.case_id === prev)) {
+            return list[0].case_id;
+          }
+          return prev;
+        });
       }
     }).catch(() => {});
   }, []);

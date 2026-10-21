@@ -55,8 +55,8 @@ class LLMClient:
         resolved_task = task_aliases.get(task, task)
         return self.tasks.get(resolved_task, {
             "provider": "dashscope",
-            "model": "deepseek-v4.1-flash",
-            "fallback_model": "deepseek-v4-pro-0813",
+            "model": "deepseek-v3",
+            "fallback_model": "deepseek-r1",
             "temperature": 0.0,
             "timeout": 60
         })

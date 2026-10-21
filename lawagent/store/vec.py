@@ -18,7 +18,7 @@ class DenseVectorEngine:
     def __init__(
         self,
         model_name: str = "BAAI/bge-m3",
-        index_dir: str = "data/snapshots/20261010-gii-v0.7/index",
+        index_dir: str = "data/snapshots/20261021-asean-v2.2/index",
         device: Optional[str] = None
     ):
         self.model_name = model_name

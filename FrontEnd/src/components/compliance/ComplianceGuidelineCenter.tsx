@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import {
@@ -251,7 +251,20 @@ const LIFECYCLE_GUIDELINES: StageGuideline[] = [
 
 export const ComplianceGuidelineCenter: React.FC = () => {
   const { showToast, loadCase, openPipelineAnimation, setCurrentView } = useApp();
+  const [stages, setStages] = useState<StageGuideline[]>(LIFECYCLE_GUIDELINES);
   const [activeStageId, setActiveStageId] = useState<string>('stage_1');
+
+  useEffect(() => {
+    lawAgentApi
+      .getComplianceGuidelines()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setStages(data as any);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const [activeDefenseLine, setActiveDefenseLine] = useState<'line1' | 'line2' | 'line3'>('line1');
   const [exportJur, setExportJur] = useState<string>('asean_id');
   const [exportArchetype, setExportArchetype] = useState<string>('EPC_CONTRACTING');
@@ -281,7 +294,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
     return init;
   });
 
-  const currentStage = LIFECYCLE_GUIDELINES.find((s) => s.id === activeStageId) || LIFECYCLE_GUIDELINES[0];
+  const currentStage = stages.find((s) => s.id === activeStageId) || stages[0];
 
   // 当前阶段所有核验点
   const currentStageItems = useMemo(() => {
@@ -506,7 +519,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
               </span>
               <span className="text-xs text-zinc-400 font-mono">/ 100</span>
             </div>
-            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold border mt-0.5 ${
+            <span className={`inline-block px-2.5 py-1 rounded-md text-xs font-bold border mt-0.5 ${
               overallScore >= 80
                 ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                 : overallScore >= 60
@@ -565,7 +578,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
 
       {/* 五阶段演进水平导航卡 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {LIFECYCLE_GUIDELINES.map((stage) => {
+        {stages.map((stage) => {
           const isSelected = stage.id === activeStageId;
           return (
             <button
@@ -579,7 +592,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
             >
               <div className="flex items-center justify-between mb-1">
                 <span
-                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                  className={`text-xs font-mono font-semibold px-2 py-0.5 rounded-md ${
                     isSelected ? 'bg-blue-600 text-white' : 'bg-zinc-100 text-zinc-600'
                   }`}
                 >
@@ -720,7 +733,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setItemStatuses((prev) => ({ ...prev, [itemKey]: 'passed' }))}
-                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                        className={`px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
                           currentStatus === 'passed'
                             ? 'bg-emerald-600 text-white'
                             : 'text-zinc-500 hover:text-emerald-700'
@@ -731,7 +744,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setItemStatuses((prev) => ({ ...prev, [itemKey]: 'flawed' }))}
-                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                        className={`px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
                           currentStatus === 'flawed'
                             ? 'bg-amber-500 text-white'
                             : 'text-zinc-500 hover:text-amber-700'
@@ -742,7 +755,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setItemStatuses((prev) => ({ ...prev, [itemKey]: 'failed' }))}
-                        className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                        className={`px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
                           currentStatus === 'failed'
                             ? 'bg-rose-600 text-white'
                             : 'text-zinc-500 hover:text-rose-700'

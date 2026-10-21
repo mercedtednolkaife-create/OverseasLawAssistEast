@@ -11,7 +11,6 @@ import { LawDrawer } from './components/common/LawDrawer';
 import { LawModal } from './components/common/LawModal';
 import { HomeLandingView } from './components/home/HomeLandingView';
 import { CaseListView } from './components/cases/CaseListView';
-import { CaseEntryForm } from './components/cases/CaseEntryForm';
 import { ReportReviewView } from './components/review/ReportReviewView';
 import { CaseAnalysisView } from './components/analysis/CaseAnalysisView';
 import { VerificationDashboardView } from './components/dashboard/VerificationDashboardView';
@@ -55,7 +54,7 @@ const MainLayout: React.FC = () => {
       case 'cases':
         return <CaseListView />;
       case 'entry':
-        return <CaseEntryForm />;
+        return <CaseEntryModal isOpen={true} onClose={() => setCurrentView('cases')} />;
       case 'workspace':
         return <AgentWorkspaceView />;
       case 'review':
@@ -134,17 +133,17 @@ const MainLayout: React.FC = () => {
             )}
           </main>
 
-          {/* 右侧抽屉 / 对照窗 (Drawer / Split Pane) - 桌面端右侧分栏 */}
+          {/* 右侧抽屉 / 对照窗 (Drawer / Split Pane) - 桌面端右侧分栏 (注入 Apple Spring 物理动效) */}
           {isDrawerOpen && (
-            <div className="hidden lg:block w-[420px] xl:w-[460px] shrink-0 h-full border-l border-zinc-200 bg-white z-20 transition-all duration-150">
+            <div className="hidden lg:block w-[420px] xl:w-[480px] shrink-0 h-full border-l border-slate-200/80 bg-white z-20 apple-drawer-spring shadow-2xl">
               <LawDrawer variant="docked" onClose={closeLawDrawer} />
             </div>
           )}
 
           {/* 移动端/窄屏下的抽屉遮罩与侧滑抽屉 */}
           {isDrawerOpen && (
-            <div className="lg:hidden fixed inset-0 z-50 flex justify-end bg-black/40">
-              <div className="w-full max-w-md h-full bg-white shadow-2xl">
+            <div className="lg:hidden fixed inset-0 z-50 flex justify-end bg-black/40 apple-modal-backdrop" onClick={closeLawDrawer}>
+              <div className="w-full max-w-md h-full bg-white shadow-2xl apple-drawer-spring" onClick={(e) => e.stopPropagation()}>
                 <LawDrawer variant="drawer" onClose={closeLawDrawer} />
               </div>
             </div>

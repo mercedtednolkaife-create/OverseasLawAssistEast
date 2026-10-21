@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import {
@@ -83,9 +83,12 @@ export const CaseAnalysisView: React.FC = () => {
     if (params.sinosure_notice_days !== undefined) setSimSinosureDays(params.sinosure_notice_days);
   }, [currentCase?.case_id, currentCase?.meta?.engineering_params]);
 
+  // 试算防抖与并发写锁保护 (Debounce & Race-Condition Lock)
+  const simReqVersionRef = useRef<number>(0);
   const handleSimulateEngineering = async () => {
-    if (!currentCase) return;
+    if (!currentCase || isSimulatingEng) return;
     setIsSimulatingEng(true);
+    const reqVersion = ++simReqVersionRef.current;
     try {
       const updatedCase = await lawAgentApi.simulateEngineering(currentCase.case_id, {
         declared_tkdn_pct: simTkdn,
@@ -95,16 +98,23 @@ export const CaseAnalysisView: React.FC = () => {
         main_ld_cap_pct: simMainLd,
         sub_ld_cap_pct: simSubLd,
       });
-      if (updatedCase) {
-        setCurrentCase(updatedCase);
-      } else {
-        await loadCase(currentCase.case_id, true);
+      // 仅在当前请求依然是最新的情况下回写状态，彻底消除网络竞态覆盖
+      if (reqVersion === simReqVersionRef.current) {
+        if (updatedCase) {
+          setCurrentCase(updatedCase);
+        } else {
+          await loadCase(currentCase.case_id, true);
+        }
+        showToast('工程专项算子与中信保合规门禁已完成实时重算！', 'success');
       }
-      showToast('工程专项算子与中信保合规门禁已完成实时重算！', 'success');
     } catch (err: any) {
-      showToast(err.message || '沙盘试算失败', 'error');
+      if (reqVersion === simReqVersionRef.current) {
+        showToast(err.message || '沙盘试算失败', 'error');
+      }
     } finally {
-      setIsSimulatingEng(false);
+      if (reqVersion === simReqVersionRef.current) {
+        setIsSimulatingEng(false);
+      }
     }
   };
 
@@ -112,6 +122,39 @@ export const CaseAnalysisView: React.FC = () => {
   const [subPage, setSubPage] = useState<
     'overview' | 'issues' | 'red-team' | 'evidence-chain' | 'compliance'
   >('overview');
+
+  // 总览视图下的渐进式二级聚焦：'sandbox' (工程沙盘试算) | 'pivots' (裁判心证分水岭与要害)
+  const [overviewDetailTab, setOverviewDetailTab] = useState<'sandbox' | 'pivots'>('sandbox');
+
+  // 全键盘流桌面级微交互 (macOS / Keyboard-First Navigation)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.key === '1') setSubPage('overview');
+      else if (e.key === '2') setSubPage('issues');
+      else if (e.key === '3') setSubPage('red-team');
+      else if (e.key === '4') setSubPage('evidence-chain');
+      else if (e.key === '5') setSubPage('compliance');
+      else if (e.key === 'b' || e.key === 'B') setIsDrawerOpen((prev: boolean) => !prev);
+      else if (e.key === 'Escape') {
+        setShowViabilityModal(false);
+        setShowThreatModal(false);
+        setShowTransitionModal(false);
+        setIsDrawerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setIsDrawerOpen]);
 
   // 测算模型与权重依据弹窗开关
   const [showViabilityModal, setShowViabilityModal] = useState<boolean>(false);
@@ -532,7 +575,7 @@ export const CaseAnalysisView: React.FC = () => {
             <span className="text-slate-500 font-sans">案件工作台</span>
             <span>/</span>
             <span className="text-slate-800 font-medium bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60 font-mono">
-              {currentCase?.case_id || 'C001'}
+              {currentCase?.case_id || 'C101'}
             </span>
             <span>·</span>
             <span>准据法：{caseMeta.choiceOfLaw || '东道国现行实体法与 FIDIC 银皮书标准条件'}</span>
@@ -547,23 +590,25 @@ export const CaseAnalysisView: React.FC = () => {
         <div className="flex flex-wrap items-center gap-3 self-start lg:self-auto">
           <div className="inline-flex items-center p-1 bg-slate-200/60 backdrop-blur-md rounded-2xl">
             {[
-              { id: 'overview', label: isPreInv ? '1. 准入合规总览' : '1. 结论总览' },
-              { id: 'issues', label: isPreInv ? `2. 准入核对 (${issues.length})` : `2. 争议焦点 (${issues.length})` },
-              { id: 'red-team', label: isPreInv ? '3. 架构比选对冲' : '3. 攻防演练' },
-              { id: 'evidence-chain', label: '4. 法源图谱' },
-              { id: 'compliance', label: isPreInv ? '5. 投委会意见书' : '5. 合规报告' },
+              { id: 'overview', key: '1', label: isPreInv ? '准入合规总览' : '结论总览' },
+              { id: 'issues', key: '2', label: isPreInv ? `准入核对 (${issues.length})` : `争议焦点 (${issues.length})` },
+              { id: 'red-team', key: '3', label: isPreInv ? '架构比选对冲' : '攻防演练' },
+              { id: 'evidence-chain', key: '4', label: '法源图谱' },
+              { id: 'compliance', key: '5', label: isPreInv ? '投委会意见书' : '合规报告' },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setSubPage(tab.id as any)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${
                   subPage === tab.id
                     ? 'bg-white text-slate-900 shadow-xs font-semibold'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
                 }`}
+                title={`按数字键 ${tab.key} 快捷切换`}
               >
-                {tab.label}
+                <span className="font-mono text-[10px] text-slate-400 opacity-80">[{tab.key}]</span>
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
@@ -889,347 +934,393 @@ export const CaseAnalysisView: React.FC = () => {
             </div>
           </div>
 
-          {/* 【东盟工程专项审查算子与交互式沙盘试算面板 (Engineering Audit & Simulator Panel)】 */}
-          <div className="apple-bento-card rounded-[32px] p-8 space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                    东盟工程专项审查算子与交互式沙盘试算 (Engineering Audit & What-If Sandbox)
-                  </h3>
-                  <span className="text-xs font-mono bg-blue-50 text-blue-700 border border-blue-200/60 px-2 py-0.5 rounded-md font-semibold">
-                    TKDN · EOT 28D · 违约金传导 · 中信保 30D
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  支持实时动态调节本地化采购率、工期索赔通知天数与主分包违约金上限，对东盟东道国强行法与工程合规门禁进行沙盘重算
-                </p>
-              </div>
-
+          {/* ========================================================================= */}
+          {/* 渐进式次级聚焦分段栏与争点入口 (Progressive Disclosure Bar) */}
+          {/* ========================================================================= */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+            <div className="inline-flex items-center p-1 bg-slate-200/60 backdrop-blur-md rounded-2xl">
               <button
                 type="button"
-                onClick={handleSimulateEngineering}
-                disabled={isSimulatingEng}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                onClick={() => setOverviewDetailTab('sandbox')}
+                className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${
+                  overviewDetailTab === 'sandbox'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+                }`}
               >
-                {isSimulatingEng ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>算子重算中...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-3.5 h-3.5 fill-white" />
-                    <span>实时重算工程合规门禁</span>
-                  </>
-                )}
+                涉外工程专项沙盘与敏感度测算 (What-If Sandbox)
+              </button>
+              <button
+                type="button"
+                onClick={() => setOverviewDetailTab('pivots')}
+                className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer ${
+                  overviewDetailTab === 'pivots'
+                    ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+                }`}
+              >
+                裁判心证审查要害与行动补强 (Strategic Pivots)
               </button>
             </div>
 
-            {/* 四大涉外工程与信保合规算子数据卡片网格 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-              {/* 卡片 1: 印尼 TKDN 本地化率 */}
-              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5 text-blue-600" />
-                    印尼 TKDN 本地化率 (MEMR 11/2024)
-                  </span>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                    simTkdn >= 40 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {simTkdn >= 40 ? '合规达标' : '缺口需豁免'}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">申报率: <strong className="text-slate-900 font-mono">{simTkdn}%</strong></span>
-                    <span className="text-slate-500">法定门槛: <strong className="text-blue-600 font-mono">40%</strong></span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${simTkdn >= 40 ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                      style={{ width: `${Math.min(100, (simTkdn / 60) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {simTkdn >= 40
-                      ? '已达电力EPC主机采购法定红线，可正常申请完工COD证书'
-                      : `存在 ${40 - simTkdn}% 本地化缺口，可申请能矿部特许豁免许可`}
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200/60 space-y-1">
-                  <label className="text-[11px] font-medium text-slate-600 flex justify-between">
-                    <span>沙盘模拟调整申报 TKDN %:</span>
-                    <span className="font-mono font-bold text-blue-600">{simTkdn}%</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="80"
-                    value={simTkdn}
-                    onChange={(e) => setSimTkdn(Number(e.target.value))}
-                    className="w-full accent-blue-600 cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              {/* 卡片 2: FIDIC 20.1 索赔 28 天通知时效 */}
-              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-blue-600" />
-                    FIDIC 20.1 索赔 28 天除斥期
-                  </span>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                    simNoticeDays <= 28 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                  }`}>
-                    {simNoticeDays <= 28 ? '时效安全' : '已逾期失权风险'}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">延误影响: <strong className="text-slate-900 font-mono">{simDelayDays} 天</strong></span>
-                    <span className="text-slate-500">送达用时: <strong className={`font-mono ${simNoticeDays <= 28 ? 'text-emerald-600' : 'text-rose-600'}`}>{simNoticeDays} 天</strong></span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${simNoticeDays <= 28 ? 'bg-emerald-500' : 'bg-rose-500'}`}
-                      style={{ width: `${Math.min(100, (simNoticeDays / 42) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {simNoticeDays <= 28
-                      ? '在 28 天除斥期内完成送达，完全阻断发包人失权抗辩'
-                      : '已超 28 天，需重点援引印尼最高院 SEMA 3/2023 善意履约原则反失权'}
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200/60 space-y-1">
-                  <label className="text-[11px] font-medium text-slate-600 flex justify-between">
-                    <span>沙盘模拟索赔通知天数:</span>
-                    <span className="font-mono font-bold text-blue-600">{simNoticeDays} 天</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="60"
-                    value={simNoticeDays}
-                    onChange={(e) => setSimNoticeDays(Number(e.target.value))}
-                    className="w-full accent-blue-600 cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              {/* 卡片 3: 主分包违约金与支付传导风险 */}
-              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                    主分包违约金传导与背靠背
-                  </span>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                    simMainLd <= simSubLd ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {simMainLd <= simSubLd ? '责任闭环' : `敞口差 ${simMainLd - simSubLd}%`}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">主合同上限: <strong className="text-slate-900 font-mono">{simMainLd}%</strong></span>
-                    <span className="text-slate-500">分包合同上限: <strong className="text-slate-900 font-mono">{simSubLd}%</strong></span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${simMainLd <= simSubLd ? 'bg-emerald-500' : 'bg-amber-500'}`}
-                      style={{ width: `${Math.min(100, (simSubLd / simMainLd) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {simMainLd <= simSubLd
-                      ? '分包违约金上限完全覆盖主合同，不存在不可传导自担敞口'
-                      : `分包商违约时总包需自担 ${simMainLd - simSubLd}% 差额敞口；背靠背条款在马/新法定无效`}
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200/60 grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-slate-500">主合同 LD %</label>
-                    <input
-                      type="number"
-                      min="5"
-                      max="30"
-                      value={simMainLd}
-                      onChange={(e) => setSimMainLd(Number(e.target.value))}
-                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-slate-500">分包合同 LD %</label>
-                    <input
-                      type="number"
-                      min="5"
-                      max="30"
-                      value={simSubLd}
-                      onChange={(e) => setSimSubLd(Number(e.target.value))}
-                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 卡片 4: 中信保 (Sinosure) 30 日出险报损时效审查 */}
-              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                    中信保 30 日报损时效
-                  </span>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
-                    simSinosureDays <= 30 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                  }`}>
-                    {simSinosureDays <= 30 ? '时效合规' : '超期预警'}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">已用时: <strong className="text-slate-900 font-mono">{simSinosureDays} 天</strong></span>
-                    <span className="text-slate-500">保全红线: <strong className="text-blue-600 font-mono">30 天</strong></span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${simSinosureDays <= 30 ? 'bg-emerald-500' : 'bg-rose-500'}`}
-                      style={{ width: `${Math.min(100, (simSinosureDays / 45) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {simSinosureDays <= 30
-                      ? `在 30 日内递交《可能损失通知书》，余 ${30 - simSinosureDays} 天安全期，追偿权完好`
-                      : `已超 30 日限期 ${simSinosureDays - 30} 天，面临保单理赔拒赔抗辩，需启动紧急对冲`}
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-slate-200/60 space-y-1">
-                  <label className="text-[11px] font-medium text-slate-600 flex justify-between">
-                    <span>沙盘模拟报损天数:</span>
-                    <span className="font-mono font-bold text-blue-600">{simSinosureDays} 天</span>
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="60"
-                    value={simSinosureDays}
-                    onChange={(e) => setSimSinosureDays(Number(e.target.value))}
-                    className="w-full accent-blue-600 cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
+            {/* 一键直达专业争议焦点工作台 */}
+            <button
+              type="button"
+              onClick={() => setSubPage('issues')}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50/90 hover:bg-blue-100/90 border border-blue-200/80 transition-all cursor-pointer shadow-2xs group self-start sm:self-auto"
+              title="快捷进入专业争议焦点审查工作台（按快捷键 2）"
+            >
+              <span>穿透审查 {issues.length} 项争议焦点与法定要件</span>
+              <span className="font-mono text-[10px] text-blue-600 bg-blue-100/80 px-1.5 py-0.5 rounded font-bold">按 2</span>
+              <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </button>
           </div>
 
-          {/* 【第二层级】：核心争点 / 准入要件核对矩阵 */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                  {isPreInv ? '东道国准入与合规核对矩阵 (Regulatory & SASAC Checklist)' : '全案核心争议焦点'}
-                </h3>
-                <span className="text-xs font-mono text-slate-400">
-                  ({issues.length} 项{isPreInv ? '要件' : '争点'})
-                </span>
+          {/* 切面 A: 涉外工程专项审查算子与交互式沙盘试算面板 (无胶囊轰炸、去卡片嵌套) */}
+          {overviewDetailTab === 'sandbox' && (
+            <div className="apple-bento-card rounded-[32px] p-8 space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                      东盟工程专项审查算子与交互式沙盘试算 (Engineering Audit & What-If Sandbox)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    支持实时动态调节本地化采购率、工期索赔通知天数与主分包违约金上限，对东盟东道国强行法与工程合规门禁进行敏感度推演
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSimulateEngineering}
+                  disabled={isSimulatingEng}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                >
+                  {isSimulatingEng ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>算子重算中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5 fill-white" />
+                      <span>实时重算工程合规门禁</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSubPage('issues')}
-                className="text-xs font-medium text-slate-500 hover:text-slate-900 flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <span>{isPreInv ? '进入准入核对工作台' : '进入争议焦点审查工作台'}</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+
+              {/* 四大涉外工程与信保合规算子数据卡片网格 (采用干净的 clean-row-card，彻底告别 Card-in-Card 边框嵌套与微胶囊轰炸) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* 卡片 1: 印尼 TKDN 本地化率 */}
+                <div className="clean-row-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      印尼 TKDN 本地化率 (MEMR 11/2024)
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-medium shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${simTkdn >= 40 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      <span className={simTkdn >= 40 ? 'text-slate-700' : 'text-amber-700 font-semibold'}>
+                        {simTkdn >= 40 ? '达标 (≥40%)' : '缺口需豁免'}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">申报采购率: <strong className="text-slate-900 font-mono">{simTkdn}%</strong></span>
+                      <span className="text-slate-500">法定门槛: <strong className="text-blue-600 font-mono">40%</strong></span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${simTkdn >= 40 ? 'bg-blue-600' : 'bg-amber-500'}`}
+                        style={{ width: `${Math.min(100, (simTkdn / 60) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-slate-500 leading-relaxed pt-1">
+                      {simTkdn >= 40
+                        ? '已达电力EPC主机采购法定红线，可正常申请完工COD证书'
+                        : `存在 ${40 - simTkdn}% 本地化缺口，可申请印尼能矿部特许豁免`}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>沙盘模拟申报率:</span>
+                      <span className="font-mono font-bold text-blue-600">{simTkdn}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="80"
+                      value={simTkdn}
+                      onChange={(e) => setSimTkdn(Number(e.target.value))}
+                      className="w-full accent-blue-600 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* 卡片 2: FIDIC 20.1 索赔 28 天通知时效 */}
+                <div className="clean-row-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      FIDIC 20.1 索赔 28 天通知时效
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-medium shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${simNoticeDays <= 28 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <span className={simNoticeDays <= 28 ? 'text-slate-700' : 'text-rose-700 font-semibold'}>
+                        {simNoticeDays <= 28 ? '时效安全 (≤28天)' : '已逾期失权风险'}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">延误影响: <strong className="text-slate-900 font-mono">{simDelayDays} 天</strong></span>
+                      <span className="text-slate-500">送达用时: <strong className={`font-mono ${simNoticeDays <= 28 ? 'text-emerald-600' : 'text-rose-600'}`}>{simNoticeDays} 天</strong></span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${simNoticeDays <= 28 ? 'bg-blue-600' : 'bg-rose-500'}`}
+                        style={{ width: `${Math.min(100, (simNoticeDays / 42) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-slate-500 leading-relaxed pt-1">
+                      {simNoticeDays <= 28
+                        ? '在 28 天除斥期内完成送达，完全阻断发包人失权抗辩'
+                        : '已超 28 天，需重点援引印尼最高院 SEMA 3/2023 善意履约原则反失权'}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>沙盘模拟索赔天数:</span>
+                      <span className="font-mono font-bold text-blue-600">{simNoticeDays} 天</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="60"
+                      value={simNoticeDays}
+                      onChange={(e) => setSimNoticeDays(Number(e.target.value))}
+                      className="w-full accent-blue-600 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* 卡片 3: 主分包违约金与支付传导风险 */}
+                <div className="clean-row-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      主分包违约金传导与背靠背
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-medium shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${simMainLd <= simSubLd ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      <span className={simMainLd <= simSubLd ? 'text-slate-700' : 'text-amber-700 font-semibold'}>
+                        {simMainLd <= simSubLd ? '责任闭环无自担' : `自担敞口 ${simMainLd - simSubLd}%`}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">主合同上限: <strong className="text-slate-900 font-mono">{simMainLd}%</strong></span>
+                      <span className="text-slate-500">分包合同上限: <strong className="text-slate-900 font-mono">{simSubLd}%</strong></span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${simMainLd <= simSubLd ? 'bg-blue-600' : 'bg-amber-500'}`}
+                        style={{ width: `${Math.min(100, (simSubLd / simMainLd) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-slate-500 leading-relaxed pt-1">
+                      {simMainLd <= simSubLd
+                        ? '分包违约金上限覆盖主合同，不存在不可传导自担敞口'
+                        : `分包商违约时总包自担 ${simMainLd - simSubLd}% 差额；背靠背条款在马/新法定无效`}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-slate-500 block mb-1">主合同 LD %</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="30"
+                        value={simMainLd}
+                        onChange={(e) => setSimMainLd(Number(e.target.value))}
+                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg font-mono focus:border-blue-500 focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-500 block mb-1">分包合同 LD %</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="30"
+                        value={simSubLd}
+                        onChange={(e) => setSimSubLd(Number(e.target.value))}
+                        className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg font-mono focus:border-blue-500 focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 卡片 4: 中信保 30 日出险报损时效审查 */}
+                <div className="clean-row-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      中信保 30 日报损时效审查
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-medium shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${simSinosureDays <= 30 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <span className={simSinosureDays <= 30 ? 'text-slate-700' : 'text-rose-700 font-semibold'}>
+                        {simSinosureDays <= 30 ? '在限合规 (≤30天)' : '已超期拒赔预警'}
+                      </span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">已用时: <strong className="text-slate-900 font-mono">{simSinosureDays} 天</strong></span>
+                      <span className="text-slate-500">保全红线: <strong className="text-blue-600 font-mono">30 天</strong></span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${simSinosureDays <= 30 ? 'bg-blue-600' : 'bg-rose-500'}`}
+                        style={{ width: `${Math.min(100, (simSinosureDays / 45) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-slate-500 leading-relaxed pt-1">
+                      {simSinosureDays <= 30
+                        ? `余 ${30 - simSinosureDays} 天安全期，递交《可能损失通知书》追偿权完好`
+                        : `已超 30 日限期 ${simSinosureDays - 30} 天，面临保单理赔抗辩，需启动紧急对冲`}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 space-y-1.5">
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>沙盘模拟报损天数:</span>
+                      <span className="font-mono font-bold text-blue-600">{simSinosureDays} 天</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="60"
+                      value={simSinosureDays}
+                      onChange={(e) => setSimSinosureDays(Number(e.target.value))}
+                      className="w-full accent-blue-600 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {issues.map((issue, idx) => {
-                const coveredCount = issue.checklist.filter((c) => c.status === 'passed').length;
-                const totalCount = issue.checklist.length;
-                const isRiskIssue =
-                  issue.category === '事实与检验时效' ||
-                  issue.norms.some((n) => n.includes('377') || n.includes('2-607')) ||
-                  issue.checklist.some((c) => c.status !== 'passed');
+          {/* 切面 B: 裁判心证审查要害与行动清单 */}
+          {overviewDetailTab === 'pivots' && (
+            <div className="apple-bento-card rounded-[32px] p-8 space-y-6 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                      国际仲裁与东道国裁判审查焦点 (Judicial Pivotal Factors)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    基于在卷材料判例模型，梳理主审仲裁员/法官心证裁决关键支撑点
+                  </p>
+                </div>
+              </div>
 
-                return (
-                  <div
-                    key={issue.id}
+              {/* 裁判审查要害要素三列微卡 */}
+              {currentCase?.strategic_assessment?.pivotal_factors && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {currentCase.strategic_assessment.pivotal_factors.map((factor, fIdx) => (
+                    <div
+                      key={fIdx}
+                      className="clean-row-card p-5 space-y-2"
+                    >
+                      <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+                        <span className="font-semibold text-slate-700">裁判审查焦点 0{fIdx + 1}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                      </div>
+                      <p className="text-xs font-medium text-slate-800 leading-relaxed">
+                        {factor}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 行动补强清单 */}
+              {currentCase?.strategic_assessment?.actionable_checklist && (
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-900 font-mono block">
+                    涉外诉讼补强建议行动清单
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {currentCase.strategic_assessment.actionable_checklist.map((act, aIdx) => (
+                      <div
+                        key={aIdx}
+                        className="clean-row-card p-4 text-xs flex items-start gap-3"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        <span className="text-slate-800 font-medium leading-relaxed">{act}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 全案争议焦点极简速递条 (Progressive Strip) - 避免在 overview 底部无限纵向平铺，提供优雅的快速穿透 */}
+          <div className="clean-row-card p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold text-slate-900 shrink-0">
+                {isPreInv ? '全案准入核验矩阵' : '全案核心争议焦点'} ({issues.length}项)
+              </span>
+              <span className="text-slate-300 font-mono hidden md:inline">|</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {issues.map((iss) => (
+                  <button
+                    key={iss.id}
+                    type="button"
                     onClick={() => {
-                      setSelectedIssueId(issue.id);
+                      setSelectedIssueId(iss.id);
                       setActiveCheckIndex(0);
                       setSubPage('issues');
                     }}
-                    className="p-6 rounded-[28px] apple-bento-card hover:border-slate-300 transition-all duration-300 ease-out flex flex-col justify-between space-y-4 group cursor-pointer h-full"
-                    title="点击进入工作台查看此争点的要件审查与证据链详情"
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs bg-slate-100/80 hover:bg-slate-200/80 text-slate-700 transition-all cursor-pointer font-medium hover:text-slate-900"
+                    title={`查看${iss.code}要件审查详情`}
                   >
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-medium text-slate-400">
-                          {issue.code}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                              isRiskIssue && legalAssessment.defenseScore < 90
-                                ? 'bg-amber-500'
-                                : 'bg-blue-600'
-                            }`}
-                          />
-                          {isRiskIssue && legalAssessment.defenseScore < 90 ? (
-                            <span className="font-medium text-slate-900 border-b-2 border-amber-500 pb-0.5">
-                              需反制补强
-                            </span>
-                          ) : (
-                            <span className="font-medium text-slate-600">
-                              法定要件齐备
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <h4 className="text-sm sm:text-base font-semibold text-slate-900 group-hover:text-blue-600 transition-colors leading-relaxed">
-                        {issue.title}
-                      </h4>
-                    </div>
-
-                    {/* 极简无框元数据行 (去掉下方冗余微进度条，干净纯粹) */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <span className="font-mono text-xs font-medium text-slate-700">
-                          {issue.norms[0] || 'FIDIC / 属地工程强行法'}
-                        </span>
-                        <span className="text-slate-300 font-mono">·</span>
-                        <span className="text-slate-400 font-mono text-[11px]">
-                          {coveredCount}/{totalCount} 项要件核验满足
-                        </span>
-                      </div>
-
-                      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-slate-500 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all">
-                        <span>审查详情</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                    <span className="font-mono text-[11px] font-bold text-slate-900">{iss.code}</span>
+                    <span className="truncate max-w-[140px]">{iss.title}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setSubPage('issues')}
+              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors shrink-0 self-end md:self-auto cursor-pointer"
+            >
+              <span>进入逐项深度审查工作台</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* 子视图 2：争议焦点审查工作台 (Issues & Statutory Elements Master-Detail) */}
       {/* ========================================================================= */}
       {subPage === 'issues' && (

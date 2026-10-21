@@ -30,7 +30,7 @@ class GraphStore(Protocol):
 
 
 class SQLiteGraphStore:
-    def __init__(self, db_path_or_conn: Any = "data/snapshots/20261010-gii-v0.7/law.sqlite"):
+    def __init__(self, db_path_or_conn: Any = "data/snapshots/20261021-asean-v2.2/law.sqlite"):
         if isinstance(db_path_or_conn, sqlite3.Connection):
             self.conn = db_path_or_conn
             self.db_path = None

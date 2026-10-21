@@ -1,5 +1,5 @@
 """国家安全、经济安全与隐性征收“三层刚性防御机制” (Security Sentinel)
-对齐《东盟国家迁移方案.md》第 6.2 节架构：
+对齐《东盟域外法查明助手设计方案.md》第 6.2 节架构：
 - Tier 1: 确定性代码级特征引信与本地快照筛查 (Deterministic Rule Trigger)
 - Tier 2: 独立安全哨兵评估 (s2_security_sentinel) + 双边投资条约 (BIT) 与中信保联动
 - Tier 3: 质量门禁 Critic V12 一票否决熔断

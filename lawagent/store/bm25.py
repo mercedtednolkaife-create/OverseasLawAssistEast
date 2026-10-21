@@ -14,7 +14,7 @@ from lawagent.store.compound import AseanTextProcessor, GermanTextProcessor, Voc
 
 
 class BM25Engine:
-    def __init__(self, index_dir: str = "data/snapshots/20261010-gii-v0.7/index"):
+    def __init__(self, index_dir: str = "data/snapshots/20261021-asean-v2.2/index"):
         self.index_dir = index_dir
         self.processor = AseanTextProcessor()
         self.bm25: Optional[BM25Okapi] = None

@@ -385,6 +385,47 @@ export const lawAgentApi = {
       params: { active_only: activeOnly },
     });
   },
+
+  /**
+   * 获取东盟出海建设工程五阶段 × 三道防线合规指南
+   * 对应 GET /compliance/guidelines
+   */
+  async getComplianceGuidelines(): Promise<any[]> {
+    return await request<any[]>('/compliance/guidelines', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * 获取东盟六国涉外基建横向对比矩阵
+   * 对应 GET /compliance/comparison-matrix
+   */
+  async getComparisonMatrix(): Promise<any[]> {
+    return await request<any[]>('/compliance/comparison-matrix', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * 获取东盟国别风险预警矩阵
+   * 对应 GET /compliance/risk-matrix
+   */
+  async getRiskMatrix(jurisdiction?: string): Promise<any> {
+    return await request<any>('/compliance/risk-matrix', {
+      method: 'GET',
+      params: jurisdiction ? { jurisdiction } : undefined,
+    });
+  },
+
+  /**
+   * 获取东盟出海典型工程示范案库
+   * 对应 GET /compliance/reference-cases
+   */
+  async getReferenceCases(): Promise<any[]> {
+    return await request<any[]>('/compliance/reference-cases', {
+      method: 'GET',
+    });
+  },
 };
 
 

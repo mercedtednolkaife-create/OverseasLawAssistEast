@@ -73,6 +73,9 @@ def get_case(
 ):
     """获取单个案件完整状态"""
     state = db.get_case(case_id)
+    if not state and case_id.upper() in ("C001", "C-001", "DEFAULT"):
+        # 历史遗留标识平滑兼容映射：自动重定向至东盟第一示范案 C101
+        state = db.get_case("C101")
     if not state:
         raise HTTPException(status_code=404, detail=f"案件 [{case_id}] 不存在")
     if state.strategic_assessment is None:
@@ -609,7 +612,7 @@ def get_case_agent_workflow(
             step_id="extract",
             name="事实抽取 Agent",
             role_desc="涉外建设工程与海外投资案件事实要素抽取与实体识别",
-            model="deepseek-v4.1-flash",
+            model="deepseek-v3",
             status=s1_status,
             duration_ms=1150 if s1_status != "pending" else 0,
             inputs_summary=f"输入中外文工程事实描述 ({len(state.facts_zh)} 字符) 及建设工程总承包/特许经营协议文件",
@@ -632,7 +635,7 @@ def get_case_agent_workflow(
             step_id="precheck",
             name="准据法前检 Agent",
             role_desc="国际私法连结点审查与法域准入规则检视",
-            model="deepseek-v4.1-flash",
+            model="deepseek-v3",
             status=s2_status,
             duration_ms=820 if s2_status != "pending" else 0,
             inputs_summary=f"当事人工程合同法律适用与争议管辖约定: '{state.meta.choice_of_law or '东道国法律及 FIDIC 合同标准条款'}'",
@@ -678,7 +681,7 @@ def get_case_agent_workflow(
             step_id="subsumption",
             name="四态要件涵摄 Agent",
             role_desc="法律规范构成要件涵摄与请求权四态推导",
-            model="deepseek-v4.1-flash",
+            model="deepseek-v3",
             status=s4_status,
             duration_ms=2380 if s4_status != "pending" else 0,
             inputs_summary=f"争点拆解 {issues_count} 项，构成要件 {elements_count} 项，匹配对应证据材料",
@@ -706,7 +709,7 @@ def get_case_agent_workflow(
             step_id="red_team_strategist",
             name="策略推演与红队攻防 Agent",
             role_desc="动态胜败边界推演与对方致命抗辩攻防对抗",
-            model="deepseek-v4.1-flash",
+            model="deepseek-v3",
             status=s5_status,
             duration_ms=1950 if s5_status != "pending" else 0,
             inputs_summary="四态涵摄结论、事实证据链断点、法条构成要件与司法先例对照",
@@ -732,7 +735,7 @@ def get_case_agent_workflow(
             step_id="drafter",
             name="双语意见书起草 Agent",
             role_desc="双语法律意见书编制与法庭查明成果导出",
-            model="deepseek-v4.1-flash",
+            model="deepseek-v3",
             status=s6_status,
             duration_ms=1460 if s6_status != "pending" else 0,
             inputs_summary="各要件四态命题、法源论据与审查意见",
@@ -763,7 +766,7 @@ def get_case_agent_workflow(
             step_id="judge",
             name="防线质检裁判 Agent",
             role_desc="独立交叉质检裁判模型 (V1~V11 与 V8 幻觉防御)",
-            model="deepseek-v4-pro-0813",
+            model="deepseek-r1",
             status=s7_status,
             duration_ms=2110 if s7_status != "pending" else 0,
             inputs_summary="交叉质检输入：双语意见书命题、法源条文真伪、争议焦点严谨性",
@@ -773,7 +776,7 @@ def get_case_agent_workflow(
                 else ("裁判 Agent 正在对全部论据与法条开展交叉质检..." if s7_status == "running" else "等待双语意见书起草就绪...")
             ),
             details={
-                "judge_model": "deepseek-v4-pro-0813",
+                "judge_model": "deepseek-r1",
                 "rules_checked": 11,
                 "hallucinations_detected": 0,
                 "v8_guardrail": "通过：所有引用法条与判例均在官方库与好法验真库中",
@@ -790,8 +793,8 @@ def get_case_agent_workflow(
     return AgentWorkflowResponse(
         case_id=state.case_id,
         total_steps=len(steps),
-        active_model_primary="deepseek-v4.1-flash",
-        active_model_judge="deepseek-v4-pro-0813",
+        active_model_primary="deepseek-v3",
+        active_model_judge="deepseek-r1",
         steps=steps
     )
 
@@ -1103,15 +1106,14 @@ async def chat_case(
         last_user_message, state, payload.role_view or "practitioner", current_mode
     )
     is_preset_specialized = any(k in last_user_message.lower() for k in [
-        "377", "hgb", "ucc", "2-607", "检验", "通知", "逾期", "失权", "rüge",
-        "败诉", "风险", "胜诉", "成立", "薄弱",
-        "专家", "出庭", "质证", "咨询", "解释二",
-        "和解", "谈判", "adr", "调解", "筹码"
+        "tkdn", "cipaa", "sopa", "fidic", "sema", "20.1", "8.4", "保函", "工期", "背靠背", "中信保",
+        "sinosure", "fba", "pcab", "manila", "征收", "特许经营", "败诉", "风险", "胜诉", "成立", "薄弱",
+        "专家", "出庭", "质证", "咨询", "和解", "谈判", "adr", "调解", "筹码"
     ]) or current_mode == "red_teaming"
 
     if is_preset_specialized and offline_reply:
         reply_text = offline_reply
-        used_model = "deepseek-v4.1-flash"
+        used_model = "deepseek-v3"
     else:
         try:
             from lawagent.llm.client import LLMClient

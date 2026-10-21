@@ -130,7 +130,7 @@ ASEAN_PURE_CASES_DATA: List[Dict[str, Any]] = [
 ]
 
 
-def build_pure_asean_kb(snapshot_id: str = "20261010-gii-v0.7"):
+def build_pure_asean_kb(snapshot_id: str = "20261021-asean-v2.2"):
     """执行 100% 纯净东盟知识库重构"""
     print(f"=== 开始执行步骤三：构建 100% 纯净东盟工程知识库快照 [{snapshot_id}] ===")
     mgr = SnapshotManager()
@@ -354,4 +354,4 @@ def build_pure_asean_kb(snapshot_id: str = "20261010-gii-v0.7"):
 
 
 if __name__ == "__main__":
-    build_pure_asean_kb("20261010-gii-v0.7")
+    build_pure_asean_kb("20261021-asean-v2.2")

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { lawAgentApi } from '../../api/lawAgentApi';
 import { Check, Plus, ArrowRight, Layers, Sparkles } from 'lucide-react';
 
 interface ComparisonRow {
@@ -21,7 +22,7 @@ const COUNTRIES = [
   { key: 'ph', name: '菲律宾', flag: '🇵🇭', code: 'asean_ph' },
 ];
 
-const COMPARISON_DATA: ComparisonRow[] = [
+const FALLBACK_COMPARISON_DATA: ComparisonRow[] = [
   {
     dimension: '法系与司法特征',
     id: '大陆法系 + 习惯法 (Adat) + 伊斯兰法',
@@ -81,6 +82,20 @@ const COMPARISON_DATA: ComparisonRow[] = [
 export const ASEANComparisonMatrix: React.FC = () => {
   const { openCaseEntryModal, showToast } = useApp();
   const [selectedKeys, setSelectedKeys] = useState<string[]>(['id', 'vn']);
+  const [matrixData, setMatrixData] = useState<ComparisonRow[]>(FALLBACK_COMPARISON_DATA);
+
+  useEffect(() => {
+    lawAgentApi
+      .getComparisonMatrix()
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setMatrixData(data);
+        }
+      })
+      .catch(() => {
+        // 网络异常时平滑使用 FALLBACK_COMPARISON_DATA
+      });
+  }, []);
 
   const toggleCountry = (key: string) => {
     if (selectedKeys.includes(key)) {
@@ -186,7 +201,7 @@ export const ASEANComparisonMatrix: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-            {COMPARISON_DATA.map((row, idx) => (
+            {matrixData.map((row, idx) => (
               <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
                 <td className="py-3.5 px-3 font-semibold text-slate-900 bg-slate-50/40">
                   {row.dimension}

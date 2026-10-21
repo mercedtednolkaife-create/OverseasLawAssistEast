@@ -1,5 +1,5 @@
 """东盟六国 2026 法源、法通网对齐与 FIDIC 双层知识库构建脚本 (Build ASEAN Knowledge Base)
-严格对齐《东盟国家迁移方案.md》V4.0 终审定稿版（Phase 8）
+严格对齐《东盟域外法查明助手设计方案.md》V4.0 终审定稿版（Phase 8）
 核心功能：
 1. 升级快照库 law.sqlite Schema（支持多语种列、法通网溯源、FIDIC Tier 1/2分级与风险社区表）
 2. 批量入库东盟六国 2026 现行有效法源（印、越、马、新、泰、菲，全部基于 2026 生效法条）
@@ -762,7 +762,7 @@ ASEAN_RISK_COMMUNITIES: List[Dict[str, Any]] = [
 ]
 
 
-def ingest_asean_kb(snapshot_id: str = "20261010-gii-v0.7"):
+def ingest_asean_kb(snapshot_id: str = "20261021-asean-v2.2"):
     """执行知识库写入与图谱关系同步"""
     mgr = SnapshotManager()
     snap_id = snapshot_id or mgr.get_current_snapshot_id()
@@ -905,8 +905,8 @@ def ingest_asean_kb(snapshot_id: str = "20261010-gii-v0.7"):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="入库东盟 2026 现行有效法源")
-    parser.add_argument("--snapshot", type=str, default="20261010-gii-v0.7")
+    parser = argparse.ArgumentParser(description="入库东盟 2026 现行有效法源 (纯净东盟六国与 FIDIC)")
+    parser.add_argument("--snapshot", type=str, default="20261021-asean-v2.2")
     parser.add_argument("--legacy", action="store_true", help="使用旧版增量注入模式（不清理历史法条）")
     args = parser.parse_args()
     if args.legacy:

@@ -55,7 +55,11 @@ def calibrate_asean_entry_checks(meta: CaseMeta) -> List[EntryCheckItem]:
         checks.append(EntryCheckItem(
             name="准据法脱钩冲突检测：合同选法 vs. 东道国强行法穿透适用 (Lex Loci Solutionis Override)",
             status="uncertain",
-            detail=f"主合同选定准据法/仲裁地为【{gov_law}】，但工程所在地【{host_c}】之建筑强行法（语言双语签署令、本地化率TKDN配额、原住民土地习惯法）具有排他强行适用效力，不可约定排除！"
+            detail=(
+                f"主合同选定准据法/仲裁地为【{gov_law}】，但工程所在地【{host_c}】之强行法具有排他穿透适用效力，不可约定排除！\n"
+                f"【公私法分流审查指引】：东道国强行法穿透力严格限定于公法监管与特许准入规范（包括属地施工资质BUJKA/PCAB、TKDN本地化配额、双语签署强制令、土地习惯法及属地法定快速裁决CIPAA/SOPA）；"
+                f"而工期违约金上限、索赔通知程序、不可抗力范围等商事私法条款，在离岸国际仲裁中仍严格受合同约定准据法【{gov_law}】管辖，避免公私法混淆适用。"
+            )
         ))
 
     # 1. 准据法与争议解决条款约定

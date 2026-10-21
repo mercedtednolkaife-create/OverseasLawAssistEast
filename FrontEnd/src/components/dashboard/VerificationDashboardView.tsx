@@ -63,7 +63,7 @@ export const VerificationDashboardView: React.FC = () => {
     grades_distribution: { A: 0, B: 0, C: 0, D: 0 },
     timepoint_level: 'yellow' as const,
     cisg_triggered: false,
-    snapshot_id: currentCase.snapshot_id || '20261008-gii-v0.7',
+    snapshot_id: currentCase.snapshot_id || '20261021-asean-v2.2',
     report_version: 1,
     content_hash: 'sha256:none',
     mode: currentCase.mode || 'full',

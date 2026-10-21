@@ -28,7 +28,7 @@ export const AgentWorkspaceView: React.FC = () => {
     refreshCurrentCase,
   } = useApp();
 
-  const case_id = currentCaseId || 'C001';
+  const case_id = currentCaseId || 'C101';
 
   // 对抗模式切换 (neutral | red_teaming)
   const [chatMode, setChatMode] = useState<'neutral' | 'red_teaming'>('neutral');

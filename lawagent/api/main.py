@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from lawagent.api.routes import cases, search, verify, consults
+from lawagent.api.routes import cases, search, verify, consults, compliance
 from lawagent.store.db import StateDBManager
 from lawagent.store.snapshots import SnapshotManager
 
@@ -43,11 +43,13 @@ app.include_router(cases.router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(verify.router, prefix="/api")
 app.include_router(consults.router, prefix="/api")
+app.include_router(compliance.router, prefix="/api")
 
 app.include_router(cases.router)
 app.include_router(search.router)
 app.include_router(verify.router)
 app.include_router(consults.router)
+app.include_router(compliance.router)
 
 
 @app.get("/api/health")
