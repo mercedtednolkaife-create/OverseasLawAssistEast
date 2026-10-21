@@ -1293,6 +1293,7 @@ class SimulateEngineeringPayload(BaseModel):
     main_ld_cap_pct: Optional[float] = None
     sub_ld_cap_pct: Optional[float] = None
     foreign_equity_pct: Optional[float] = None
+    sinosure_notice_days: Optional[int] = None
 
 
 @router.post("/{case_id}/simulate-engineering", response_model=CaseState)
@@ -1320,6 +1321,7 @@ def simulate_engineering(
         evaluate_tkdn_compliance,
         evaluate_eot_delay_claim,
         evaluate_interface_transmission,
+        evaluate_sinosure_compliance,
         SecuritySentinel
     )
     from lawagent.core.types import EntryCheckItem
@@ -1332,9 +1334,10 @@ def simulate_engineering(
     tkdn_eval = evaluate_tkdn_compliance(facts_text, jur, engineering_params=updated_params)
     eot_eval = evaluate_eot_delay_claim(facts_text, contract_type, jur, engineering_params=updated_params)
     interface_eval = evaluate_interface_transmission(facts_text, archetypes, jur, engineering_params=updated_params)
+    sinosure_eval = evaluate_sinosure_compliance(facts_text, engineering_params=updated_params)
 
     # 刷新 entry_checks
-    updated_entry_checks = [c for c in state.entry_checks if not any(k in c.name for k in ["TKDN", "EOT", "接口传导"])]
+    updated_entry_checks = [c for c in state.entry_checks if not any(k in c.name for k in ["TKDN", "EOT", "接口传导", "信保", "Sinosure"])]
     if tkdn_eval.get("applicable"):
         updated_entry_checks.append(EntryCheckItem(
             name="印尼能矿部 MEMR 11/2024 本地化率 (TKDN) 配额合规与部委特许豁免审查",
@@ -1354,12 +1357,19 @@ def simulate_engineering(
                 status="uncertain",
                 detail=f"{risk['legal_rule']}。应对对策：{risk['counter_measure']}"
             ))
+    if sinosure_eval.get("applicable"):
+        updated_entry_checks.append(EntryCheckItem(
+            name="中国信保 (Sinosure) 30 日出险报损时效与代位求偿保全前置审查",
+            status="satisfied" if not sinosure_eval.get("is_overdue") else "uncertain",
+            detail=sinosure_eval.get("recommended_action", "")
+        ))
 
     state.entry_checks = updated_entry_checks
     state.engineering_audit = {
         "tkdn_eval": tkdn_eval,
         "eot_eval": eot_eval,
         "interface_eval": interface_eval,
+        "sinosure_eval": sinosure_eval,
         "simulation_params": updated_params,
         "updated_at": datetime.now().isoformat()
     }

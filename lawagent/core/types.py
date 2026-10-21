@@ -72,6 +72,8 @@ class CaseMeta(BaseModel):
     parent_case_id: Optional[str] = None
     fidic_book_edition: Optional[str] = None # '1999_SILVER' | '1999_YELLOW' | '1999_RED' 等
     host_country: Optional[str] = None       # 'ID' | 'VN' | 'MY' | 'SG' | 'TH' | 'PH'
+    project_host_country: Optional[str] = None # 项目所在东道国，如 'asean_id', 'asean_vn'
+    governing_law_jurisdiction: Optional[str] = None # 合同约定准据法/仲裁地，如 'asean_sg', 'asean_my'
     dispute_resolution: Optional[str] = None # 'SIAC' | 'BANI' | 'AIAC' | 'ICC' | 'Court' 等
     engineering_params: Dict[str, Any] = Field(default_factory=dict) # 结构化工程参数: declared_tkdn_pct, delay_days, main_ld_cap_pct, sub_ld_cap_pct 等
 

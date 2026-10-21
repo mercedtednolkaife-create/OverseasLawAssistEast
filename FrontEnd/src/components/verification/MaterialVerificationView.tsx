@@ -35,6 +35,14 @@ export const MaterialVerificationView: React.FC = () => {
     {
       label: '见索即付保函放弃止付禁令与排除法律变更调价条款',
       text: `Clause 4.2 & 13.7 (Performance Security & Law Changes): The Contractor unconditionally and irrevocably waives any right to seek court injunctions or stop payment on the Performance Security, even in cases of alleged unconscionability. Furthermore, Sub-Clause 13.7 of FIDIC is deleted: no adjustment to Contract Price shall be made for changes in laws, taxation or TKDN local content quotas enacted after the Base Date.`
+    },
+    {
+      label: '泰国外资商业法 FBA 附件三工程限制与 BOI 优惠合规条款',
+      text: `Clause 18.2 (Contractor Nationality & Subcontracting): The Contractor represents that it is 100% foreign owned without a Foreign Business License (FBL) under Thai Foreign Business Act B.E. 2542 (1999) List 3(10), relying on Board of Investment (BOI) Category 7 infrastructure incentives.`
+    },
+    {
+      label: '菲律宾承包商执照 (PCAB) 外资股权限制与 Manila Water 案平等待遇',
+      text: `Clause 2.4 (Licensing Condition Precedent): Main Contractor shall hold a Regular PCAB Contractor License under RA 4566. Employer reserves the right to terminate if foreign ownership exceeds 40%, unless protected by Supreme Court precedent G.R. No. 217590 (PCAB v. Manila Water).`
     }
   ];
 

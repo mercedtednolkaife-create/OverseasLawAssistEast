@@ -10,7 +10,7 @@ export const ExpertConsultsView: React.FC = () => {
   const [consults, setConsults] = useState<ConsultRecord[]>([]);
   const [selectedExpertId, setSelectedExpertId] = useState<string>('');
   const [questionText, setQuestionText] = useState(
-    '针对东盟东道国基建工程涉外合同，请就印尼2017年第2号建筑法第30条双语强制性要求及SEMA 3/2023司法解释对合同有效性之影响出具专家会商意见。'
+    '针对东盟东道国基建工程与跨境投资项目，请就东道国强行法（如印尼 SEMA 3/2023 语言合规、大马 CIPAA 35 背靠背无效、泰 FBA 外资限制、菲 PCAB 施工资质与 FIDIC 8.4/20.1 时效）出具权威专家法律意见。'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,11 +64,11 @@ export const ExpertConsultsView: React.FC = () => {
               <Users className="w-4 h-4 text-blue-600" />
             </div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-              域外法专家库与专业会商管理
+              东盟 Local Counsel 与 FIDIC DAAB 专家会商管理
             </h1>
           </div>
           <p className="text-xs text-slate-500 pl-11.5">
-            涉外法律专家资质审查、利益冲突排除及书面咨询意见流转留痕
+            特邀印尼、新加坡、大马、越南、泰国、菲律宾六国属地执业大律师与 FIDIC DAAB 裁决人，开展利益冲突排除与专家意见留痕
           </p>
         </div>
       </div>
@@ -80,7 +80,7 @@ export const ExpertConsultsView: React.FC = () => {
           <div className="apple-bento-card rounded-[28px] p-6 space-y-4 shadow-2xs">
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <FileText className="w-4 h-4 text-blue-600" />
-              发起域外法专家会商委托单
+              发起东盟属地大律师 / DAAB 专家会商委托单
             </h3>
 
             <form onSubmit={handleCreateConsult} className="space-y-4 text-xs">
@@ -136,7 +136,7 @@ export const ExpertConsultsView: React.FC = () => {
           {/* 专家名录卡片 */}
           <div className="apple-bento-card rounded-[28px] p-6 space-y-4">
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              入库特聘法学专家名单
+              东盟六国特聘 Local Counsel 与 DAAB 专家名录 (6位权威专家)
             </h3>
             <div className="space-y-3">
               {experts.map((exp) => (

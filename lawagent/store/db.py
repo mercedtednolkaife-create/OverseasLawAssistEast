@@ -509,7 +509,7 @@ class StateDBManager:
             cur = conn.cursor()
             cur.execute("SELECT * FROM experts")
             rows = cur.fetchall()
-            if not rows or (rows and "Hans" in rows[0]["name"]):
+            if not rows or len(rows) < 6 or (rows and "Hans" in rows[0]["name"]):
                 self._seed_experts()
                 cur.execute("SELECT * FROM experts")
                 rows = cur.fetchall()
@@ -534,6 +534,9 @@ class StateDBManager:
             ("EXP-001", "Dr. Arief Wijaya, S.H., LL.M.", "资深东盟工程法律顾问 / 印度尼西亚执业律师", "雅加达工程仲裁委员会 (BANI) / 印尼大学法学院", "印尼语, 英语, 中文", "印尼第2号建筑法, TKDN 本土化审查, SEMA 3/2023 语言合规", "印尼最高法院出庭资格、BANI 注册仲裁员", 1),
             ("EXP-002", "Prof. Kevin Tan, FCIArb", "新加坡国际仲裁中心 (SIAC) 资深仲裁员 / 教授", "新加坡国立大学法学院 / 新加坡建设工程学会", "英语, 中文, 马来语", "FIDIC 标准合同条件, 新加坡 SOPA 付款保障, 见索即付保函止付 (BS Mount Sophia)", "英国特许仲裁员协会院士 (FCIArb)、SIAC 专家组仲裁员", 1),
             ("EXP-003", "Dato' Lim Chong Beng, KMN", "马来西亚资深大律师 / CIPAA 裁决人", "吉隆坡亚洲国际仲裁中心 (AIAC) / 马来西亚律师公会", "英语, 马来语, 粤语, 中文", "马来西亚 CIPAA 快速裁决, 背靠背支付无效 (Sec 35), 国际特许经营争议", "马来西亚联邦法院出庭律师、AIAC 主任认证高级裁决员", 1),
+            ("EXP-004", "Nguyen Van Minh, Senior Counsel", "越南资深建设工程法务专家 / VIAC 仲裁员", "越南国际仲裁中心 (VIAC) / 河内律师协会", "越南语, 英语, 中文", "越南2025新建设法, 工期顺延 (EOT) 索赔, 违约赔偿上限", "越南司法部注册律师、VIAC 建设工程专属调解员", 1),
+            ("EXP-005", "Somchai Prasert, FCIArb", "泰国皇家执业大律师 / TAI 仲裁员", "泰国仲裁学会 (TAI) / 朱拉隆功大学法学院", "泰语, 英语, 中文", "泰国外资商业法 (FBA 1999), BOI 投资优惠政策, EPC 联合体架构", "泰国大律师公会会员、TAI 注册仲裁员", 1),
+            ("EXP-006", "Atty. Maria Santos, LL.M.", "菲律宾基建公私合营 (PPP) 资深法律顾问", "菲律宾建筑行业仲裁委员会 (CIAC) / 雅典耀大学", "英语, 他加禄语, 中文", "菲律宾 PCAB 资质准入 (RA 4566), Manila Water 案平等待遇, PPP 特许经营", "菲律宾最高法院出庭资格、CIAC 资深工程仲裁员", 1)
         ]
         def _do_seed(conn):
             cur = conn.cursor()

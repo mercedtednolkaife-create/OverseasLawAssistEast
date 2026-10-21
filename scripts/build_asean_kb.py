@@ -907,5 +907,10 @@ def ingest_asean_kb(snapshot_id: str = "20261010-gii-v0.7"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="入库东盟 2026 现行有效法源")
     parser.add_argument("--snapshot", type=str, default="20261010-gii-v0.7")
+    parser.add_argument("--legacy", action="store_true", help="使用旧版增量注入模式（不清理历史法条）")
     args = parser.parse_args()
-    ingest_asean_kb(args.snapshot)
+    if args.legacy:
+        ingest_asean_kb(args.snapshot)
+    else:
+        from scripts.build_pure_asean_kb import build_pure_asean_kb
+        build_pure_asean_kb(args.snapshot)

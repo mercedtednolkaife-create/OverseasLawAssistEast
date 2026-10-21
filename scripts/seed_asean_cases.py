@@ -184,7 +184,20 @@ def create_c101_case() -> CaseState:
             lifecycle_stage=LifecycleStage.EXECUTION_DISPUTE,
             project_archetypes=[ProjectArchetype.EPC_CONTRACTING, ProjectArchetype.JV_CONSORTIUM],
             fidic_book_edition="1999_SILVER",
-            host_country="印度尼西亚"
+            host_country="印度尼西亚",
+            project_host_country="印度尼西亚 (asean_id)",
+            governing_law_jurisdiction="印度尼西亚实体法及 FIDIC 银皮书",
+            engineering_params={
+                "tkdn_achieved": 28.0,
+                "tkdn_statutory_target": 40.0,
+                "has_sucofindo_cert": True,
+                "eot_delay_days": 180,
+                "notice_served_days": 7,
+                "sinosure_notice_days": 12,
+                "has_prevention_evidence": True,
+                "subcontract_ratio": 35.0,
+                "kso_local_partner_equity": 51.0
+            }
         ),
         security_alerts=[alert_infra, alert_tkdn],
         facts=facts,
@@ -198,7 +211,31 @@ def create_c101_case() -> CaseState:
         findings=findings,
         checks=checks,
         strategic_assessment=strategic_assessment,
-        dashboard=dashboard
+        dashboard=dashboard,
+        engineering_audit={
+            "tkdn_eval": {
+                "applicable": True,
+                "target_quota": 40.0,
+                "current_quota": 28.0,
+                "gap": -12.0,
+                "overall_status": "caution",
+                "recommendation": "光伏逆变器本土化率 28% 低于法定 40% 目标，已依据 MEMR Reg 11/2024 启动技术豁免程序"
+            },
+            "eot_eval": {
+                "applicable": True,
+                "claimed_days": 180,
+                "notice_served_days": 7,
+                "is_time_barred": False,
+                "recommended_defense": "已在第 7 天发出索赔意向函，符合 28 天通知时效前置要件"
+            },
+            "sinosure_eval": {
+                "applicable": True,
+                "is_compliant": True,
+                "notice_served_days": 12,
+                "status": "safe",
+                "recommendation": "中信保报损时效审查合规（12天 <= 30天上限），保险追偿权益完好有效"
+            }
+        }
     )
 
 
@@ -327,8 +364,22 @@ def create_c102_case() -> CaseState:
             parties=["中资央企投资总包方", "越南平顺风电业主公司"],
             choice_of_law="越南法与新加坡SIAC仲裁",
             lifecycle_stage=LifecycleStage.PRE_INVESTMENT,
+            stage="pre_investment",
             project_archetypes=[ProjectArchetype.CROSS_BORDER_MA, ProjectArchetype.EPC_CONTRACTING],
-            host_country="越南"
+            host_country="越南",
+            project_host_country="越南 (asean_vn)",
+            governing_law_jurisdiction="新加坡国际仲裁 (SIAC) / 英国法",
+            engineering_params={
+                "tkdn_achieved": 0.0,
+                "tkdn_statutory_target": 0.0,
+                "has_sucofindo_cert": False,
+                "eot_delay_days": 90,
+                "notice_served_days": 14,
+                "sinosure_notice_days": 18,
+                "has_prevention_evidence": True,
+                "subcontract_ratio": 25.0,
+                "kso_local_partner_equity": 0.0
+            }
         ),
         security_alerts=[alert_creeping],
         facts=facts,
@@ -342,7 +393,23 @@ def create_c102_case() -> CaseState:
         findings=findings,
         checks=checks,
         strategic_assessment=strategic_assessment,
-        dashboard=dashboard
+        dashboard=dashboard,
+        engineering_audit={
+            "eot_eval": {
+                "applicable": True,
+                "claimed_days": 90,
+                "notice_served_days": 14,
+                "is_time_barred": False,
+                "recommended_defense": "已在第 14 天发出索赔意向函，符合 FIDIC 黄皮书 20.1 通知时效"
+            },
+            "sinosure_eval": {
+                "applicable": True,
+                "is_compliant": True,
+                "notice_served_days": 18,
+                "status": "safe",
+                "recommendation": "中信保出险报损通知在 18 日内完成备案（法定上限 30 日），追偿权益不受影响"
+            }
+        }
     )
 
 
@@ -475,7 +542,20 @@ def create_c103_case() -> CaseState:
             choice_of_law="马来西亚实体法与新加坡法律",
             lifecycle_stage=LifecycleStage.EXECUTION_DISPUTE,
             project_archetypes=[ProjectArchetype.EPC_CONTRACTING],
-            host_country="马来西亚"
+            host_country="马来西亚",
+            project_host_country="马来西亚 (asean_my)",
+            governing_law_jurisdiction="马来西亚建筑法及新加坡国际仲裁 (SIAC)",
+            engineering_params={
+                "tkdn_achieved": 0.0,
+                "tkdn_statutory_target": 0.0,
+                "has_sucofindo_cert": False,
+                "eot_delay_days": 60,
+                "notice_served_days": 10,
+                "sinosure_notice_days": 8,
+                "has_prevention_evidence": True,
+                "subcontract_ratio": 42.0,
+                "kso_local_partner_equity": 0.0
+            }
         ),
         security_alerts=[alert_cipaa],
         facts=facts,
@@ -489,7 +569,23 @@ def create_c103_case() -> CaseState:
         findings=findings,
         checks=checks,
         strategic_assessment=strategic_assessment,
-        dashboard=dashboard
+        dashboard=dashboard,
+        engineering_audit={
+            "eot_eval": {
+                "applicable": True,
+                "claimed_days": 60,
+                "notice_served_days": 10,
+                "is_time_barred": False,
+                "recommended_defense": "已于第 10 天发出工期顺延预警，且马方 CIPAA 第 35 条背靠背条款无效抗辩成立"
+            },
+            "sinosure_eval": {
+                "applicable": True,
+                "is_compliant": True,
+                "notice_served_days": 8,
+                "status": "safe",
+                "recommendation": "已在业主拒付后第 8 天向中信保提交可能损失报告，保全保函止付与保险权益"
+            }
+        }
     )
 
 
@@ -634,8 +730,23 @@ def create_c104_case() -> CaseState:
             parties=["中资基建联合体", "菲律宾公工部 DPWH"],
             choice_of_law="菲律宾法与中菲双边投资协定",
             lifecycle_stage=LifecycleStage.PRE_INVESTMENT,
+            stage="pre_investment",
             project_archetypes=[ProjectArchetype.PPP_CONCESSION, ProjectArchetype.EPC_CONTRACTING],
-            host_country="菲律宾"
+            host_country="菲律宾",
+            project_host_country="菲律宾 (asean_ph)",
+            governing_law_jurisdiction="菲律宾法与中菲双边投资协定 (BIT) / ICSID 仲裁",
+            engineering_params={
+                "tkdn_achieved": 0.0,
+                "tkdn_statutory_target": 0.0,
+                "has_sucofindo_cert": False,
+                "eot_delay_days": 0,
+                "notice_served_days": 0,
+                "sinosure_notice_days": 21,
+                "has_prevention_evidence": True,
+                "foreign_equity_ratio": 60.0,
+                "subcontract_ratio": 20.0,
+                "kso_local_partner_equity": 40.0
+            }
         ),
         security_alerts=[alert_expropriation, alert_sec],
         facts=facts,
@@ -649,7 +760,21 @@ def create_c104_case() -> CaseState:
         findings=findings,
         checks=checks,
         strategic_assessment=strategic_assessment,
-        dashboard=dashboard
+        dashboard=dashboard,
+        engineering_audit={
+            "ph_eval": {
+                "applicable": True,
+                "status": "safe",
+                "recommendation": "依据最高法院 Manila Water 里程碑判例，PCAB 普通施工执照外资股权限制已违宪无效，外资可平等准入"
+            },
+            "sinosure_eval": {
+                "applicable": True,
+                "is_compliant": True,
+                "notice_served_days": 21,
+                "status": "safe",
+                "recommendation": "在政府单方发布停工令后第 21 日完成中信保出险报损登记，追偿权完好"
+            }
+        }
     )
 
 

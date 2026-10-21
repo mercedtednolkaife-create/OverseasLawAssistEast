@@ -43,6 +43,7 @@ import { FloatingOmniBar } from './FloatingOmniBar';
 export const CaseAnalysisView: React.FC = () => {
   const {
     currentCase,
+    setCurrentCase,
     setCurrentView,
     openLawModal,
     openLawDrawer,
@@ -68,6 +69,7 @@ export const CaseAnalysisView: React.FC = () => {
   const [simNoticeDays, setSimNoticeDays] = useState<number>(initialParams.notice_days ?? 18);
   const [simMainLd, setSimMainLd] = useState<number>(initialParams.main_ld_cap_pct ?? 15);
   const [simSubLd, setSimSubLd] = useState<number>(initialParams.sub_ld_cap_pct ?? 10);
+  const [simSinosureDays, setSimSinosureDays] = useState<number>(initialParams.sinosure_notice_days ?? 12);
   const [isSimulatingEng, setIsSimulatingEng] = useState<boolean>(false);
 
   // 当案件变更或后台重算返回时，自动同步沙盘滑块数值
@@ -78,21 +80,27 @@ export const CaseAnalysisView: React.FC = () => {
     if (params.notice_days !== undefined) setSimNoticeDays(params.notice_days);
     if (params.main_ld_cap_pct !== undefined) setSimMainLd(params.main_ld_cap_pct);
     if (params.sub_ld_cap_pct !== undefined) setSimSubLd(params.sub_ld_cap_pct);
+    if (params.sinosure_notice_days !== undefined) setSimSinosureDays(params.sinosure_notice_days);
   }, [currentCase?.case_id, currentCase?.meta?.engineering_params]);
 
   const handleSimulateEngineering = async () => {
     if (!currentCase) return;
     setIsSimulatingEng(true);
     try {
-      await lawAgentApi.simulateEngineering(currentCase.case_id, {
+      const updatedCase = await lawAgentApi.simulateEngineering(currentCase.case_id, {
         declared_tkdn_pct: simTkdn,
         delay_days: simDelayDays,
         notice_days: simNoticeDays,
+        sinosure_notice_days: simSinosureDays,
         main_ld_cap_pct: simMainLd,
         sub_ld_cap_pct: simSubLd,
       });
-      await loadCase(currentCase.case_id, true);
-      showToast('工程专项算子与合规门禁已完成实时重算！', 'success');
+      if (updatedCase) {
+        setCurrentCase(updatedCase);
+      } else {
+        await loadCase(currentCase.case_id, true);
+      }
+      showToast('工程专项算子与中信保合规门禁已完成实时重算！', 'success');
     } catch (err: any) {
       showToast(err.message || '沙盘试算失败', 'error');
     } finally {
@@ -891,7 +899,7 @@ export const CaseAnalysisView: React.FC = () => {
                     东盟工程专项审查算子与交互式沙盘试算 (Engineering Audit & What-If Sandbox)
                   </h3>
                   <span className="text-xs font-mono bg-blue-50 text-blue-700 border border-blue-200/60 px-2 py-0.5 rounded-md font-semibold">
-                    TKDN · EOT 28D · 接口传导
+                    TKDN · EOT 28D · 违约金传导 · 中信保 30D
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">
@@ -919,8 +927,8 @@ export const CaseAnalysisView: React.FC = () => {
               </button>
             </div>
 
-            {/* 三大专项算子数据卡片网格 */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 四大涉外工程与信保合规算子数据卡片网格 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {/* 卡片 1: 印尼 TKDN 本地化率 */}
               <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
                 <div className="flex items-center justify-between">
@@ -1072,6 +1080,54 @@ export const CaseAnalysisView: React.FC = () => {
                       className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg font-mono"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* 卡片 4: 中信保 (Sinosure) 30 日出险报损时效审查 */}
+              <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                    中信保 30 日报损时效
+                  </span>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                    simSinosureDays <= 30 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {simSinosureDays <= 30 ? '时效合规' : '超期预警'}
+                  </span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">已用时: <strong className="text-slate-900 font-mono">{simSinosureDays} 天</strong></span>
+                    <span className="text-slate-500">保全红线: <strong className="text-blue-600 font-mono">30 天</strong></span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${simSinosureDays <= 30 ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                      style={{ width: `${Math.min(100, (simSinosureDays / 45) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {simSinosureDays <= 30
+                      ? `在 30 日内递交《可能损失通知书》，余 ${30 - simSinosureDays} 天安全期，追偿权完好`
+                      : `已超 30 日限期 ${simSinosureDays - 30} 天，面临保单理赔拒赔抗辩，需启动紧急对冲`}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/60 space-y-1">
+                  <label className="text-[11px] font-medium text-slate-600 flex justify-between">
+                    <span>沙盘模拟报损天数:</span>
+                    <span className="font-mono font-bold text-blue-600">{simSinosureDays} 天</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="60"
+                    value={simSinosureDays}
+                    onChange={(e) => setSimSinosureDays(Number(e.target.value))}
+                    className="w-full accent-blue-600 cursor-pointer"
+                  />
                 </div>
               </div>
             </div>
@@ -1888,6 +1944,7 @@ export const CaseAnalysisView: React.FC = () => {
         isOpen={showViabilityModal}
         onClose={() => setShowViabilityModal(false)}
         assessment={legalAssessment}
+        isPreInvestment={isPreInv}
       />
 
       {/* 对方抗辩应对策略与重新测算弹窗 */}

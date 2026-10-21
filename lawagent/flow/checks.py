@@ -48,6 +48,16 @@ def calibrate_asean_entry_checks(meta: CaseMeta) -> List[EntryCheckItem]:
     jur = meta.jurisdiction or "asean_id"
     checks: List[EntryCheckItem] = []
 
+    # 0. 准据法与工程东道国强行法脱钩冲突检测 (Lex Loci Solutionis Override)
+    host_c = meta.project_host_country or meta.jurisdiction or "asean_id"
+    gov_law = meta.governing_law_jurisdiction or meta.jurisdiction or host_c
+    if meta.project_host_country and meta.governing_law_jurisdiction and meta.project_host_country != meta.governing_law_jurisdiction:
+        checks.append(EntryCheckItem(
+            name="准据法脱钩冲突检测：合同选法 vs. 东道国强行法穿透适用 (Lex Loci Solutionis Override)",
+            status="uncertain",
+            detail=f"主合同选定准据法/仲裁地为【{gov_law}】，但工程所在地【{host_c}】之建筑强行法（语言双语签署令、本地化率TKDN配额、原住民土地习惯法）具有排他强行适用效力，不可约定排除！"
+        ))
+
     # 1. 准据法与争议解决条款约定
     has_choice = bool(meta.choice_of_law and ("印尼" in meta.choice_of_law or "越南" in meta.choice_of_law or "马来" in meta.choice_of_law or "新加坡" in meta.choice_of_law or "泰国" in meta.choice_of_law or "菲律宾" in meta.choice_of_law or "FIDIC" in meta.choice_of_law))
     checks.append(EntryCheckItem(

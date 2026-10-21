@@ -3,6 +3,7 @@
 """
 
 import re
+import asyncio
 from typing import List, Dict, Any, Literal, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -101,14 +102,11 @@ ASEAN_CONTRACT_REDLINES = [
 ]
 
 
-@router.post("", response_model=VerifyResponse)
-def verify_foreign_materials(
-    payload: VerifyRequest,
-    snapshot_mgr: SnapshotManager = Depends(get_snapshot_mgr)
-):
-    """解析并校验当事人提交的东盟工程法条、判例摘录或工程合同草案红线体检"""
-    text = payload.raw_text
-    mode = payload.mode
+def _run_verification(
+    text: str,
+    mode: str,
+    snapshot_mgr: SnapshotManager
+) -> VerifyResponse:
     items: List[VerifyItem] = []
     redline_items: List[ContractRedlineItem] = []
     seen_refs = set()
@@ -280,3 +278,12 @@ def verify_foreign_materials(
             "risk_count": risk_count
         }
     )
+
+
+@router.post("", response_model=VerifyResponse)
+async def verify_foreign_materials(
+    payload: VerifyRequest,
+    snapshot_mgr: SnapshotManager = Depends(get_snapshot_mgr)
+):
+    """解析并校验当事人提交的东盟工程法条、判例摘录或工程合同草案红线体检（通过线程池异步卸载）"""
+    return await asyncio.to_thread(_run_verification, payload.raw_text, payload.mode, snapshot_mgr)

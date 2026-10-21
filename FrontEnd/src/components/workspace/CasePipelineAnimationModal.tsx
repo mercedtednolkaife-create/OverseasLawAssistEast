@@ -20,6 +20,8 @@ export interface PipelineCaseMeta {
   sellerCountry?: string;
   cisgClause?: 'excluded' | 'unspecified';
   jurisdiction?: 'asean_id' | 'asean_vn' | 'asean_my' | 'asean_sg' | 'asean_th' | 'asean_ph' | string;
+  stage?: string;
+  isPreInvestment?: boolean;
 }
 
 interface CasePipelineAnimationModalProps {
@@ -30,7 +32,57 @@ interface CasePipelineAnimationModalProps {
 }
 
 // 5 阶段查明流水线定义，每个 Step 最短时间设置为 5 秒 (5000ms)，文字纯净精炼
-export const buildPipelineStages = (_caseMeta: PipelineCaseMeta) => {
+export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
+  const isPreInv =
+    caseMeta?.isPreInvestment ||
+    caseMeta?.stage === 'pre_investment' ||
+    (caseMeta?.title && (caseMeta.title.includes('并购') || caseMeta.title.includes('PPP') || caseMeta.title.includes('投资')));
+
+  if (isPreInv) {
+    return [
+      {
+        id: 'asean-gate',
+        stepNumber: '01',
+        title: 'Agent正在执行投资准入识别、东道国外资限制与央企合规前置审查',
+        coreAction: '核验东道国外商投资负面清单（泰FBA/菲PCAB/印尼投资法）、土地所有权限制及国资委35号令门禁',
+        durationMs: 5000,
+        pills: ['东道国外资准入', '负面清单核查', '国资委35号令门禁'],
+      },
+      {
+        id: 'decomposition',
+        stepNumber: '02',
+        title: 'Agent正在执行跨境投资与工程准入合规要项结构化拆解',
+        coreAction: '将投资合规要项拆解为外资股权红线(40%)、本地化率(TKDN)、PPP特许经营换届征收与中信保30日报损',
+        durationMs: 5000,
+        pills: ['外资持股比例', 'TKDN/准入牌照', '中信保报损时效'],
+      },
+      {
+        id: 'hybrid-rag',
+        stepNumber: '03',
+        title: 'Agent正在执行东盟外资法典、BOI政策通告与特许经营判例检索',
+        coreAction: '检索东道国外资法典、菲律宾Manila Water判例、中菲/中越双边投资协定(BIT)与PPP法典现行规范',
+        durationMs: 5000,
+        pills: ['外资保护条约', '权威司法先例', 'BOI投资优惠'],
+      },
+      {
+        id: 'verification',
+        stepNumber: '04',
+        title: 'Agent正在执行东道国政府批文防伪与投前尽调证据闭环核验',
+        coreAction: '对齐东道国投资部(BKPM/BOI)官方正本，核验特许权协议、征地环评批文与合资联营架构真实性',
+        durationMs: 5000,
+        pills: ['投资部一手批文', '尽调证据链闭环', '穿透式合规审查'],
+      },
+      {
+        id: 'synthesis',
+        stepNumber: '05',
+        title: 'Agent正在执行投前准入构成要件评估与合规落地审查意见书生成',
+        coreAction: '完成准入要件充分性评估与投资架构对冲设计，生成投前合规审查意见书与双包落地指引',
+        durationMs: 5000,
+        pills: ['准入合规评估', '投资对冲方案', '合规意见书就绪'],
+      },
+    ];
+  }
+
   return [
     {
       id: 'asean-gate',
@@ -74,7 +126,6 @@ export const buildPipelineStages = (_caseMeta: PipelineCaseMeta) => {
     },
   ];
 };
-
 export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProps> = ({
   isOpen,
   onClose,

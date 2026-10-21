@@ -11,6 +11,8 @@ import {
   ExternalLink,
   Shield,
   Layers,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 
 export const VerificationDashboardView: React.FC = () => {
@@ -93,6 +95,96 @@ export const VerificationDashboardView: React.FC = () => {
         <div className="flex items-center gap-2 font-mono text-xs text-slate-600 bg-white/70 border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-2xs">
           <Database className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span>权威库快照: {d.snapshot_id}</span>
+        </div>
+      </div>
+
+      {/* 央国企东盟工程与海外投资合规风险监控大盘 (ASEAN SOE Engineering & Investment Risk Radar) */}
+      <div className="apple-bento-card rounded-[28px] p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs shadow-blue-500/50" />
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+              央国企东盟基建与海外投资合规雷达 (SOE Overseas Compliance & Risk Radar)
+            </h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200/60 font-semibold">
+              国资委35号令 · 中信保 · 东盟强行法
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-400 font-mono">
+            覆盖印尼、越南、大马、新加坡、泰国、菲律宾六大出海法域
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3.5 text-xs">
+          {/* 雷达项 1: 印尼 TKDN 本地化率 */}
+          <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800">印尼 TKDN 本地化率</span>
+              <span className="w-2 h-2 rounded-full bg-amber-500 shadow-xs shadow-amber-500/60" />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              能矿部 MEMR 11/2024 电力组件法定门槛 40%，未达标可凭国内无量产证明申请过渡期特许豁免。
+            </p>
+            <div className="text-[10px] font-mono font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md inline-block">
+              合规建议：申请 Sucofindo 豁免
+            </div>
+          </div>
+
+          {/* 雷达项 2: 中信保 30 日出险报损 */}
+          <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800">中信保 30 日报损时效</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/60" />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              业主拒付或违约出险之日起 30 个自然日内提交可能损失通知书，保全代位求偿与保险金理赔权。
+            </p>
+            <div className="text-[10px] font-mono font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
+              保全状态：时效期内有效
+            </div>
+          </div>
+
+          {/* 雷达项 3: 印尼 SEMA 3/2023 双语效力 */}
+          <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800">SEMA 3/2023 语言合规</span>
+              <span className="w-2 h-2 rounded-full bg-blue-600 shadow-xs shadow-blue-500/60" />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              印尼最高院裁判规则：除非证明存在恶意欺诈，严禁仅以缺少印尼语版本判决涉外合同自始无效。
+            </p>
+            <div className="text-[10px] font-mono font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md inline-block">
+              司法防线：契约善意受保护
+            </div>
+          </div>
+
+          {/* 雷达项 4: 菲律宾 PCAB 外资资质平等待遇 */}
+          <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800">菲律宾 PCAB 资质平等</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-xs shadow-emerald-500/60" />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              最高院 Manila Water 判例判令普通执照外资 40% 股权限制违宪，外资控股企业依法平等准入。
+            </p>
+            <div className="text-[10px] font-mono font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
+              宪法判例：反垄断准入有效
+            </div>
+          </div>
+
+          {/* 雷达项 5: 双边投资协定 (BIT) 间接征收 */}
+          <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-800">中东盟 BIT 条约保护</span>
+              <span className="w-2 h-2 rounded-full bg-blue-600 shadow-xs shadow-blue-500/60" />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              政府换届单方停工或补贴追溯调整属于间接征收，可依据 BIT 启动 ICSID 仲裁主张公允市场重置补偿。
+            </p>
+            <div className="text-[10px] font-mono font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md inline-block">
+              救济框架：ICSID 条约救济
+            </div>
+          </div>
         </div>
       </div>
 

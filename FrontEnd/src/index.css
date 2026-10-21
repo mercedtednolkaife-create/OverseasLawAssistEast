@@ -338,3 +338,89 @@
   animation: apple-tab-fade-slide 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: transform, opacity;
 }
+
+/* ========================================================================= */
+/* Apple / Microsoft Fluent 2 现代工业级高阶视觉体系 (Mica & Acrylic & Space Titanium) */
+/* ========================================================================= */
+
+.mica-canvas {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(219, 234, 254, 0.45), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(241, 245, 249, 0.6), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 0% 100%, rgba(224, 231, 255, 0.35), transparent 70%);
+  background-attachment: fixed;
+}
+
+.acrylic-card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 1px 3px 0 rgba(15, 23, 42, 0.04),
+    0 8px 24px -4px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.acrylic-card:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(226, 232, 240, 0.95);
+  box-shadow: 
+    0 4px 12px -2px rgba(15, 23, 42, 0.06),
+    0 16px 36px -6px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 1);
+}
+
+.btn-space-titanium {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 4px 12px rgba(15, 23, 42, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-space-titanium:hover {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.12),
+    0 8px 20px rgba(15, 23, 42, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.apple-segmented-control {
+  background: rgba(241, 245, 249, 0.85);
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  display: inline-flex;
+  gap: 2px;
+}
+.apple-segmented-item-active {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 1px rgba(15, 23, 42, 0.04);
+  border-radius: 9px;
+}
+
+.glow-dot-emerald {
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+.glow-dot-amber {
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+}
+.glow-dot-rose {
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
+}
+.glow-dot-blue {
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

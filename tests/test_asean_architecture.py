@@ -242,3 +242,121 @@ async def test_end_to_end_asean_workflow_simulation():
     assert any("FIDIC_SILVER:Clause8.4" in n for n in q0.must_norms)
     assert any("ID_SEMA:3_2023" in n for n in q0.must_norms)
     assert any("MY_CIPAA:Sec35" in n for n in q0.must_norms)
+
+
+def test_sinosure_compliance_operator():
+    """核验中信保 30 日出险报损时效审查算子"""
+    from lawagent.flow.security_sentinel import evaluate_sinosure_compliance
+
+    # Case A: 12天报损，合规安全
+    res_safe = evaluate_sinosure_compliance("中信保海外投资险保单出险报损", engineering_params={"sinosure_notice_days": 12})
+    assert res_safe["applicable"] is True
+    assert res_safe["is_compliant"] is True
+    assert res_safe["is_overdue"] is False
+    assert res_safe["days_remaining"] == 18
+    assert res_safe["status"] == "safe"
+
+    # Case B: 38天报损，逾期预警
+    res_overdue = evaluate_sinosure_compliance("中信保出险报损通知", engineering_params={"sinosure_notice_days": 38})
+    assert res_overdue["applicable"] is True
+    assert res_overdue["is_compliant"] is False
+    assert res_overdue["is_overdue"] is True
+    assert res_overdue["days_remaining"] == 0
+    assert res_overdue["status"] == "caution"
+
+
+def test_ph_and_th_market_entry_operators():
+    """核验菲律宾 PCAB 施工资质与泰国 FBA 外资商业法审查算子"""
+    from lawagent.flow.security_sentinel import evaluate_ph_contractor_license, evaluate_th_foreign_business_act
+
+    # 菲律宾 PCAB 资质测试
+    res_ph_reg = evaluate_ph_contractor_license("菲律宾马尼拉大桥工程", foreign_equity_pct=35.0)
+    assert res_ph_reg["applicable"] is True
+    assert res_ph_reg["is_regular_eligible"] is True
+    assert "Regular License" in res_ph_reg["recommended_license"]
+
+    res_ph_spec = evaluate_ph_contractor_license("菲律宾公工部 PPP 项目", foreign_equity_pct=60.0)
+    assert res_ph_spec["applicable"] is True
+    assert res_ph_spec["is_regular_eligible"] is False
+    assert "Special License" in res_ph_spec["recommended_license"]
+    assert "Manila_Water" in res_ph_spec["legal_basis"]
+    assert "Manila Water" in res_ph_spec["counter_measure"]
+
+    # 泰国 FBA 外资商业法测试
+    res_th_ok = evaluate_th_foreign_business_act("泰国曼谷电站 EPC 项目", foreign_equity_pct=45.0)
+    assert res_th_ok["applicable"] is True
+    assert res_th_ok["is_fba_restricted"] is False
+
+    res_th_restricted = evaluate_th_foreign_business_act("泰国曼谷高架桥施工项目", foreign_equity_pct=70.0)
+    assert res_th_restricted["applicable"] is True
+    assert res_th_restricted["is_fba_restricted"] is True
+    assert "BOI" in res_th_restricted["exemption_route"]
+
+
+def test_lex_loci_solutionis_decoupling_override():
+    """核验合同约定准据法与工程所在国强行法脱钩穿透审查门禁"""
+    # 脱钩场景：项目在印尼，约定英国法/新加坡法
+    meta_decoupled = CaseMeta(
+        jurisdiction="asean_id",
+        project_host_country="asean_id",
+        governing_law_jurisdiction="英国普通法 (English Law)"
+    )
+    checks_decoupled = generate_entry_checks(meta_decoupled)
+    override_items = [c for c in checks_decoupled if "脱钩" in c.name or "Lex Loci" in c.name]
+    assert len(override_items) == 1
+    assert "不可约定排除" in override_items[0].detail
+
+    # 未脱钩场景：项目在印尼，约定印尼实体法
+    meta_same = CaseMeta(
+        jurisdiction="asean_id",
+        project_host_country="asean_id",
+        governing_law_jurisdiction="asean_id"
+    )
+    checks_same = generate_entry_checks(meta_same)
+    assert not any("脱钩" in c.name for c in checks_same)
+
+
+def test_local_counsel_expert_roster_coverage(seeded_db):
+    """核验东盟六国 Local Counsel 与 DAAB 专家库名录完整性"""
+    experts = seeded_db.list_experts()
+    assert len(experts) >= 6
+    countries_represented = set()
+    for exp in experts:
+        aff = exp["affiliation"] + " " + exp["name"] + " " + exp["title"]
+        if "印尼" in aff or "BANI" in aff or "Wijaya" in aff:
+            countries_represented.add("ID")
+        if "新加坡" in aff or "SIAC" in aff or "Kevin Tan" in aff:
+            countries_represented.add("SG")
+        if "马来西亚" in aff or "AIAC" in aff or "Lim Chong Beng" in aff:
+            countries_represented.add("MY")
+        if "越南" in aff or "VIAC" in aff or "Nguyen" in aff:
+            countries_represented.add("VN")
+        if "泰国" in aff or "TAI" in aff or "Somchai" in aff:
+            countries_represented.add("TH")
+        if "菲律宾" in aff or "CIAC" in aff or "Santos" in aff:
+            countries_represented.add("PH")
+
+    assert {"ID", "SG", "MY", "VN", "TH", "PH"}.issubset(countries_represented)
+
+
+@pytest.mark.asyncio
+async def test_async_verify_foreign_materials():
+    """核验外国法证据材料异步线程池校验与红线扫描"""
+    from lawagent.api.routes.verify import verify_foreign_materials, VerifyRequest
+    from lawagent.store.snapshots import SnapshotManager
+
+    sm = SnapshotManager()
+    sample_text = (
+        "Clause 14.8: Payments shall be pay when paid. "
+        "FIDIC Clause 20.1 requires notice within 28 days. "
+        "Under BS Mount Sophia, injunction was granted."
+    )
+    req = VerifyRequest(raw_text=sample_text, mode="CONTRACT_REDLINE_AUDIT")
+    res = await verify_foreign_materials(req, snapshot_mgr=sm)
+
+    assert res.raw_text == sample_text
+    assert len(res.redline_items) >= 1
+    assert any("背靠背" in item.violated_rule_title for item in res.redline_items)
+    assert len(res.items) >= 1
+    assert res.summary["total"] >= 1
+

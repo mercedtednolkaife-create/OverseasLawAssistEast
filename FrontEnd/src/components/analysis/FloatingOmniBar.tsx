@@ -45,16 +45,33 @@ export const FloatingOmniBar: React.FC<FloatingOmniBarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 严格绑定后端真实数据：从当前案件的胜败要害与抗辩争点提取真正的快速假设变量
+  const isPreInvestment =
+    currentCase?.meta?.stage === 'pre_investment' ||
+    currentCase?.meta?.lifecycle_stage === 'pre_investment' ||
+    currentCase?.meta?.lifecycle_stage === ('bidding_investment' as any);
+
+  // 严格绑定后端真实数据：从当前案件的胜败要害与合规要项提取真正的快速假设变量
   const quickPrompts = useMemo(() => {
     if (currentCase?.strategic_assessment?.pivotal_factors?.length) {
       return currentCase.strategic_assessment.pivotal_factors.slice(0, 3);
     }
+    if (isPreInvestment) {
+      return [
+        '中信保 30 日出险报损要件',
+        '泰国 FBA 附件三工程限制与 BOI 优惠',
+        '菲律宾 PCAB 资质与外资股权比例',
+        '印尼 TKDN 40% 配额豁免申请',
+      ];
+    }
     if (currentCase?.issues?.length) {
       return currentCase.issues.slice(0, 3).map((iss) => iss.text_zh);
     }
-    return [];
-  }, [currentCase]);
+    return [
+      'FIDIC 20.1 款 28 天通知失权抗辩',
+      '印尼 SEMA 3/2023 双语合同效力',
+      '新加坡 BS Mount Sophia 显失公平保函止付',
+    ];
+  }, [currentCase, isPreInvestment]);
 
   // 真实前后端对接：调用真实的 POST /cases/{case_id}/chat 接口
   const handleSimulate = async (customPrompt?: string) => {
@@ -177,7 +194,9 @@ export const FloatingOmniBar: React.FC<FloatingOmniBarProps> = ({
         <div className="pointer-events-auto w-full mb-2 p-1.5 rounded-xl bg-white/95 backdrop-blur-2xl text-xs text-slate-700 flex items-center justify-between gap-2 shadow-[0_6px_24px_rgba(15,23,42,0.08)] border border-slate-200/80 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="flex items-center gap-1.5 text-slate-500 font-medium pl-1 shrink-0">
             <Zap className="w-3 h-3 text-amber-500" />
-            <span className="text-[10px] text-slate-600 font-semibold">胜败变量：</span>
+            <span className="text-[10px] text-slate-600 font-semibold">
+              {isPreInvestment ? '合规要项：' : '胜败变量：'}
+            </span>
           </div>
           <div className="flex items-center gap-1 flex-wrap overflow-hidden">
             {quickPrompts.map((p, idx) => (
@@ -233,7 +252,7 @@ export const FloatingOmniBar: React.FC<FloatingOmniBarProps> = ({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600" />
             </span>
             <span className="font-semibold text-slate-800 text-[11px] tracking-tight whitespace-nowrap">
-              Agent 智能追问
+              {isPreInvestment ? '合规智能追问' : 'Agent 智能追问'}
             </span>
           </div>
           <div className="flex items-center gap-1 text-slate-400">
@@ -267,7 +286,11 @@ export const FloatingOmniBar: React.FC<FloatingOmniBarProps> = ({
               onFocus={() => setIsFocused(true)}
               onBlur={() => setTimeout(() => setIsFocused(false), 200)}
               onKeyDown={(e) => e.key === 'Enter' && handleSimulate()}
-              placeholder="向查明 Agent 提问当前案情，或输入假设条件实时重算..."
+              placeholder={
+                isPreInvestment
+                  ? '向合规 Agent 提问投前准入限制，或输入东道国政策假设...'
+                  : '向查明 Agent 提问当前案情，或输入假设条件实时重算...'
+              }
               className="w-full bg-transparent text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
               tabIndex={isExpanded ? 0 : -1}
             />

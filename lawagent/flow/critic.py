@@ -165,13 +165,18 @@ def run_critic_checks(state: CaseState) -> Tuple[List[CheckItem], DashboardMetri
     # -------------------------------------------------------------
     # V9: 双包结构完整性 (Part A + Part B)
     # -------------------------------------------------------------
+    is_pre_inv = (
+        getattr(state.meta, "stage", "dispute") == "pre_investment"
+        or getattr(state.meta, "lifecycle_stage", None) in ("pre_investment", "bidding_investment")
+    )
     has_part_a = any(st.part == "A" for st in all_statements)
     has_part_b = any(st.part == "B" for st in all_statements)
     v9_pass = has_part_a and has_part_b
+    package_name = "【A包 东盟准入合规查明包】与【B包 投前合规风险与架构应对包】" if is_pre_inv else "【A包 查明材料包】与【B包 咨询准备包】"
     checks.append(CheckItem(
         code="V9",
         status="pass" if v9_pass else "fail",
-        reason="输出成果已完整包含【A包 查明材料包】与【B包 咨询准备包】" if v9_pass else f"结构不完整：Part A={has_part_a}, Part B={has_part_b}"
+        reason=f"输出成果已完整包含{package_name}" if v9_pass else f"结构不完整：Part A={has_part_a}, Part B={has_part_b}"
     ))
 
     # -------------------------------------------------------------

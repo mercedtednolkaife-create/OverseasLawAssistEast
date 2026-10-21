@@ -474,6 +474,132 @@ def evaluate_interface_transmission(
     }
 
 
+def evaluate_sinosure_compliance(
+    facts_text: str,
+    engineering_params: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> Dict[str, Any]:
+    """中国信保 (Sinosure) 海外工程/特险 30 日出险报损时效审查算子"""
+    import re
+    params = engineering_params or {}
+    sinosure_days = params.get("sinosure_notice_days")
+    if sinosure_days is None:
+        m = re.search(r'(?:出险|违约|拒付|停工|接管|索兑)[^\d天dD]{0,25}?(\d+)\s*(?:天|days?)', facts_text, re.IGNORECASE)
+        if m:
+            sinosure_days = int(m.group(1))
+        elif "30天" in facts_text or "30" in facts_text:
+            sinosure_days = 20
+        else:
+            sinosure_days = 15
+
+    has_sinosure_trigger = any(w in facts_text for w in ["中信保", "信保", "保单", "拒付", "拖欠", "国有化", "政治险", "征收", "废约", "保函索兑"]) or (sinosure_days is not None)
+    max_days = 30
+    is_overdue = (sinosure_days > max_days) if sinosure_days is not None else False
+
+    return {
+        "applicable": has_sinosure_trigger,
+        "is_compliant": not is_overdue,
+        "status": "safe" if not is_overdue else "caution",
+        "notice_days": sinosure_days or 15,
+        "max_window_days": max_days,
+        "is_overdue": is_overdue,
+        "days_remaining": max(0, max_days - (sinosure_days or 15)),
+        "policy_basis": "Sinosure_Policy:Notice_Clause_Art12",
+        "recommendation": (
+            "中信保报损时效审查合规（已用时 <= 30天上限），保险追偿权益完好有效"
+            if not is_overdue
+            else f"已超出中信保 30 日出险报损时限 {sinosure_days - max_days} 天，需向保险人递交不可抗力合理抗辩"
+        ),
+        "recommended_action": (
+            "依据中国信保海外投资及工程险通则第12条：在得知业主迟延付款超约定期限或政府隐性征收后，"
+            "必须在30个自然日内向中国信保递交《可能损失通知书》(Notice of Possible Loss)。"
+            "逾期报损将导致保险人免责或扣减赔偿金。"
+        )
+    }
+
+
+def evaluate_ph_contractor_license(
+    facts_text: str,
+    jurisdiction: Optional[str] = None,
+    foreign_equity_pct: Optional[float] = None,
+    engineering_params: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> Dict[str, Any]:
+    """菲律宾外资承包商执照 (PCAB) 与外资股比限制审查算子 (RA 4566 & Manila Water 案)"""
+    import re
+    params = engineering_params or {}
+    if foreign_equity_pct is None:
+        foreign_equity_pct = params.get("foreign_equity_pct") or params.get("foreign_equity_ratio")
+    if foreign_equity_pct is None:
+        m = re.search(r'(?:外资|中资|股权|持股)[^\d%]{0,20}?(\d+(?:\.\d+)?)\s*%', facts_text, re.IGNORECASE)
+        if m:
+            foreign_equity_pct = float(m.group(1))
+        else:
+            foreign_equity_pct = 40.0
+
+    has_ph = (jurisdiction in ("asean_ph", "philippines")) or any(k in facts_text for k in ["菲律宾", "PCAB", "马尼拉", "RA 11966", "RA 4566"])
+    is_regular_eligible = foreign_equity_pct <= 40.0
+    status = "safe" if is_regular_eligible else "caution"
+    return {
+        "applicable": has_ph,
+        "status": status,
+        "foreign_equity_pct": foreign_equity_pct,
+        "is_regular_eligible": is_regular_eligible,
+        "recommended_license": "Regular License (普通执照)" if is_regular_eligible else "Special License (项目专项执照 / Quadruple A)",
+        "legal_basis": "PH:RA_4566:Contractor_License & PCAB_v_Manila_Water_2020",
+        "recommendation": (
+            "外资持股 <= 40%，符合菲律宾 PCAB 普通承包商执照 (Regular License) 申请法定门槛"
+            if is_regular_eligible
+            else "依据最高院 Manila Water 案先例：外资持股超 40% 不构成拒发执照合法理由，可申请 Special License"
+        ),
+        "counter_measure": (
+            "依据菲律宾最高院 PCAB v. Manila Water 先例：外资持股超 40% 不得作为拒绝发照的合法理由；"
+            "中资企业可依项目申请 Special License，或与本地具备 AAAA 牌照的一类建筑企业组建联营体参与公建招标。"
+        )
+    }
+
+
+def evaluate_th_foreign_business_act(
+    facts_text: str,
+    jurisdiction: Optional[str] = None,
+    foreign_equity_pct: Optional[float] = None,
+    engineering_params: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> Dict[str, Any]:
+    """泰国《外商经营法》(FBA 1999) 建筑施工准入与 BOI 投资优惠审查算子"""
+    import re
+    params = engineering_params or {}
+    if foreign_equity_pct is None:
+        foreign_equity_pct = params.get("foreign_equity_pct") or params.get("foreign_equity_ratio")
+    if foreign_equity_pct is None:
+        m = re.search(r'(?:外资|中资|股权|持股)[^\d%]{0,20}?(\d+(?:\.\d+)?)\s*%', facts_text, re.IGNORECASE)
+        if m:
+            foreign_equity_pct = float(m.group(1))
+        else:
+            foreign_equity_pct = 49.0
+
+    has_th = (jurisdiction in ("asean_th", "thailand")) or any(k in facts_text for k in ["泰国", "曼谷", "FBA", "BOI", "CCC 596"])
+    is_fba_restricted = foreign_equity_pct > 49.0
+    status = "safe" if not is_fba_restricted else "caution"
+    return {
+        "applicable": has_th,
+        "status": status,
+        "foreign_equity_pct": foreign_equity_pct,
+        "is_fba_restricted": is_fba_restricted,
+        "exemption_route": "申请泰国投资促进委员会 (BOI) 投资证书或商业部外商经营许可证 (FBL)",
+        "legal_basis": "TH:FBA_1999:List3_Sec10 & CCC_Sec587",
+        "recommendation": (
+            "外资持股 <= 49%，符合泰国外资商业法 (FBA 1999) 本土控股要求，施工资质无阻碍"
+            if not is_fba_restricted
+            else "外资持股超 49% 触发 FBA 附件三限制，需申请 BOI 分类 7 投资优惠或向 DBD 申办 FBL 许可证"
+        ),
+        "counter_measure": (
+            "若外资持股超过 49%，属于 FBA 限制类商业，必须在开工前向商业发展厅 (DBD) 申请 FBL 许可，"
+            "或针对大型基础设施项目争取 BOI 投资优惠，享受外资 100% 独资控股及土地所有权豁免政策。"
+        )
+    }
+
+
 # =============================================================================
 # Tier 3: 质量门禁 Critic V12 一票否决检查器 (Critic V12 Security Gate)
 # =============================================================================

@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 from lawagent.core.types import (
     CaseState, Fact, Claim, Material, Issue, LegalQuestion,
     ElementState, Evidence, Finding, Statement, CaseMeta, ElementEvidence,
-    EntryCheckItem
+    EntryCheckItem, LifecycleStage
 )
 from lawagent.llm.client import LLMClient
 from lawagent.store.retriever import HybridRetriever
@@ -105,7 +105,10 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
         SecuritySentinel,
         evaluate_tkdn_compliance,
         evaluate_eot_delay_claim,
-        evaluate_interface_transmission
+        evaluate_interface_transmission,
+        evaluate_sinosure_compliance,
+        evaluate_ph_contractor_license,
+        evaluate_th_foreign_business_act
     )
     security_alerts = SecuritySentinel.evaluate(state)
 
@@ -115,7 +118,7 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
     archetypes = [a.value if hasattr(a, "value") else str(a) for a in (state.meta.project_archetypes or [])]
     contract_type = state.meta.contract_type or "FIDIC_SILVER"
 
-    # 3. 运行三大东盟工程专项审查算子并注入入口检查清单与结构化审计对象
+    # 3. 运行东盟工程与涉外合规专项审查算子并注入入口检查清单与结构化审计对象
     eng_params = getattr(state.meta, "engineering_params", None) or {}
     tkdn_eval = evaluate_tkdn_compliance(facts_text, jur, engineering_params=eng_params)
     if tkdn_eval.get("applicable"):
@@ -142,10 +145,37 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
                 detail=f"{risk['legal_rule']}。应对对策：{risk['counter_measure']}"
             ))
 
+    sinosure_eval = evaluate_sinosure_compliance(facts_text, engineering_params=eng_params)
+    if sinosure_eval.get("applicable"):
+        entry_checks.append(EntryCheckItem(
+            name="中信保 (Sinosure) 30 天出险报损时效与追偿合规审查",
+            status="satisfied" if sinosure_eval.get("is_compliant") else "uncertain",
+            detail=sinosure_eval.get("recommendation", "")
+        ))
+
+    ph_eval = evaluate_ph_contractor_license(facts_text, jur, engineering_params=eng_params)
+    if ph_eval.get("applicable"):
+        entry_checks.append(EntryCheckItem(
+            name="菲律宾建筑承包商执照 (PCAB) 资质与外资股权审查 (RA 4566)",
+            status="satisfied" if ph_eval.get("status") in ("compliant", "safe") else "uncertain",
+            detail=ph_eval.get("recommendation", "")
+        ))
+
+    th_eval = evaluate_th_foreign_business_act(facts_text, jur, engineering_params=eng_params)
+    if th_eval.get("applicable"):
+        entry_checks.append(EntryCheckItem(
+            name="泰国外资商业法 (FBA 1999) 附件三工程限制与 BOI 优惠合规审查",
+            status="satisfied" if th_eval.get("status") in ("compliant", "safe") else "uncertain",
+            detail=th_eval.get("recommendation", "")
+        ))
+
     engineering_audit = {
         "tkdn_eval": tkdn_eval,
         "eot_eval": eot_eval,
         "interface_eval": interface_eval,
+        "sinosure_eval": sinosure_eval,
+        "ph_eval": ph_eval,
+        "th_eval": th_eval,
         "updated_at": _now()
     }
 
@@ -325,8 +355,12 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
                         grade="A"
                     )
 
-        # 3. 评估要件充分性
-        elements = await evaluate_sufficiency_llm(q, elements, evidence_dict, client=client)
+        # 3. 评估要件充分性（自适应识别投前准入审查模式 vs 争议索赔模式）
+        is_pre_inv = (
+            getattr(state.meta, "stage", "") == "pre_investment"
+            or getattr(state.meta, "lifecycle_stage", None) in ("pre_investment", LifecycleStage.BIDDING_INVESTMENT)
+        )
+        elements = await evaluate_sufficiency_llm(q, elements, evidence_dict, is_pre_investment=is_pre_inv, client=client)
 
 
         # 5. 针对 missing/partial 要素尝试至多 1 次改写深潜检索
@@ -356,7 +390,7 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
                             grade="B"
                         )
             # 二次评估
-            elements = evaluate_sufficiency_rule(q, elements, evidence_dict)
+            elements = evaluate_sufficiency_rule(q, elements, evidence_dict, is_pre_investment=is_pre_inv)
 
         q.done = True
 

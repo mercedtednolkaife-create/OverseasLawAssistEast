@@ -27,6 +27,8 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
   const { loadCase, showToast, openPipelineAnimation } = useApp();
 
   const [jurisdiction, setJurisdiction] = useState<string>('asean_id');
+  const [projectHostCountry, setProjectHostCountry] = useState<string>('asean_id');
+  const [governingLawOption, setGoverningLawOption] = useState<string>('same');
   const [lifecycleStage, setLifecycleStage] = useState<LifecycleStage>('execution_dispute');
   const [projectArchetypes, setProjectArchetypes] = useState<ProjectArchetype[]>(['EPC_CONTRACTING']);
   const [fidicBookEdition, setFidicBookEdition] = useState<string>('1999_SILVER');
@@ -77,6 +79,8 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
   // 示范案 1: 印尼爪哇电站 EPC 征地延误与 TKDN 处罚案 (C101)
   const handleFillDemoID = () => {
     setJurisdiction('asean_id');
+    setProjectHostCountry('asean_id');
+    setGoverningLawOption('same');
     setLifecycleStage('execution_dispute');
     setProjectArchetypes(['EPC_CONTRACTING', 'JV_CONSORTIUM']);
     setFidicBookEdition('1999_SILVER');
@@ -99,6 +103,8 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
   // 示范案 2: 越南沿海海上风电 M&A + EPC 保函恶意索兑案 (C102)
   const handleFillDemoVN = () => {
     setJurisdiction('asean_vn');
+    setProjectHostCountry('asean_vn');
+    setGoverningLawOption('asean_sg');
     setLifecycleStage('execution_dispute');
     setProjectArchetypes(['CROSS_BORDER_MA', 'EPC_CONTRACTING']);
     setFidicBookEdition('1999_YELLOW');
@@ -120,6 +126,8 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
   // 示范案 3: 马来西亚轨交枢纽 CIPAA 快速法定裁决与背靠背无效案 (C103)
   const handleFillDemoMY = () => {
     setJurisdiction('asean_my');
+    setProjectHostCountry('asean_my');
+    setGoverningLawOption('same');
     setLifecycleStage('execution_dispute');
     setProjectArchetypes(['EPC_CONTRACTING']);
     setFidicBookEdition('1999_RED');
@@ -156,14 +164,26 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
 
     setSubmitting(true);
     try {
+      const govLawName = governingLawOption === 'same'
+        ? `${currentJurisdictionConfig.name_zh}实体法`
+        : governingLawOption === 'english_law'
+        ? '英国普通法 (English Law)'
+        : governingLawOption === 'asean_sg'
+        ? '新加坡共和国法律 (Singapore Law)'
+        : choiceOfLaw;
+
       const meta: CaseMeta = {
-        jurisdiction,
+        jurisdiction: projectHostCountry,
+        host_country: currentJurisdictionConfig.name_zh,
+        project_host_country: projectHostCountry,
+        governing_law_jurisdiction: govLawName,
         contract_type: contractType,
         parties: partiesStr.split(',').map((s) => s.trim()).filter(Boolean),
         contract_date: contractDate,
         event_date: eventDate || undefined,
-        choice_of_law: `${choiceOfLaw} [争议管辖: ${disputeResolution}]`,
+        choice_of_law: `${govLawName} [争议管辖: ${disputeResolution}]`,
         lifecycle_stage: lifecycleStage,
+        stage: lifecycleStage,
         project_archetypes: projectArchetypes,
         fidic_book_edition: fidicBookEdition,
       };

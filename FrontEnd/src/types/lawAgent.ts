@@ -52,6 +52,9 @@ export interface CaseMeta {
   parent_case_id?: string;
   fidic_book_edition?: string;
   host_country?: string;
+  project_host_country?: string;
+  governing_law_jurisdiction?: string;
+  stage?: 'pre_investment' | 'dispute' | string;
   engineering_params?: Record<string, any>;
 }
 

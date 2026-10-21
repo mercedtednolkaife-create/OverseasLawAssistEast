@@ -363,6 +363,7 @@ export const lawAgentApi = {
       declared_tkdn_pct?: number;
       delay_days?: number;
       notice_days?: number;
+      sinosure_notice_days?: number;
       main_ld_cap_pct?: number;
       sub_ld_cap_pct?: number;
       foreign_equity_pct?: number;

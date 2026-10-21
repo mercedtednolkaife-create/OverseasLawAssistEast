@@ -19,12 +19,14 @@ interface ViabilityCalculationModalProps {
   isOpen: boolean;
   onClose: () => void;
   assessment: ViabilityAssessment;
+  isPreInvestment?: boolean;
 }
 
 export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps> = ({
   isOpen,
   onClose,
   assessment,
+  isPreInvestment = false,
 }) => {
   if (!isOpen) return null;
 
@@ -51,10 +53,12 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
             </span>
             <div>
               <h3 className="text-base font-semibold text-slate-900 tracking-tight">
-                Agent因果推演测算依据
+                {isPreInvestment ? '东盟投前合规就绪与落地指数测算依据' : 'Agent因果推演测算依据'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                基于要件齐备、抗辩抵御、法源权威与司法质检的 4 维量化模型
+                {isPreInvestment
+                  ? '基于外资股比准入、东道国强行法防线、双边条约救济与央国企安全哨兵的 4 维量化模型'
+                  : '基于要件齐备、抗辩抵御、法源权威与司法质检的 4 维量化模型'}
               </p>
             </div>
           </div>
@@ -73,7 +77,7 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
           <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white space-y-3 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-slate-400 font-mono text-[11px] uppercase tracking-wider">
-                CALCULATION MODEL
+                {isPreInvestment ? 'PRE-INVESTMENT READINESS MODEL' : 'CALCULATION MODEL'}
               </span>
               <div className="flex items-center gap-1.5 text-xs text-slate-300">
                 <span
@@ -89,13 +93,17 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-semibold font-mono text-white tracking-tight">
+              <span className="text-4xl font-semibold font-mono text-white tracking-tight tabular-nums">
                 {assessment.overallScore}%
               </span>
-              <span className="text-slate-400 text-xs">综合支持度指数</span>
+              <span className="text-slate-400 text-xs">
+                {isPreInvestment ? '投前准入落地就绪度指数' : '综合支持度指数'}
+              </span>
             </div>
             <div className="pt-2.5 border-t border-white/10 font-mono text-[11px] text-slate-300 leading-relaxed">
-              加权公式 = 40% × 要件齐备 + 30% × 攻防抵御 + 15% × 法源权威 + 15% × 司法质检
+              {isPreInvestment
+                ? '加权公式 = 40% × 准入要件齐备 + 30% × 监管抗辩抵御 + 15% × 官方权威法源 + 15% × 出海国家安全质检'
+                : '加权公式 = 40% × 要件齐备 + 30% × 攻防抵御 + 15% × 法源权威 + 15% × 司法质检'}
             </div>
           </div>
 
@@ -105,17 +113,17 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
               各维度权重构成与客观依据
             </span>
 
-            {/* 维度 1：要件齐备度 */}
+            {/* 维度 1 */}
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Layers className="w-4 h-4 text-slate-500" />
                   <span className="font-semibold text-slate-900 text-xs sm:text-sm">
-                    1. 法定构成要件齐备度 (权重 40%)
+                    {isPreInvestment ? '1. 外资准入与东道国强行法要件齐备度 (权重 40%)' : '1. 法定构成要件齐备度 (权重 40%)'}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1.5 font-mono">
-                  <span className="font-semibold text-slate-900 text-sm">{assessment.elementsScore}%</span>
+                  <span className="font-semibold text-slate-900 text-sm tabular-nums">{assessment.elementsScore}%</span>
                   <span className="text-slate-400 text-[11px]">(贡献 {elemContrib} 分)</span>
                 </div>
               </div>
@@ -124,17 +132,17 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
               </p>
             </div>
 
-            {/* 维度 2：攻防抵御力 */}
+            {/* 维度 2 */}
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <Swords className="w-4 h-4 text-slate-500" />
                   <span className="font-semibold text-slate-900 text-xs sm:text-sm">
-                    2. 庭审抗辩攻防抵御力 (权重 30%)
+                    {isPreInvestment ? '2. 政策变动与东道国监管抗辩抵御力 (权重 30%)' : '2. 庭审抗辩攻防抵御力 (权重 30%)'}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1.5 font-mono">
-                  <span className="font-semibold text-slate-900 text-sm">{assessment.defenseScore}%</span>
+                  <span className="font-semibold text-slate-900 text-sm tabular-nums">{assessment.defenseScore}%</span>
                   <span className="text-slate-400 text-[11px]">(贡献 {defContrib} 分)</span>
                 </div>
               </div>
@@ -143,17 +151,17 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
               </p>
             </div>
 
-            {/* 维度 3：法源权威度 */}
+            {/* 维度 3 */}
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <BookOpen className="w-4 h-4 text-slate-500" />
                   <span className="font-semibold text-slate-900 text-xs sm:text-sm">
-                    3. 援引法源权威度 (权重 15%)
+                    {isPreInvestment ? '3. 官方投资协定与东道国规范权威度 (权重 15%)' : '3. 援引法源权威度 (权重 15%)'}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1.5 font-mono">
-                  <span className="font-semibold text-slate-900 text-sm">{assessment.authorityScore}%</span>
+                  <span className="font-semibold text-slate-900 text-sm tabular-nums">{assessment.authorityScore}%</span>
                   <span className="text-slate-400 text-[11px]">(贡献 {authContrib} 分)</span>
                 </div>
               </div>
@@ -162,17 +170,17 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
               </p>
             </div>
 
-            {/* 维度 4：司法防线质检 */}
+            {/* 维度 4 */}
             <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-slate-500" />
                   <span className="font-semibold text-slate-900 text-xs sm:text-sm">
-                    4. 涉外司法防线质检通过率 (权重 15%)
+                    {isPreInvestment ? '4. 央国企涉外合规与信保质检通过率 (权重 15%)' : '4. 涉外司法防线质检通过率 (权重 15%)'}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1.5 font-mono">
-                  <span className="font-semibold text-slate-900 text-sm">{assessment.complianceScore}%</span>
+                  <span className="font-semibold text-slate-900 text-sm tabular-nums">{assessment.complianceScore}%</span>
                   <span className="text-slate-400 text-[11px]">(贡献 {compContrib} 分)</span>
                 </div>
               </div>
@@ -187,7 +195,9 @@ export const ViabilityCalculationModal: React.FC<ViabilityCalculationModalProps>
             <ShieldCheck className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
             <div>
               <strong className="text-slate-800">法律科技合规说明：</strong>
-              本测算严格基于在卷客观证据材料与官方现行法律规范展开，所呈指数反映“实体请求权与抗辩阻断的法理充分度”，供诉讼应对与和解决策参考。
+              {isPreInvestment
+                ? '本测算严格基于东盟东道国外商投资法律、建设工程资质管理条例与中外双边投资保护协定展开，所呈指数反映“跨境投资落地合规度与风险可控度”，供投资并购与投标决策参考。'
+                : '本测算严格基于在卷客观证据材料与官方现行法律规范展开，所呈指数反映“实体请求权与抗辩阻断的法理充分度”，供诉讼应对与和解决策参考。'}
             </div>
           </div>
         </div>

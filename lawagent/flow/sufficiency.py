@@ -36,7 +36,8 @@ SUFFICIENCY_SYSTEM_PROMPT = """你是一名严谨的东盟出海建设工程与�
 def evaluate_sufficiency_rule(
     question: LegalQuestion,
     elements: List[ElementState],
-    evidence_dict: Dict[str, Evidence]
+    evidence_dict: Dict[str, Evidence],
+    is_pre_investment: bool = False
 ) -> List[ElementState]:
     """规则快速初筛：基于 must_norms 和 ref_id 匹配度"""
     updated_elements: List[ElementState] = []
@@ -45,13 +46,11 @@ def evaluate_sufficiency_rule(
     for eid, ev in evidence_dict.items():
         clean_ref = ev.ref_id.replace("NORM:", "").replace("CASE:", "").strip()
         eids_by_norm.setdefault(clean_ref, []).append(eid)
-        # Also index law abbreviation and section
         parts = clean_ref.split(":")
         if len(parts) >= 2:
             eids_by_norm.setdefault(f"{parts[0]}:{parts[1]}", []).append(eid)
 
     for elem in elements:
-        # Check if already has links or if must_norms are present
         matched_eids = []
         for must in question.must_norms:
             clean_must = must.replace("NORM:", "").strip()
@@ -64,15 +63,20 @@ def evaluate_sufficiency_rule(
 
         matched_eids = list(dict.fromkeys(matched_eids))
         
-        # Default state based on rule
         status = "missing"
-        gap_note = f"尚未检索到针对要素【{elem.name_zh}】的核心条文"
+        if is_pre_investment:
+            gap_note = f"尚未检索到支持投资准入与合规要件【{elem.name_zh}】的核心政策或法定依据"
+        else:
+            gap_note = f"尚未检索到针对要素【{elem.name_zh}】的核心条文"
         if matched_eids:
             status = "covered"
             gap_note = None
         elif len(evidence_dict) > 0:
             status = "partial"
-            gap_note = f"已检索到相关法规，但需进一步精确定位到【{elem.name_zh}】具体法条"
+            if is_pre_investment:
+                gap_note = f"已检索到相关投资法规，但需精确定位到【{elem.name_zh}】具体外资准入或备案审批细则"
+            else:
+                gap_note = f"已检索到相关法规，但需进一步精确定位到【{elem.name_zh}】具体法条"
 
         elem_copy = elem.model_copy(deep=True)
         elem_copy.status = status
@@ -91,11 +95,12 @@ async def evaluate_sufficiency_llm(
     question: LegalQuestion,
     elements: List[ElementState],
     evidence_dict: Dict[str, Evidence],
-    client: Optional[LLMClient] = None
+    client: Optional[LLMClient] = None,
+    is_pre_investment: bool = False
 ) -> List[ElementState]:
     """通过大模型进行深度充分性判定与要素链接"""
     if not elements or not evidence_dict:
-        return evaluate_sufficiency_rule(question, elements, evidence_dict)
+        return evaluate_sufficiency_rule(question, elements, evidence_dict, is_pre_investment=is_pre_investment)
 
     if client is None:
         client = LLMClient()
