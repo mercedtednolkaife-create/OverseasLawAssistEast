@@ -470,6 +470,19 @@ export const lawAgentApi = {
       method: 'DELETE',
     });
   },
+
+  /**
+   * 解析上传的 .docx / .txt / .md 文件并提取纯文本
+   * 对应 POST /cases/parse-doc
+   */
+  async parseDocument(file: File): Promise<{ filename: string; text: string; char_count: number }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return await request<{ filename: string; text: string; char_count: number }>('/cases/parse-doc', {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };
 
 

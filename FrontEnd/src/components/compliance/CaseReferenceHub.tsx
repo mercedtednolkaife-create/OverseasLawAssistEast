@@ -318,7 +318,7 @@ const BENCHMARK_CASES_5D: Case5DItem[] = [
 ];
 
 export const CaseReferenceHub: React.FC = () => {
-  const { openCaseEntryModal, showToast } = useApp();
+  const { openCaseEntryModal, showToast, openRightDock, setPrefillIntakeParams } = useApp();
   const [selectedCase, setSelectedCase] = useState<Case5DItem>(BENCHMARK_CASES_5D[0]);
   const [filterJur, setFilterJur] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -335,7 +335,22 @@ export const CaseReferenceHub: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleOpenPlaybook = (item: Case5DItem) => {
+    setSelectedCase(item);
+    openRightDock('country_playbook');
+    showToast(`已在右侧副驾坞展开【${item.countryName}】属地排雷与 5D 复盘手册`, 'info');
+  };
+
   const handleSimulateCase = (item: Case5DItem) => {
+    if (setPrefillIntakeParams) {
+      setPrefillIntakeParams({
+        title: item.title,
+        jurisdiction: item.jurisdiction,
+        raw_text: `${item.dimension5_simulation.initialFacts}\n\n【诉求】${item.dimension5_simulation.initialClaims}`,
+        facts: item.dimension5_simulation.initialFacts,
+        claims: item.dimension5_simulation.initialClaims,
+      });
+    }
     openCaseEntryModal({
       facts_zh: item.dimension5_simulation.initialFacts,
       claims_zh: item.dimension5_simulation.initialClaims,
@@ -443,6 +458,31 @@ export const CaseReferenceHub: React.FC = () => {
                     </span>
                   ))}
                 </div>
+
+                <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 mt-3">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenPlaybook(item);
+                    }}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>右侧副驾 5D 复盘</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSimulateCase(item);
+                    }}
+                    className="text-[11px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
+                  >
+                    <Play className="w-2.5 h-2.5 fill-current text-slate-800" />
+                    <span>以此建案</span>
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -464,13 +504,22 @@ export const CaseReferenceHub: React.FC = () => {
               </p>
             </div>
 
-            <button
-              onClick={() => handleSimulateCase(selectedCase)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>以此案为蓝本沙盘推演</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => handleOpenPlaybook(selectedCase)}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <span>副驾精读</span>
+              </button>
+              <button
+                onClick={() => handleSimulateCase(selectedCase)}
+                className="btn-space-titanium px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
+                <span>以此案为蓝本沙盘推演</span>
+              </button>
+            </div>
           </div>
 
           {/* 维度 1: 交易架构与案情还原 */}

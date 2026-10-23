@@ -9,7 +9,7 @@ import logging
 import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Literal
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status, File, UploadFile
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -1651,5 +1651,46 @@ def remove_case_artifact(
     state.updated_at = datetime.now().isoformat()
     db.save_case(state)
     return state.attached_artifacts
+
+
+@router.post("/parse-doc")
+async def parse_document(file: UploadFile = File(...)):
+    """解析上传的 .docx / .txt / .md 文件并提取纯文本，支持智能要素抽提与合同红线体检"""
+    filename = (file.filename or "").lower()
+    content = await file.read()
+
+    extracted_text = ""
+    if filename.endswith(".docx"):
+        import io
+        import docx
+        try:
+            doc = docx.Document(io.BytesIO(content))
+            paragraphs_text = [p.text for p in doc.paragraphs if p.text.strip()]
+            table_text = []
+            for table in doc.tables:
+                for row in table.rows:
+                    row_str = " | ".join(c.text.strip() for c in row.cells if c.text.strip())
+                    if row_str:
+                        table_text.append(row_str)
+            extracted_text = "\n\n".join(paragraphs_text + table_text)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"解析 .docx 文件失败: {str(e)}")
+    else:
+        for enc in ("utf-8", "gb18030", "latin-1"):
+            try:
+                extracted_text = content.decode(enc)
+                break
+            except Exception:
+                continue
+
+    if not extracted_text.strip():
+        raise HTTPException(status_code=400, detail="未能从上传文件中提取到有效文本")
+
+    return {
+        "filename": file.filename,
+        "text": extracted_text.strip(),
+        "char_count": len(extracted_text.strip())
+    }
+
 
 

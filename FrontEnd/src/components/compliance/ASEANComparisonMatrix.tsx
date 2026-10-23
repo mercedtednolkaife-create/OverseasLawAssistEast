@@ -80,7 +80,7 @@ const FALLBACK_COMPARISON_DATA: ComparisonRow[] = [
 ];
 
 export const ASEANComparisonMatrix: React.FC = () => {
-  const { openCaseEntryModal, showToast } = useApp();
+  const { openCaseEntryModal, showToast, setPrefillIntakeParams } = useApp();
   const [selectedKeys, setSelectedKeys] = useState<string[]>(['id', 'vn']);
   const [matrixData, setMatrixData] = useState<ComparisonRow[]>(FALLBACK_COMPARISON_DATA);
 
@@ -110,11 +110,32 @@ export const ASEANComparisonMatrix: React.FC = () => {
   };
 
   const handleLaunchComparison = () => {
-    const selectedNames = COUNTRIES.filter((c) => selectedKeys.includes(c.key))
-      .map((c) => c.name)
-      .join('、');
-    showToast(`已选定【${selectedNames}】启动投前准入合规比选立项`, 'success');
-    openCaseEntryModal();
+    const selectedCountries = COUNTRIES.filter((c) => selectedKeys.includes(c.key));
+    const selectedNames = selectedCountries.map((c) => c.name).join('、');
+    const selectedCodes = selectedCountries.map((c) => c.code);
+
+    if (setPrefillIntakeParams) {
+      setPrefillIntakeParams({
+        title: `东盟${selectedCountries.length}国投前准入与强行法合规横向比选专案`,
+        jurisdiction: selectedCodes[0] || 'asean_id',
+        compared_jurisdictions: selectedCodes,
+        stage: 'pre_investment',
+        claims: `开展【${selectedNames}】东道国外资准入负面清单、土地权属、联营体强制要求与保函止付尺度横向比选论证。`,
+        facts: `中资企业拟在东盟开展重大基建投资与并购，重点在【${selectedNames}】之间进行多法域投资环境与强行法红线比选。`,
+        raw_text: `中资企业拟在东盟开展重大基建投资与并购，重点在【${selectedNames}】之间进行多法域投资环境与强行法红线比选。`
+      });
+    }
+
+    showToast(`已选定【${selectedNames}】（${selectedCodes.length}国）启动投前准入合规比选立项`, 'success');
+    openCaseEntryModal({
+      facts_zh: `中资企业拟在东盟开展重大基建投资与并购，重点在【${selectedNames}】之间进行多法域投资环境与强行法红线比选。`,
+      claims_zh: `开展【${selectedNames}】东道国外资准入负面清单、土地权属、联营体强制要求与保函止付尺度横向比选论证。`,
+      meta: {
+        jurisdiction: selectedCodes[0] || 'asean_id',
+        lifecycle_stage: 'pre_investment',
+        choice_of_law: '多国准入横向比选',
+      }
+    });
   };
 
   return (

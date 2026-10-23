@@ -433,12 +433,31 @@ async def matcher_node(state: CaseState) -> Dict[str, Any]:
 # =====================================================================
 async def red_team_strategist_node(state: CaseState) -> Dict[str, Any]:
     """策略推演与红队攻防 Agent 节点：
-    基于构成要件与案件事实四态涵摄结果，生成假定胜败条件分支 (If-Then) 与红队攻防手册。
+    基于构成要件与案件事实四态涵摄结果，生成假定胜败条件分支 (If-Then) 与红队攻防手册，
+    并自动计算生成初始工程沙盘战术指引与中英双语谈判话术 (tactical_guidance)。
     """
     client = LLMClient()
     strategic_assessment = await generate_strategic_assessment(state, client=client)
+
+    # 自动生成初始三维定性结论与中英双语谈判话术
+    from lawagent.flow.security_sentinel import build_tactical_guidance
+    current_params = getattr(state.meta, "engineering_params", None) or {}
+    jur = state.meta.jurisdiction or "asean_id"
+    contract_type = state.meta.contract_type or "FIDIC_SILVER"
+    facts_text = f"{state.facts_zh or ''} {' '.join([f.text_zh for f in state.facts])}"
+    stage_val = state.meta.lifecycle_stage.value if hasattr(state.meta.lifecycle_stage, "value") else str(state.meta.lifecycle_stage or "execution_dispute")
+    tactical_guidance = build_tactical_guidance(
+        facts_text=facts_text,
+        jurisdiction=jur,
+        contract_type=contract_type,
+        params=current_params,
+        lifecycle_stage=stage_val,
+        security_alerts=state.security_alerts
+    )
+
     return {
         "strategic_assessment": strategic_assessment,
+        "tactical_guidance": tactical_guidance,
         "current_node": "red_team_strategist",
         "updated_at": _now()
     }

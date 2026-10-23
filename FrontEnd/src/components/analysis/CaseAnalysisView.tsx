@@ -177,6 +177,49 @@ export const CaseAnalysisView: React.FC = () => {
     }
   };
 
+  // 基准参数快照
+  const baselineParams = useMemo(() => currentCase?.meta?.engineering_params || {}, [currentCase?.case_id]);
+
+  // 恢复案卷初始基准参数
+  const handleResetBaseline = () => {
+    const p = baselineParams;
+    if (p.declared_tkdn_pct !== undefined) setSimTkdn(p.declared_tkdn_pct);
+    if (p.delay_days !== undefined) setSimDelayDays(p.delay_days);
+    if (p.notice_days !== undefined) setSimNoticeDays(p.notice_days);
+    if (p.main_ld_cap_pct !== undefined) setSimMainLd(p.main_ld_cap_pct);
+    if (p.sub_ld_cap_pct !== undefined) setSimSubLd(p.sub_ld_cap_pct);
+    if (p.sinosure_notice_days !== undefined) setSimSinosureDays(p.sinosure_notice_days);
+    showToast('已恢复案卷初始基准参数', 'info');
+  };
+
+  // 350ms 防抖自动实时试算
+  const isFirstMountRef = useRef<boolean>(true);
+  useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      handleSimulateEngineering();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [simTkdn, simDelayDays, simNoticeDays, simSinosureDays, simMainLd, simSubLd]);
+
+  // 移除挂载成果
+  const handleRemoveArtifact = async (artifactId: string) => {
+    if (!currentCase) return;
+    try {
+      const updated = await lawAgentApi.removeCaseArtifact(currentCase.case_id, artifactId);
+      setCurrentCase({
+        ...currentCase,
+        attached_artifacts: updated,
+      });
+      showToast('已从本案卷移除该挂载附件', 'info');
+    } catch (e: any) {
+      showToast(e.message || '移除失败', 'error');
+    }
+  };
+
   // 阶段流转处理
   const handleConfirmTransition = async () => {
     if (!currentCase) return;
@@ -982,24 +1025,35 @@ export const CaseAnalysisView: React.FC = () => {
                     调节工程参数，滑轨自带法定红线刻度锚点，实时推演强行法合规后果
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSimulateEngineering}
-                  disabled={isSimulatingEng}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer disabled:opacity-50"
-                >
-                  {isSimulatingEng ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>算子重算中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-3.5 h-3.5 fill-white" />
-                      <span>实时重算工程合规门禁</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetBaseline}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
+                    title="恢复案卷初始基准参数"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <span>恢复初始</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSimulateEngineering}
+                    disabled={isSimulatingEng}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                  >
+                    {isSimulatingEng ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>自动重算中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-3.5 h-3.5 fill-white" />
+                        <span>350ms 自动重算</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* 争议模式下的五大滑块 (带法定红线刻度锚点) */}
@@ -1012,9 +1066,16 @@ export const CaseAnalysisView: React.FC = () => {
                         <Activity className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                         印尼 TKDN 本地化采购率 (MEMR 11/2024)
                       </span>
-                      <span className={`font-mono font-bold ${simTkdn >= 40 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {simTkdn}% {simTkdn >= 40 ? '(达标)' : '(缺口待豁免)'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {baselineParams.declared_tkdn_pct !== undefined && simTkdn !== baselineParams.declared_tkdn_pct && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
+                            {simTkdn > baselineParams.declared_tkdn_pct ? `+${(simTkdn - baselineParams.declared_tkdn_pct).toFixed(0)}%` : `${(simTkdn - baselineParams.declared_tkdn_pct).toFixed(0)}%`} 较基准
+                          </span>
+                        )}
+                        <span className={`font-mono font-bold ${simTkdn >= 40 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {simTkdn}% {simTkdn >= 40 ? '(达标)' : '(缺口待豁免)'}
+                        </span>
+                      </div>
                     </div>
                     <div className="relative pt-1 pb-3">
                       <input
@@ -1045,9 +1106,16 @@ export const CaseAnalysisView: React.FC = () => {
                         <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                         FIDIC 20.1 索赔通知送达天数
                       </span>
-                      <span className={`font-mono font-bold ${simNoticeDays <= 28 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {simNoticeDays} 天 {simNoticeDays <= 28 ? '(安全)' : '(逾期失权风险)'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {baselineParams.notice_days !== undefined && simNoticeDays !== baselineParams.notice_days && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
+                            {simNoticeDays > baselineParams.notice_days ? `+${simNoticeDays - baselineParams.notice_days}d` : `${simNoticeDays - baselineParams.notice_days}d`} 较基准
+                          </span>
+                        )}
+                        <span className={`font-mono font-bold ${simNoticeDays <= 28 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {simNoticeDays} 天 {simNoticeDays <= 28 ? '(安全)' : '(逾期失权风险)'}
+                        </span>
+                      </div>
                     </div>
                     <div className="relative pt-1 pb-3">
                       <input
@@ -1078,9 +1146,16 @@ export const CaseAnalysisView: React.FC = () => {
                         <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                         中信保海外项目险可能损失报损天数
                       </span>
-                      <span className={`font-mono font-bold ${simSinosureDays <= 30 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {simSinosureDays} 天 {simSinosureDays <= 30 ? '(合规)' : '(理赔受限)'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {baselineParams.sinosure_notice_days !== undefined && simSinosureDays !== baselineParams.sinosure_notice_days && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
+                            {simSinosureDays > baselineParams.sinosure_notice_days ? `+${simSinosureDays - baselineParams.sinosure_notice_days}d` : `${simSinosureDays - baselineParams.sinosure_notice_days}d`} 较基准
+                          </span>
+                        )}
+                        <span className={`font-mono font-bold ${simSinosureDays <= 30 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {simSinosureDays} 天 {simSinosureDays <= 30 ? '(合规)' : '(理赔受限)'}
+                        </span>
+                      </div>
                     </div>
                     <div className="relative pt-1 pb-3">
                       <input
@@ -1235,27 +1310,40 @@ export const CaseAnalysisView: React.FC = () => {
 
                 {/* 场景选项卡 */}
                 <div className="flex flex-wrap gap-2">
-                  {tacticalGuidance.negotiation_scripts.map((sc, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setActiveScriptIdx(idx)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                        activeScriptIdx === idx
-                          ? 'bg-blue-600 text-white shadow-2xs font-semibold'
-                          : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
-                      }`}
-                    >
-                      {sc.scenario_title.split(' ')[0]}
-                    </button>
-                  ))}
+                  {tacticalGuidance.negotiation_scripts.map((sc, idx) => {
+                    const isTriggeredByNotice = sc.scenario_title.includes('20.1') && simNoticeDays > 28;
+                    const isTriggeredByTkdn = sc.scenario_title.includes('TKDN') && simTkdn < 40;
+                    const isTriggeredBySinosure = sc.scenario_title.includes('信保') && simSinosureDays > 30;
+                    const isTriggered = isTriggeredByNotice || isTriggeredByTkdn || isTriggeredBySinosure;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setActiveScriptIdx(idx)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                          activeScriptIdx === idx
+                            ? 'bg-blue-600 text-white shadow-2xs font-semibold'
+                            : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700'
+                        }`}
+                      >
+                        {isTriggered && <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />}
+                        <span>{sc.scenario_title.split(' ')[0]}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* 话术主体展示区 */}
                 {tacticalGuidance.negotiation_scripts[activeScriptIdx] && (
                   <div className="space-y-3">
-                    <div className="text-[11px] font-mono text-slate-400">
-                      法理请求权/抗辩基础：{tacticalGuidance.negotiation_scripts[activeScriptIdx].legal_basis}
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400">
+                      <span>法理请求权/抗辩基础：{tacticalGuidance.negotiation_scripts[activeScriptIdx].legal_basis}</span>
+                      {tacticalGuidance.negotiation_scripts[activeScriptIdx].scenario_title.includes('20.1') && simNoticeDays > 28 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-semibold animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                          <span>NEW · 因越过 28d 失权红线触发</span>
+                        </span>
+                      )}
                     </div>
 
                     <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 text-xs text-slate-800 leading-relaxed font-sans whitespace-pre-wrap select-all">
@@ -1472,6 +1560,16 @@ export const CaseAnalysisView: React.FC = () => {
                 SHA-256: 4F9B2A8C...E190 · 最高法院涉外解释二形式规范认证
               </div>
 
+              {/* 快速章节定位锚点 */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 text-[11px] font-sans font-medium text-slate-500 border-b border-slate-100">
+                <span className="text-[10px] text-slate-400 font-mono uppercase">公文章节索引:</span>
+                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§1 查明定性结论</span>
+                <span>·</span>
+                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§2 事实要件涵摄</span>
+                <span>·</span>
+                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§3 挂载凭证附表 ({currentCase?.attached_artifacts?.length || 0})</span>
+              </div>
+
               {/* 公文正式报头 */}
               <div className="text-center space-y-2 pb-6 border-b-2 border-slate-900 font-sans">
                 <div className="text-xs font-mono tracking-widest text-slate-500 uppercase">
@@ -1545,12 +1643,22 @@ export const CaseAnalysisView: React.FC = () => {
                   </h3>
                   <div className="space-y-2">
                     {currentCase.attached_artifacts.map((art, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
-                        <div className="flex justify-between font-bold text-slate-900">
+                      <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 group">
+                        <div className="flex justify-between items-center font-bold text-slate-900">
                           <span>
                             [{art.artifact_type === 'redline_scan' ? '合同红线' : art.artifact_type === 'statute_pin' ? '法典引用' : '专家会商'}] {art.title}
                           </span>
-                          <span className="text-[10px] font-mono text-slate-400">{art.created_at}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-slate-400">{art.created_at}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveArtifact(art.artifact_id || (art as any).id)}
+                              className="text-[10px] text-slate-400 hover:text-rose-600 px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="从案卷移除此挂载项"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                         <p className="text-slate-600 text-[11px]">{art.summary}</p>
                         {art.redline_clause && (

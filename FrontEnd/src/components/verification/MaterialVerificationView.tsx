@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import { MaterialVerificationResult } from '../../types/lawAgent';
@@ -19,6 +19,7 @@ import {
   Paperclip,
   FolderPlus,
   Loader2,
+  GitCompare,
 } from 'lucide-react';
 
 export const MaterialVerificationView: React.FC = () => {
@@ -27,6 +28,24 @@ export const MaterialVerificationView: React.FC = () => {
   const [verifyMode, setVerifyMode] = useState<'CONTRACT_REDLINE_AUDIT' | 'CITATION_CHECK'>('CONTRACT_REDLINE_AUDIT');
   const [attachingIdx, setAttachingIdx] = useState<number | null>(null);
   const [attachedIdxs, setAttachedIdxs] = useState<Record<number, boolean>>({});
+  const [diffMode, setDiffMode] = useState<Record<number, boolean>>({});
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isParsingDoc, setIsParsingDoc] = useState<boolean>(false);
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      setIsParsingDoc(true);
+      showToast(`正在解析文件【${file.name}】...`, 'info');
+      const res = await lawAgentApi.parseDocument(file);
+      setInputText(res.text);
+      showToast(`已提取【${file.name}】合同文本（${res.char_count} 字符）！`, 'success');
+    } catch (e: any) {
+      showToast(e.message || '文档解析失败', 'error');
+    } finally {
+      setIsParsingDoc(false);
+    }
+  };
 
   const sampleClauses = [
     {
@@ -226,18 +245,47 @@ export const MaterialVerificationView: React.FC = () => {
       {/* 文本输入框 */}
       <div className="apple-bento-card rounded-[28px] p-6 space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-2">
-            {verifyMode === 'CONTRACT_REDLINE_AUDIT'
-              ? '粘贴待审查的英文/双语工程合同草案、专用条件变更或招标条款片段'
-              : '粘贴对方当事人或当地律所出具的东盟法查明意见文本'}
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-semibold text-slate-700">
+              {verifyMode === 'CONTRACT_REDLINE_AUDIT'
+                ? '粘贴待审查的英文/双语工程合同草案、专用条件变更或招标条款片段'
+                : '粘贴对方当事人或当地律所出具的东盟法查明意见文本'}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".docx,.txt,.md"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFileUpload(f);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isParsingDoc}
+                className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-1 cursor-pointer shadow-2xs"
+              >
+                <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+                <span>{isParsingDoc ? '文档解析中...' : '上传/拖拽 .docx / .txt 合同'}</span>
+              </button>
+            </div>
+          </div>
           <textarea
             rows={5}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files?.[0];
+              if (f) handleFileUpload(f);
+            }}
             placeholder={
               verifyMode === 'CONTRACT_REDLINE_AUDIT'
-                ? "粘贴待体检的合同条款，如背靠背付款条款、语言排他条款、保函放弃抗辩条款、无上限违约金或删除法律调价条款..."
+                ? "粘贴待体检的合同条款，或直接拖拽 .docx / .txt 合同文件至此 (如背靠背付款、语言排他、保函放弃抗辩、无上限违约金)..."
                 : "粘贴含东盟成文法条文（如 SEMA 3/2023、CIPAA Sec 35）、FIDIC 标准条款或司法仲裁先例引证文本..."
             }
             className="w-full px-4 py-3 text-xs border border-slate-200/90 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-600/80 font-mono text-slate-800 leading-relaxed bg-slate-50/50 focus:bg-white transition-all shadow-2xs"
@@ -312,11 +360,33 @@ export const MaterialVerificationView: React.FC = () => {
                   </div>
 
                   <div className="pt-2 border-t border-slate-100">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-semibold text-emerald-800 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>推荐合规修改替代表述 (Recommended Clause Revision)：</span>
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-emerald-800 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>推荐合规修改替代表述：</span>
+                        </span>
+                        <div className="inline-flex items-center p-0.5 bg-emerald-100/70 rounded-lg text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setDiffMode({ ...diffMode, [idx]: false })}
+                            className={`px-2 py-0.5 rounded font-medium cursor-pointer ${
+                              !diffMode[idx] ? 'bg-white text-emerald-900 shadow-2xs font-semibold' : 'text-emerald-700'
+                            }`}
+                          >
+                            完整示范
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDiffMode({ ...diffMode, [idx]: true })}
+                            className={`px-2 py-0.5 rounded font-medium cursor-pointer ${
+                              diffMode[idx] ? 'bg-white text-emerald-900 shadow-2xs font-semibold' : 'text-emerald-700'
+                            }`}
+                          >
+                            Redline 增删对比
+                          </button>
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleCopyClause(item.recommended_revision, idx)}
@@ -335,9 +405,23 @@ export const MaterialVerificationView: React.FC = () => {
                         )}
                       </button>
                     </div>
-                    <div className="p-3 bg-emerald-50/40 rounded-xl border border-emerald-100 font-mono text-emerald-950 text-[11px] leading-relaxed select-all">
-                      {item.recommended_revision}
-                    </div>
+
+                    {diffMode[idx] ? (
+                      <div className="p-3.5 bg-slate-900 text-slate-100 rounded-xl font-mono text-[11px] leading-relaxed select-all space-y-1.5 border border-slate-800 shadow-inner">
+                        <div className="text-rose-300 line-through opacity-85 flex items-start gap-1.5">
+                          <span className="text-rose-400 font-bold shrink-0">[-DEL]</span>
+                          <span>{item.clause_snippet}</span>
+                        </div>
+                        <div className="text-emerald-300 font-semibold flex items-start gap-1.5 pt-1.5 border-t border-slate-800">
+                          <span className="text-emerald-400 font-bold shrink-0">[+ADD]</span>
+                          <span>{item.recommended_revision}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-emerald-50/40 rounded-xl border border-emerald-100 font-mono text-emerald-950 text-[11px] leading-relaxed select-all">
+                        {item.recommended_revision}
+                      </div>
+                    )}
 
                     {/* 双出口动作闭环：挂载至案卷附表 + 以此条款新建深度专案 */}
                     <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">

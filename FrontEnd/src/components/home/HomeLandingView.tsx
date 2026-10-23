@@ -35,6 +35,7 @@ export const HomeLandingView: React.FC = () => {
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<MaterialVerificationResult | null>(null);
   const [copiedClause, setCopiedClause] = useState(false);
+  const [trackADiffMode, setTrackADiffMode] = useState(false);
 
   const sampleClauses = [
     {
@@ -229,9 +230,31 @@ export const HomeLandingView: React.FC = () => {
               {/* 2. 平衡修改示范条款 (Redline) */}
               <div className="p-3 rounded-lg bg-white border border-slate-200/80 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-emerald-800">
-                    合规示范平衡修订条款 (Model Clause)
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-emerald-800">
+                      合规示范修订条款
+                    </span>
+                    <div className="inline-flex items-center p-0.5 bg-emerald-100/70 rounded-md text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setTrackADiffMode(false)}
+                        className={`px-1.5 py-0.2 rounded font-medium cursor-pointer ${
+                          !trackADiffMode ? 'bg-white text-emerald-900 font-semibold' : 'text-emerald-700'
+                        }`}
+                      >
+                        示范
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTrackADiffMode(true)}
+                        className={`px-1.5 py-0.2 rounded font-medium cursor-pointer ${
+                          trackADiffMode ? 'bg-white text-emerald-900 font-semibold' : 'text-emerald-700'
+                        }`}
+                      >
+                        Diff对比
+                      </button>
+                    </div>
+                  </div>
                   <button
                     onClick={() =>
                       handleCopyRedline(
@@ -245,10 +268,22 @@ export const HomeLandingView: React.FC = () => {
                     <span>{copiedClause ? '已复制' : '复制示范条款'}</span>
                   </button>
                 </div>
-                <div className="p-2.5 rounded-lg bg-slate-50 font-mono text-[11px] text-slate-800 leading-relaxed border border-slate-200/60">
-                  {scanResult.audit_records?.[0]?.recommended_clause ||
-                    'Payment to Subcontractor shall be settled within thirty (30) days upon engineer progress certification, independently of Employer interim disbursements.'}
-                </div>
+
+                {trackADiffMode ? (
+                  <div className="p-3 bg-slate-900 text-slate-100 rounded-lg font-mono text-[11px] leading-relaxed select-all space-y-1.5 border border-slate-800">
+                    <div className="text-rose-300 line-through opacity-85">
+                      [-DEL: {clauseText}]
+                    </div>
+                    <div className="text-emerald-300 font-semibold pt-1 border-t border-slate-800">
+                      [+ADD: {scanResult.audit_records?.[0]?.recommended_clause || 'Payment shall be independently certified and disbursed without pay-when-paid restrictions.'}]
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-lg bg-slate-50 font-mono text-[11px] text-slate-800 leading-relaxed border border-slate-200/60">
+                    {scanResult.audit_records?.[0]?.recommended_clause ||
+                      'Payment to Subcontractor shall be settled within thirty (30) days upon engineer progress certification, independently of Employer interim disbursements.'}
+                  </div>
+                )}
               </div>
 
               {/* 一键以此条款升级为深度专案 */}

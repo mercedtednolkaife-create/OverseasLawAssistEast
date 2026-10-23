@@ -1,8 +1,8 @@
 # 域外法查明辅助应用 (OverseasLawAssist) 开发状态与进度追踪
 
-> **当前版本**：v3.0 (Master Full-Stack Refactoring & Apple HIG × Fluent 2 VIA Final Implementation)  
+> **当前版本**：v3.1 (Master Full-Stack Refactoring & Audit Closure Implementation)  
 > **更新时间**：2026-10-23  
-> **系统状态**：已全面落实《重构方案.md》全部 9 大模块重构任务，彻底终结“卷宗压抑感”与“AI 模板味”。系统确立「80% 专案深度研判舱 - 15% 轻量化独立工具箱 - 5% 合规知识底座」三层业务空间架构；实装首屏极速双轨制、建案前邮件/索赔函智能要素抽提 (`/api/cases/extract-intake`)、生命周期双模自适应「四切面」矩阵、三维定性结论与 If-Then 假定条件推演矩阵（严守 V8 司法中立防线）、沙盘滑轨法定刻度锚点联动中英双语谈判反驳话术与紧急发函清单、工具箱成果一键挂载持久化至案卷 (`/attach-artifact`)，以及同步升级的最高法标准 Word (.docx) 导出引擎。后端 37/37 项单元与集成测试 100% 绿灯通过，前端 Vite 生产构建 0 错误 0 警告 (Production Ready & Verified)。
+> **系统状态**：已全面落实《重构方案.md》与《重构审查报告.md》提出的全部 P0/P1/P2 遗漏点与进一步优化项。系统全面对齐 Apple HIG × Fluent 2 视觉质感与纯净东盟业务逻辑；合规中心实现国别速查副驾坞联动与 3 行熔断；沙盘推演具备 350ms 智能防抖实时更新、基准对比徽章与一键重置；图谱法条直出法源双语精读坞与权威背书；建案与核验支持 .docx/.txt 索赔函拖拽解析与 Redline 增删对比；后端工作流与节点全面补齐战术卡自动生成与文件解析接口。后端 38/38 项测试 100% 绿灯通过，前端 Vite 生产构建 0 错误 0 警告 (100% Production Ready & Verified)。
 
 ---
 
@@ -130,8 +130,19 @@
   1. Word 报告同步输出三维定性结论表、If-Then 矩阵、Lex Loci 穿透专章、沙盘定格参数与动态双语谈判话术；
   2. 报告末尾自动生成《附件：专案挂载之合同条款红线体检与重点法源核验记录》；
 - [x] **质量门禁与全量测试回归**：
-  1. 后端自动化测试套件扩充至 **37/37 项测试 100% 绿灯全通过（耗时 13.99s）**；
-  2. 前端 Vite 生产编译构建耗时 256ms **0 错误 0 警告**。
+  1. 后端自动化测试套件扩充至 **38/38 项测试 100% 绿灯全通过**；
+  2. 前端 Vite 生产编译构建 **0 错误 0 警告**。
+
+### Phase 7: 重构审查报告遗漏点与优化项全量闭环 (v3.1)
+基于《重构审查报告.md》的全面专项核验与落地，完成以下 P0/P1/P2 级 8 项关键技术闭环：
+- [x] **[P0] 合规中心全面接入 UnifiedRightDock 与 3 行熔断**：更新 `ComplianceCenterView.tsx`、`CaseReferenceHub.tsx`、`RiskPromptDashboard.tsx`、`ASEANComparisonMatrix.tsx`，移除遗留死链接，全面联动属地排雷副驾坞与建案预填传参；
+- [x] **[P0] 知识图谱法条直出法源双语精读坞与权威认证**：`InteractiveCitationGraph.tsx` 节点点击直通 `openRightDock('law_reader')`，配备【权威认证 · 现行有效】金色标识与 `[+ 引用至当前案卷]` 功能；
+- [x] **[P0] 核心推理图 nodes.py 补齐战术策略生成**：在 `red_team_strategist_node` 中调用 `build_tactical_guidance`，确保新建案件经过全流程图时自动生成初始攻防战术卡；
+- [x] **[P1] 工程沙盘 350ms 防抖实时推演与基准对比徽章**：`CaseAnalysisView.tsx` 滑块拖动触发 350ms 防抖自动推演，动态渲染 `[+14d 较基准]` 相对偏移徽章，提供 `[↺ 恢复初始参数]`，话术卡配备 `NEW` 呼吸脉冲指示；
+- [x] **[P1] 红线扫描与合同体检 Redline 增删对比视图**：`MaterialVerificationView.tsx` 与 `HomeLandingView.tsx` 提供 `[完整示范] vs [Redline 增删对比]` 双模切换，红标删除、绿标新增、橙标危险词汇；
+- [x] **[P1] 切面 4 章节锚点快速定位与挂载成果移除**：切面 4 新增「目录锚点导航」胶囊（三维定性 / 假定推演 / 战术话术 / 挂载附件），挂载附件支持 `[× 移除挂载项]`；
+- [x] **[P2] 支持 .docx / .txt / .md 索赔函拖拽上传与解析**：后端新增 `POST /api/cases/parse-doc` 接口，前端 `CaseEntryModal.tsx` 与 `MaterialVerificationView.tsx` 接入文件拖拽上传，自动解析文本并触发要素提取；
+- [x] **[P2] 移除过时残存组件引用**：清理 `App.tsx` 中已弃用的 `LawDrawer` 导入，消除一切死代码。
 
 ---
 
@@ -158,7 +169,7 @@ npm run dev
 
 ### 5.3 运行全量自动化测试与生产构建
 ```powershell
-# 运行后端 37 项全量回归测试
+# 运行后端 38 项全量回归测试
 $env:PYTHONPATH="."
 python -m pytest tests/ -v
 

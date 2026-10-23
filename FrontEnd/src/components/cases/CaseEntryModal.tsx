@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import { CaseMeta, LifecycleStage, ProjectArchetype } from '../../types/lawAgent';
@@ -16,6 +16,8 @@ import {
   GitMerge,
   Briefcase,
   AlertTriangle,
+  Paperclip,
+  UploadCloud,
 } from 'lucide-react';
 
 interface CaseEntryModalProps {
@@ -105,6 +107,44 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
       showToast(e.message || '要素抽提失败，请手动录入', 'error');
     } finally {
       setExtracting(false);
+    }
+  };
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isParsingDoc, setIsParsingDoc] = useState<boolean>(false);
+
+  const handleDocUpload = async (file: File) => {
+    try {
+      setIsParsingDoc(true);
+      showToast(`正在解析文件【${file.name}】...`, 'info');
+      const res = await lawAgentApi.parseDocument(file);
+      setRawEmailText(res.text);
+      showToast(`已提取【${file.name}】正文（${res.char_count} 字符），正在智能抽提要素...`, 'success');
+
+      // 自动触发要素抽提
+      const intakeRes = await lawAgentApi.extractCaseIntake({
+        raw_text: res.text,
+        hint_jurisdiction: jurisdiction,
+      });
+      if (intakeRes.title) setTitle(intakeRes.title);
+      if (intakeRes.jurisdiction) {
+        setJurisdiction(intakeRes.jurisdiction);
+        setProjectHostCountry(intakeRes.jurisdiction);
+      }
+      if (intakeRes.governing_law) {
+        setGoverningLawOption(intakeRes.governing_law === intakeRes.jurisdiction ? 'same' : intakeRes.governing_law);
+      }
+      if (intakeRes.lifecycle_stage) setLifecycleStage(intakeRes.lifecycle_stage);
+      if (intakeRes.project_archetype) setProjectArchetypes([intakeRes.project_archetype]);
+      if (intakeRes.facts) setFactsZh(intakeRes.facts);
+      if (intakeRes.claims) setClaimsZh(intakeRes.claims);
+      if (intakeRes.extracted_params) setExtractedParams(intakeRes.extracted_params);
+      setExtractedSuccess(true);
+      setTimeout(() => setExtractedSuccess(false), 3000);
+    } catch (e: any) {
+      showToast(e.message || '文档解析失败', 'error');
+    } finally {
+      setIsParsingDoc(false);
     }
   };
 
@@ -354,16 +394,43 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] font-mono text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md border border-blue-200">
-                POST /api/cases/extract-intake
-              </span>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".docx,.txt,.md"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleDocUpload(f);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isParsingDoc}
+                  className="px-2.5 py-1 text-xs font-semibold bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 rounded-lg flex items-center gap-1 cursor-pointer shadow-2xs"
+                >
+                  <Paperclip className="w-3.5 h-3.5 text-blue-600" />
+                  <span>{isParsingDoc ? '文档解析中...' : '上传/拖拽 .docx / .txt 索赔函'}</span>
+                </button>
+                <span className="text-[11px] font-mono text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md border border-blue-200">
+                  POST /api/cases/extract-intake
+                </span>
+              </div>
             </div>
 
             <textarea
               rows={3}
               value={rawEmailText}
               onChange={(e) => setRawEmailText(e.target.value)}
-              placeholder="在此粘贴原始英文/中文往来邮件、索赔通知函 (例如: Dear Contractor, progress is delayed by 45 days. Under FIDIC Silver 20.1...)"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleDocUpload(f);
+              }}
+              placeholder="在此粘贴原始英文/中文往来邮件、索赔通知函，或直接拖拽 .docx / .txt 文件至此 (例如: Dear Contractor, progress is delayed by 45 days. Under FIDIC Silver 20.1...)"
               className="w-full p-3 rounded-xl border border-blue-200/80 text-xs font-mono text-slate-800 bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
             />
 

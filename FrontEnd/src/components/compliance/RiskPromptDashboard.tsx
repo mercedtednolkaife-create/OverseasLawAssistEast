@@ -106,7 +106,7 @@ const ASEAN_COUNTRIES = [
 ];
 
 export const RiskPromptDashboard: React.FC = () => {
-  const { openLawDrawer, loadCase, openPipelineAnimation, setCurrentView, showToast } = useApp();
+  const { openLawDrawer, loadCase, openPipelineAnimation, setCurrentView, showToast, openRightDock } = useApp();
   const [isLaunching, setIsLaunching] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     domain: string;
@@ -366,7 +366,11 @@ export const RiskPromptDashboard: React.FC = () => {
           {LEGISLATIVE_SHIFTS.map((shift) => (
             <div
               key={shift.id}
-              className={`p-4 rounded-xl border transition-all ${
+              onClick={() => {
+                openRightDock('country_playbook');
+                showToast(`已在右侧副驾坞载入【${shift.country}】2026 最新立法预警`, 'info');
+              }}
+              className={`p-4 rounded-xl border transition-all cursor-pointer hover:shadow-xs hover:border-slate-400/80 ${
                 shift.alertType === 'critical'
                   ? 'bg-red-50/40 border-red-200/80'
                   : 'bg-amber-50/30 border-amber-200/70'
@@ -588,15 +592,27 @@ export const RiskPromptDashboard: React.FC = () => {
             </div>
 
             {/* 底栏按钮 */}
-            <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
-              <button
-                onClick={handleLaunchRiskSandbox}
-                disabled={isLaunching}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs disabled:opacity-50"
-              >
-                <Compass className="w-4 h-4" />
-                <span>{isLaunching ? '正在立项并启动...' : '针对该国别风险启动专项审查推演'}</span>
-              </button>
+            <div className="pt-3 border-t border-zinc-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleLaunchRiskSandbox}
+                  disabled={isLaunching}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <Compass className="w-4 h-4" />
+                  <span>{isLaunching ? '正在立项并启动...' : '针对该国别风险启动专项审查推演'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    openRightDock('country_playbook');
+                    showToast(`已在右侧副驾坞载入【${selectedCell.country}】排雷速查手册`, 'info');
+                  }}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                  <span>右侧副驾精读</span>
+                </button>
+              </div>
 
               <button
                 onClick={() => setSelectedCell(null)}

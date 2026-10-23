@@ -58,10 +58,14 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
   const id = setTimeout(() => controller.abort(), timeoutMs);
 
   const mergedHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
     Authorization: `Bearer ${currentAuthToken}`,
     ...((headers as Record<string, string>) || {}),
   };
+
+  // 若为普通对象或未指定 FormData，默认设置 application/json
+  if (!(customConfig.body instanceof FormData) && !mergedHeaders['Content-Type']) {
+    mergedHeaders['Content-Type'] = 'application/json';
+  }
 
   try {
     const response = await fetch(url, {

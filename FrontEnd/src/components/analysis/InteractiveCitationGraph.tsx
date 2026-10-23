@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
+import { lawAgentApi } from '../../api/lawAgentApi';
 import {
   Share2,
   Filter,
@@ -9,6 +10,9 @@ import {
   CheckCircle2,
   Layers,
   Sparkles,
+  BookmarkCheck,
+  Check,
+  Plus,
 } from 'lucide-react';
 
 interface InteractiveCitationGraphProps {
@@ -20,8 +24,33 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
   activeNormId,
   onSelectNorm,
 }) => {
-  const { currentCase, openLawDrawer } = useApp();
+  const { currentCase, setCurrentCase, openRightDock, showToast } = useApp();
   const [selectedIssueId, setSelectedIssueId] = useState<string>('all');
+  const [pinnedNormId, setPinnedNormId] = useState<string | null>(null);
+
+  const handleAttachStatute = async (norm: { id: string; code: string; name: string; category: string }) => {
+    if (!currentCase) {
+      showToast('未选择目标案卷', 'error');
+      return;
+    }
+    try {
+      const updatedArtifacts = await lawAgentApi.attachCaseArtifact(currentCase.case_id, {
+        artifact_type: 'statute_pin',
+        title: `${norm.code} · ${norm.name}`,
+        jurisdiction: currentCase.meta?.jurisdiction || 'asean_id',
+        summary: `图谱核心法条引用：${norm.category} 规范基线，已锚定在案事实。`,
+      });
+      setPinnedNormId(norm.id);
+      setCurrentCase({
+        ...currentCase,
+        attached_artifacts: updatedArtifacts,
+      });
+      showToast(`已将【${norm.code}】重点法源引用挂载至案卷！`, 'success');
+      setTimeout(() => setPinnedNormId(null), 2500);
+    } catch (e: any) {
+      showToast(e.message || '挂载法条失败', 'error');
+    }
+  };
 
   // 1. 列 1：案件事实与材料
   const factsList = useMemo(() => {
@@ -226,9 +255,9 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                 key={norm.id}
                 onClick={() => {
                   onSelectNorm(norm.id);
-                  openLawDrawer(norm.id);
+                  openRightDock('law_reader');
                 }}
-                className="p-3 rounded-xl bg-emerald-50/30 border border-emerald-200/70 text-xs space-y-1 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group"
+                className="p-3 rounded-xl bg-emerald-50/30 border border-emerald-200/70 text-xs space-y-1.5 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-bold text-emerald-800 text-[11px] group-hover:text-emerald-900">
@@ -238,12 +267,42 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     {norm.category}
                   </span>
                 </div>
+                <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100/70 text-[10px] font-medium text-emerald-800">
+                  <BookmarkCheck className="w-3 h-3 text-emerald-700" />
+                  <span>权威认证 · 现行有效</span>
+                </div>
                 <p className="text-xs font-bold text-zinc-900">
                   {norm.name}
                 </p>
-                <div className="text-[10px] text-zinc-400 flex items-center gap-1 group-hover:text-blue-600 pt-0.5">
-                  <span>点击穿透多语抽屉</span>
-                  <ExternalLink className="w-3 h-3" />
+                <div className="flex items-center justify-between pt-1 border-t border-emerald-100">
+                  <div className="text-[10px] text-zinc-400 flex items-center gap-1 group-hover:text-blue-600">
+                    <span>穿透副驾精读</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAttachStatute(norm);
+                    }}
+                    className={`text-[10px] px-2 py-0.5 rounded font-medium flex items-center gap-0.5 cursor-pointer ${
+                      pinnedNormId === norm.id
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {pinnedNormId === norm.id ? (
+                      <>
+                        <Check className="w-2.5 h-2.5" />
+                        <span>已引用</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-2.5 h-2.5" />
+                        <span>引用至案卷</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             ))}

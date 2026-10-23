@@ -258,3 +258,59 @@ def test_e2e_attach_artifact_and_simulate_guidance(client):
     assert del_res.status_code == 200
     del_artifacts = del_res.json()
     assert all(a["artifact_id"] != art_id for a in del_artifacts)
+
+
+def test_e2e_parse_doc_and_node_tactical_guidance(client):
+    """验收 11: 验证文档上传解析端点与策略节点自动生成战术指引"""
+    import io
+    import docx
+    import asyncio
+    from lawagent.core.types import CaseState, CaseMeta
+    from lawagent.flow.nodes import red_team_strategist_node
+
+    # 1. 验证 .docx 文档上传解析
+    doc = docx.Document()
+    doc.add_heading("工程索赔往来信函", level=1)
+    doc.add_paragraph("承包商因印尼原住民习惯法土地问题导致工期滞后45天，已于第32天向业主送达索赔通知。")
+    bio = io.BytesIO()
+    doc.save(bio)
+    bio.seek(0)
+
+    files = {"file": ("claim_notice.docx", bio.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+    res = client.post("/api/cases/parse-doc", files=files)
+    assert res.status_code == 200
+    parsed = res.json()
+    assert "工程索赔往来信函" in parsed["text"]
+    assert "工期滞后45天" in parsed["text"]
+
+    # 2. 验证纯文本文件解析
+    txt_content = "印尼火电站EPC合同专用条件，争议解决适用新加坡SIAC仲裁。".encode("utf-8")
+    txt_files = {"file": ("terms.txt", txt_content, "text/plain")}
+    txt_res = client.post("/api/cases/parse-doc", files=txt_files)
+    assert txt_res.status_code == 200
+    assert "印尼火电站" in txt_res.json()["text"]
+
+    # 3. 验证 red_team_strategist_node 自动计算并返回 tactical_guidance
+    state = CaseState(
+        case_id="C999",
+        snapshot_id="snap_asean_2026",
+        meta=CaseMeta(
+            title="新设立测试案卷",
+            jurisdiction="asean_id",
+            lifecycle_stage="execution_dispute",
+            engineering_params={
+                "declared_tkdn_pct": 28.0,
+                "delay_days": 40,
+                "notice_days": 35,
+                "sinosure_notice_days": 32
+            }
+        ),
+        facts_zh="现场出现习惯法征拆阻碍",
+        status="running"
+    )
+    node_out = asyncio.run(red_team_strategist_node(state))
+    assert "tactical_guidance" in node_out
+    assert node_out["tactical_guidance"] is not None
+    assert "qualitative_verdict" in node_out["tactical_guidance"]
+    assert len(node_out["tactical_guidance"]["negotiation_scripts"]) >= 1
+

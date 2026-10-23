@@ -7,7 +7,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/common/Sidebar';
 import { TopBar } from './components/common/TopBar';
-import { LawDrawer } from './components/common/LawDrawer';
 import { UnifiedRightDock } from './components/common/UnifiedRightDock';
 import { CommandPaletteModal } from './components/common/CommandPaletteModal';
 import { LawModal } from './components/common/LawModal';
