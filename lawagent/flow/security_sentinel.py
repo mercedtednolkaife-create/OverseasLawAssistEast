@@ -657,3 +657,174 @@ def check_critic_v12_security_gate(state: CaseState) -> Tuple[bool, str, str]:
             "downgraded",
             f"触发重大涉外国资与经济安全预警但正文尚未生成完备对冲建议：{'; '.join(reasons)}"
         )
+
+
+def build_tactical_guidance(
+    facts_text: str,
+    jurisdiction: str,
+    contract_type: str,
+    params: Dict[str, Any],
+    tkdn_eval: Optional[Dict[str, Any]] = None,
+    eot_eval: Optional[Dict[str, Any]] = None,
+    interface_eval: Optional[Dict[str, Any]] = None,
+    sinosure_eval: Optional[Dict[str, Any]] = None,
+    lifecycle_stage: Optional[str] = "execution_dispute",
+    security_alerts: Optional[List[Any]] = None
+) -> Dict[str, Any]:
+    """生成工程沙盘与投前准入结构化实操战术指南 (Tactical Guidance)
+    包含：三维定性结论遥测区间、中英双语谈判反驳话术卡、7日内紧急发函与取证清单
+    """
+    p = params or {}
+    notice_days = int(p.get("notice_days") or 14)
+    delay_days = int(p.get("delay_days") or 0)
+    tkdn_pct = float(p.get("declared_tkdn_pct") or p.get("declared_tkdn_ratio") or 40.0)
+    sinosure_days = int(p.get("sinosure_notice_days") or 15)
+    main_ld = float(p.get("main_ld_cap_pct") or 10.0)
+    sub_ld = float(p.get("sub_ld_cap_pct") or 10.0)
+    foreign_equity = float(p.get("foreign_equity_pct") or 49.0)
+
+    # 1. 三维定性结论 (Qualitative Verdict)
+    if lifecycle_stage == "pre_investment":
+        is_compliant_equity = (foreign_equity <= 49.0) or (jurisdiction in ("asean_vn", "asean_sg"))
+        legal_support = "附条件准入许可 (推荐新加坡SPV架构)" if is_compliant_equity else "高危限制类准入 (触发外资股比红线)"
+        conf_band = "85% - 92%" if is_compliant_equity else "58% - 68%"
+        procedural = "审批合规路径明确 / 待完备土地确权" if is_compliant_equity else "属地强行法待完备 (2项外资负面清单红线)"
+        counter_exp = "高确定性过审 / 享受BIT待遇保护" if is_compliant_equity else "须申请国家投资特许豁免或组建联营体"
+    else:
+        is_time_barred = notice_days > 28
+        is_sino_overdue = sinosure_days > 30
+        is_tkdn_flaw = tkdn_pct < 40.0 and jurisdiction == "asean_id"
+        if not is_time_barred and not is_sino_overdue and not is_tkdn_flaw:
+            legal_support = "强支持 (索赔要件完备)"
+            conf_band = "84% - 92%"
+            procedural = "程序瑕疵极低 / 28天时效已闭环"
+            counter_exp = "高确定性阻断业主失权抗辩"
+        elif is_time_barred:
+            legal_support = "稳健支持 (依防阻原则抗辩)"
+            conf_band = "72% - 81%"
+            procedural = "28天时效除斥期程序抗辩中度威胁"
+            counter_exp = "援引 Prevention Principle 与并发延误对冲"
+        else:
+            legal_support = "附条件支持 (待补强属地豁免)"
+            conf_band = "75% - 84%"
+            procedural = "本地化率或信保报损存在时效注意要点"
+            counter_exp = "通过善意协商备忘录与补充出险备案化解"
+
+    qualitative_verdict = {
+        "legal_support_level": legal_support,
+        "confidence_band": conf_band,
+        "procedural_exposure": procedural,
+        "counter_block_expectation": counter_exp
+    }
+
+    # 2. 中英双语谈判反驳话术卡 (Negotiation Scripts)
+    scripts: List[Dict[str, str]] = []
+
+    # 2.1 索赔通知时效话术
+    if notice_days > 28:
+        scripts.append({
+            "scenario_title": "FIDIC 20.1 28天通知失权除斥期反驳口径",
+            "legal_basis": "FIDIC 1999 Clause 20.1 & Prevention Principle (防阻原则)",
+            "script_zh": "我方严正声明：现场关键路径延误系因业主未按时交付具备施工条件的场地，且监理工程师未在合理期限内核发施工图所致。根据涉外建设工程‘防阻原则（Prevention Principle）’及大陆法诚信履行原则，业主自身违约致使工期延误时，不得援引 28 天通知时效免除自身责任，工期已自动顺延（Time at Large），我方对工期顺延及费用补偿保留完整追索权。",
+            "script_en": "Contractor expressly submits that critical path delays arose directly from Employer's failure to grant timely site access and late issuance of IFC drawings. Under the Prevention Principle, the Employer cannot benefit from its own default; time becomes at large, and strict Clause 20.1 time-bar does not operate to defeat Contractor's entitlement to an extension of time and incurred prolongations costs."
+        })
+    else:
+        scripts.append({
+            "scenario_title": "FIDIC 20.1 索赔通知完备性与 42 天核准催告口径",
+            "legal_basis": "FIDIC 1999 Clause 20.1 & Clause 3.5 工程师确定",
+            "script_zh": "我方已在延误事件发生后法定及合同约定的 28 天通知期内正式递交索赔意向函，程序要件完全满足。请业主工程师严格遵照合同第 3.5 款在 42 天内出具工期顺延临时核定意见，不得无故拖延。",
+            "script_en": "Contractor has duly submitted the formal Notice of Claim within the strict 28-day requirement under Sub-Clause 20.1. All conditions precedent are satisfied. Engineer is requested to issue determinations within 42 days pursuant to Sub-Clause 3.5."
+        })
+
+    # 2.2 本地化率 TKDN 话术
+    if tkdn_pct < 40.0:
+        scripts.append({
+            "scenario_title": "印尼能矿部 MEMR 11/2024 本地化率特许豁免抗辩口径",
+            "legal_basis": "Indonesia MEMR Reg 11/2024 & UU No. 2/2017 Art. 57",
+            "script_zh": "针对业主主张本地化率未达 40% 之违约抗辩，我方重申：核心高压主汽管道锻件在印尼属地无合资格制造厂，属于客观技术不可替代性。我方已正式向工业部报备特许豁免申请（Surat Rekomendasi/Bebas），该事实属于法定供应链不可归责情形，业主无权借此扣罚违约金。",
+            "script_en": "Regarding the alleged TKDN deficit, Contractor reiterates that high-pressure critical forgings have zero local manufacturing capacity meeting ASME safety standards in Indonesia. Formal Surat Bebas exemption has been initiated with Kemenperin, constituting statutory technical necessity beyond reasonable control, precluding liquidated damages deduction."
+        })
+    else:
+        scripts.append({
+            "scenario_title": "印尼能矿部 MEMR 11/2024 本地化率达标确权口径",
+            "legal_basis": "Indonesia MEMR Reg 11/2024 & SIINas 系统备案",
+            "script_zh": "本项目申报 TKDN 比例达到或优于法定基准，所有属地分包合同与采购发票均已录入能矿部 SIINas 系统，完全满足东道国产业监管与融资关账合规门槛。",
+            "script_en": "Project declared TKDN local content ratio fully satisfies the statutory threshold. Subcontracts and local procurement invoices are registered with the SIINas portal, meeting all compliance criteria."
+        })
+
+    # 2.3 信保 30 日出险报损话术
+    if sinosure_days > 30:
+        scripts.append({
+            "scenario_title": "中信保 30 日出险报损时效补救与代位求偿保全口径",
+            "legal_basis": "中国信保海外工程保险基本条款第 12 条 (出险通知与代位求偿)",
+            "script_zh": "出险通知虽已超 30 日，但期间各方正处于善意友好协商状态，我方正依法固定因业主欠款导致的不可归责证据链。法务部应立即呈递《出险补正专项说明函》，申请保单追溯保障并签订代位求偿权预保全协议。",
+            "script_en": "Although 30 days have elapsed since initial default, the period was engaged in documented mitigation negotiations. Contractor shall immediately file a Remedial Notice of Loss and executed subrogation preservation undertaking with Sinosure."
+        })
+    else:
+        scripts.append({
+            "scenario_title": "中信保 30 日出险报损合规锁定口径",
+            "legal_basis": "中国信保 30 日出险报损规范",
+            "script_zh": "出险事实发生未逾 30 日法定窗口期，应立即启动正式电子系统报损备案，锁定代位求偿权前置条件与政策性保费理赔通道。",
+            "script_en": "Claim notice remains strictly within the 30-day reporting window. Immediate formal lodgment on Sinosure portal is recommended to preserve subrogation indemnity."
+        })
+
+    # 2.4 主分包违约金倒挂话术
+    if main_ld != sub_ld:
+        scripts.append({
+            "scenario_title": "主分包违约金倒挂责任闭环与反背靠背抗辩口径",
+            "legal_basis": "Singapore SOPA Sec 9 / Malaysia CIPAA Sec 35 / FIDIC Back-to-Back",
+            "script_zh": f"主合同违约金上限为 {main_ld}%，分包为 {sub_ld}%。若存在敞口倒挂，总包应依据分包合同通用条件中的实质违约直接损害赔偿条款，向过错分包商发起独立损害索赔，阻断下家滥用背靠背无效抗辩。",
+            "script_en": f"With main LD cap at {main_ld}% and subcontract LD cap at {sub_ld}%, Contractor shall enforce direct contractual breach indemnity and interim certified back-charges to close interface exposure."
+        })
+
+    # 3. 7日内紧急发函与取证清单 (Urgent Actions)
+    urgent_actions = [
+        {
+            "action_type": "发函",
+            "deadline_tag": "3日内",
+            "document_template_title": "《工期索赔意向正式通知函 (Notice of Claim pursuant to Sub-Clause 20.1)》",
+            "key_points": [
+                "写明索赔依据之事实事件及首次觉察日期",
+                "明确援引合同第 8.4 款（工期顺延）及 20.1 款（索赔通知）",
+                "声明正在现场持续记录延误工时与窝工费用",
+                "保留一切法律与合同救济权利"
+            ]
+        },
+        {
+            "action_type": "取证",
+            "deadline_tag": "7日内",
+            "document_template_title": "《关键路径延误与阻碍事件证据清单 (Critical Path Evidence Bundle)》",
+            "key_points": [
+                "收集现场监理工程师会议纪要及阻工指令原件",
+                "梳理场地移交延迟备忘录及航拍测绘记录",
+                "编制 Primavera P6 / As-Built 关键路径对比图表",
+                "固定业主迟延审批图纸与设备进口清关延误的时间戳"
+            ]
+        },
+        {
+            "action_type": "保全",
+            "deadline_tag": "14日内",
+            "document_template_title": "《中信保海外工程出险报损备案表与反欺诈保全通知》",
+            "key_points": [
+                "整理业主拖欠进度款的催告函及送达回执",
+                "附具双方争议往来函件及属地大律师合法合规备忘录",
+                "签署代位求偿权配合追偿承诺书"
+            ]
+        },
+        {
+            "action_type": "行政审批",
+            "deadline_tag": "30日内",
+            "document_template_title": "《东道国能矿部/工业部本地化率 (TKDN) 特许豁免申请报告》",
+            "key_points": [
+                "属地 3 家以上设备制造商无法供货的正式询价回执证明",
+                "进口核心设备 ASME / IEC 国际质量认证测试报告",
+                "联营体中方技术转移培训与属地劳工提升方案"
+            ]
+        }
+    ]
+
+    return {
+        "qualitative_verdict": qualitative_verdict,
+        "negotiation_scripts": scripts,
+        "urgent_actions": urgent_actions
+    }

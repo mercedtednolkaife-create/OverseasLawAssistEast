@@ -56,6 +56,7 @@ export interface CaseMeta {
   governing_law_jurisdiction?: string;
   stage?: 'pre_investment' | 'dispute' | string;
   engineering_params?: Record<string, any>;
+  compared_jurisdictions?: string[];
 }
 
 export interface Claim {
@@ -266,6 +267,9 @@ export interface CaseState {
   parent_case_id?: string;
   security_alerts?: SecurityAlertItem[];
   engineering_audit?: Record<string, any>;
+  tactical_guidance?: TacticalGuidance;
+  attached_artifacts?: AttachedArtifact[];
+  compared_jurisdictions?: string[];
   status: CaseWorkflowStatus;
   created_at: string;
   updated_at: string;
@@ -466,5 +470,55 @@ export interface StrategicAssessment {
   red_team_defenses: RedTeamDefense[];
   actionable_checklist: string[];
   updated_at?: string;
+}
+
+export type RightDockMode = 'law_reader' | 'case_copilot' | 'country_playbook';
+
+export interface IntakeExtractResponse {
+  title: string;
+  jurisdiction: string;
+  governing_law: string;
+  lifecycle_stage: LifecycleStage;
+  project_archetype: ProjectArchetype;
+  facts: string;
+  claims: string;
+  extracted_params: Record<string, any>;
+  lex_loci_conflict: boolean;
+}
+
+export interface NegotiationScript {
+  scenario_title: string;
+  legal_basis: string;
+  script_zh: string;
+  script_en: string;
+}
+
+export interface UrgentAction {
+  action_type: string;
+  deadline_tag: string;
+  document_template_title: string;
+  key_points: string[];
+}
+
+export interface TacticalGuidance {
+  qualitative_verdict?: {
+    legal_support_level: string;
+    confidence_band: string;
+    procedural_exposure: string;
+    counter_block_expectation: string;
+  };
+  negotiation_scripts: NegotiationScript[];
+  urgent_actions: UrgentAction[];
+}
+
+export interface AttachedArtifact {
+  artifact_id: string;
+  artifact_type: 'redline_scan' | 'statute_pin' | 'expert_coi';
+  title: string;
+  jurisdiction?: string;
+  summary: string;
+  redline_clause?: string;
+  details?: Record<string, any>;
+  created_at: string;
 }
 

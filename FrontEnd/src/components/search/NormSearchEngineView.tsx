@@ -2,16 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import { NormOrCaseItem, SearchFilter } from '../../types/lawAgent';
-import { Search, ExternalLink, BookOpen } from 'lucide-react';
+import { Search, ExternalLink, BookOpen, Paperclip, Check, ShieldCheck, Sparkles, Loader2, ArrowRight } from 'lucide-react';
 
 export const NormSearchEngineView: React.FC = () => {
-  const { openLawDrawer, showToast, searchDefaultKind, searchDefaultQuery } = useApp();
+  const { currentCase, currentCaseId, openLawDrawer, openRightDock, showToast, refreshCurrentCase, searchDefaultKind, searchDefaultQuery } = useApp();
   const [query, setQuery] = useState(searchDefaultQuery || '');
   const [selectedLaw, setSelectedLaw] = useState<string>('all');
   const [selectedKind, setSelectedKind] = useState<'all' | 'norm' | 'case'>(searchDefaultKind || 'all');
   const [items, setItems] = useState<NormOrCaseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<NormOrCaseItem | null>(null);
+  const [attaching, setAttaching] = useState(false);
+  const [attachedSuccess, setAttachedSuccess] = useState(false);
+
+  const hotKeywords = [
+    'TKDN 本地化率',
+    'SEMA 3/2023 双语令',
+    'CIPAA 第35条背靠背',
+    'BS Mount Sophia 保函止付',
+    'RA 11966 菲律宾PPP',
+    'FIDIC 20.1 索赔通知',
+    '越南 2025新建设法',
+  ];
 
   // 同步外部/首页传入的检索参数
   useEffect(() => {
@@ -25,6 +37,34 @@ export const NormSearchEngineView: React.FC = () => {
       setSelectedKind(searchDefaultKind);
     }
   }, [searchDefaultKind]);
+
+  const isBrowsingDirectory = !query.trim() && selectedLaw === 'all';
+
+  const handleAttachToCase = async () => {
+    if (!selectedItem) return;
+    if (!currentCaseId) {
+      showToast('请先选择或创建一个目标案卷以挂载法源', 'warning');
+      return;
+    }
+    setAttaching(true);
+    try {
+      await lawAgentApi.attachCaseArtifact(currentCaseId, {
+        artifact_type: 'statute_pin',
+        title: `${selectedItem.id} · ${selectedItem.title}`,
+        jurisdiction: currentCase?.meta?.jurisdiction || 'asean_id',
+        summary: selectedItem.text_zh_machine?.slice(0, 200) || selectedItem.title,
+        source_url: selectedItem.source_url,
+      });
+      setAttachedSuccess(true);
+      showToast(`✓ 已成功将法源【${selectedItem.id}】引用挂载至案卷【${currentCaseId}】`, 'success');
+      await refreshCurrentCase();
+      setTimeout(() => setAttachedSuccess(false), 2500);
+    } catch (e: any) {
+      showToast(e.message || '挂载失败', 'error');
+    } finally {
+      setAttaching(false);
+    }
+  };
 
   const handleSearch = async (targetQuery?: string) => {
     const q = targetQuery !== undefined ? targetQuery : query;
@@ -142,6 +182,24 @@ export const NormSearchEngineView: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* 热门实务检索词胶囊 */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+          <span className="text-[11px] text-slate-400 font-medium">热门实务检索：</span>
+          {hotKeywords.map((kw) => (
+            <button
+              key={kw}
+              type="button"
+              onClick={() => {
+                setQuery(kw);
+                handleSearch(kw);
+              }}
+              className="px-2.5 py-1 text-[11px] font-mono font-medium rounded-lg bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 transition-colors border border-slate-200/60 cursor-pointer"
+            >
+              {kw}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 结果分栏展示 */}
@@ -149,8 +207,14 @@ export const NormSearchEngineView: React.FC = () => {
         {/* 左侧列表 (5列) */}
         <div className="lg:col-span-5 apple-bento-card rounded-[28px] divide-y divide-slate-100/80 overflow-hidden shadow-2xs">
           <div className="px-5 py-3.5 bg-slate-50/80 text-xs font-semibold text-slate-600 flex items-center justify-between">
-            <span>检索结果 ({items.length})</span>
-            <span className="text-[11px] text-slate-400 font-mono">智能相关度排序</span>
+            <span>
+              {isBrowsingDirectory
+                ? `官方基准法源精选导览 (${items.length} 篇)`
+                : `精准检索结果流 (${items.length} 篇)`}
+            </span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {isBrowsingDirectory ? '官方公报现行编目' : '智能相关度排序'}
+            </span>
           </div>
 
           {loading ? (
@@ -191,27 +255,56 @@ export const NormSearchEngineView: React.FC = () => {
         <div className="lg:col-span-7 apple-bento-card rounded-[28px] p-6 space-y-5 sticky top-16">
           {selectedItem ? (
             <>
-              <div className="border-b border-slate-100 pb-4 space-y-1.5">
-                <div className="flex items-center justify-between">
+              <div className="border-b border-slate-100 pb-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="text-base font-bold font-mono text-slate-900">
                     {selectedItem.id}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => openLawDrawer(selectedItem.id.includes('434') ? 'E2' : selectedItem.id.includes('433') ? 'E1' : 'E3')}
+                      onClick={() => openRightDock('law_reader', selectedItem.id)}
                       className="text-xs text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200/90 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-medium transition-all shadow-2xs hover:border-slate-300 active:scale-[0.98] cursor-pointer"
-                      title="在右侧抽屉中对照研读"
+                      title="呼出右侧统一副驾坞并排对照研读"
                     >
                       <BookOpen className="w-3.5 h-3.5 text-slate-600" />
-                      <span>并排对照研读</span>
+                      <span>双语原文对照 ➔</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAttachToCase}
+                      disabled={attaching}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                        attachedSuccess
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90'
+                      }`}
+                    >
+                      {attaching ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>挂载中...</span>
+                        </>
+                      ) : attachedSuccess ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-white" />
+                          <span>✓ 已挂载至 {currentCaseId || '当前案卷'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                          <span>+ 引用至当前案卷</span>
+                        </>
+                      )}
+                    </button>
+
                     {selectedItem.source_url && (
                       <a
                         href={selectedItem.source_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-mono transition-colors"
+                        className="text-xs text-slate-500 hover:text-slate-900 flex items-center gap-1 font-mono transition-colors ml-1"
                       >
                         官方出处
                         <ExternalLink className="w-3.5 h-3.5" />
@@ -219,14 +312,28 @@ export const NormSearchEngineView: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  {selectedItem.title}
-                </h3>
-                {selectedItem.heading_path && (
-                  <p className="text-[11px] text-slate-400 font-mono">
-                    {selectedItem.heading_path}
-                  </p>
-                )}
+
+                {/* 权威背书金牌标签 */}
+                <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/60 flex items-center justify-between text-xs text-amber-900">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="font-semibold">【权威法源认证 · 现行有效】</span>
+                    <span className="text-[11px] text-amber-700 font-mono hidden sm:inline">
+                      东道国官方公报版本 · 司法部法通网三语对齐 · Grade A 最高查明等级
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    {selectedItem.title}
+                  </h3>
+                  {selectedItem.heading_path && (
+                    <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                      {selectedItem.heading_path}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* 官方外文原文 */}

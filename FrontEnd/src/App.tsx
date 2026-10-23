@@ -8,6 +8,8 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/common/Sidebar';
 import { TopBar } from './components/common/TopBar';
 import { LawDrawer } from './components/common/LawDrawer';
+import { UnifiedRightDock } from './components/common/UnifiedRightDock';
+import { CommandPaletteModal } from './components/common/CommandPaletteModal';
 import { LawModal } from './components/common/LawModal';
 import { HomeLandingView } from './components/home/HomeLandingView';
 import { CaseListView } from './components/cases/CaseListView';
@@ -30,6 +32,8 @@ const MainLayout: React.FC = () => {
     removeToast,
     isDrawerOpen,
     closeLawDrawer,
+    isRightDockOpen,
+    closeRightDock,
     isPipelineAnimationOpen,
     closePipelineAnimation,
     openPipelineAnimation,
@@ -86,7 +90,7 @@ const MainLayout: React.FC = () => {
 
       {/* 右侧主工作区 */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        {currentView !== 'analysis' && currentView !== 'home' && (
+        {currentView !== 'home' && (
           <TopBar
             collapsed={sidebarCollapsed}
             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -133,18 +137,18 @@ const MainLayout: React.FC = () => {
             )}
           </main>
 
-          {/* 右侧抽屉 / 对照窗 (Drawer / Split Pane) - 桌面端右侧分栏 (注入 Apple Spring 物理动效) */}
-          {isDrawerOpen && (
-            <div className="hidden lg:block w-[420px] xl:w-[480px] shrink-0 h-full border-l border-slate-200/80 bg-white z-20 apple-drawer-spring shadow-2xl">
-              <LawDrawer variant="docked" onClose={closeLawDrawer} />
+          {/* 右侧统一副驾坞 / 对照窗 (Unified Right Dock) - 桌面端右侧分栏 (注入 Apple Spring 物理动效) */}
+          {(isRightDockOpen || isDrawerOpen) && (
+            <div className="hidden lg:block w-[440px] xl:w-[460px] shrink-0 h-full border-l border-slate-200/80 bg-white z-20 apple-drawer-spring shadow-2xl">
+              <UnifiedRightDock onClose={closeRightDock} />
             </div>
           )}
 
           {/* 移动端/窄屏下的抽屉遮罩与侧滑抽屉 */}
-          {isDrawerOpen && (
-            <div className="lg:hidden fixed inset-0 z-50 flex justify-end bg-black/40 apple-modal-backdrop" onClick={closeLawDrawer}>
+          {(isRightDockOpen || isDrawerOpen) && (
+            <div className="lg:hidden fixed inset-0 z-50 flex justify-end bg-black/40 apple-modal-backdrop" onClick={closeRightDock}>
               <div className="w-full max-w-md h-full bg-white shadow-2xl apple-drawer-spring" onClick={(e) => e.stopPropagation()}>
-                <LawDrawer variant="drawer" onClose={closeLawDrawer} />
+                <UnifiedRightDock onClose={closeRightDock} />
               </div>
             </div>
           )}
@@ -177,6 +181,9 @@ const MainLayout: React.FC = () => {
         isOpen={isCaseEntryModalOpen}
         onClose={closeCaseEntryModal}
       />
+
+      {/* 全局聚焦命令面板 (Spotlight / Linear Cmd/Ctrl+K) */}
+      <CommandPaletteModal />
 
       {/* 全局 Toast 通知容器 */}
       <div className="fixed bottom-5 right-5 z-50 space-y-2 max-w-sm w-full pointer-events-none">

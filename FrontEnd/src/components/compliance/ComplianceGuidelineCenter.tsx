@@ -250,7 +250,7 @@ const LIFECYCLE_GUIDELINES: StageGuideline[] = [
 ];
 
 export const ComplianceGuidelineCenter: React.FC = () => {
-  const { showToast, loadCase, openPipelineAnimation, setCurrentView } = useApp();
+  const { showToast, loadCase, openPipelineAnimation, setCurrentView, openCaseEntryWithPrefill } = useApp();
   const [stages, setStages] = useState<StageGuideline[]>(LIFECYCLE_GUIDELINES);
   const [activeStageId, setActiveStageId] = useState<string>('stage_1');
 
@@ -271,8 +271,12 @@ export const ComplianceGuidelineCenter: React.FC = () => {
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isCreatingCase, setIsCreatingCase] = useState<boolean>(false);
 
-  // 在线自测打分系统状态
+  // 在线自测打分系统状态 (支持 localStorage 持久化)
   const [itemStatuses, setItemStatuses] = useState<Record<string, CheckStatus>>(() => {
+    try {
+      const saved = localStorage.getItem('compliance_guidelines_status');
+      if (saved) return JSON.parse(saved);
+    } catch {}
     const init: Record<string, CheckStatus> = {};
     LIFECYCLE_GUIDELINES.forEach((stage) => {
       (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
@@ -293,6 +297,28 @@ export const ComplianceGuidelineCenter: React.FC = () => {
     });
     return init;
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('compliance_guidelines_status', JSON.stringify(itemStatuses));
+    } catch {}
+  }, [itemStatuses]);
+
+  const handleResetChecklist = () => {
+    localStorage.removeItem('compliance_guidelines_status');
+    const init: Record<string, CheckStatus> = {};
+    LIFECYCLE_GUIDELINES.forEach((stage) => {
+      (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
+        const line = stage.defenseLines[lineKey];
+        line.checklists.forEach((_, idx) => {
+          const key = `${stage.id}_${lineKey}_${idx}`;
+          init[key] = 'passed';
+        });
+      });
+    });
+    setItemStatuses(init);
+    showToast('已重置体检清单状态', 'info');
+  };
 
   const currentStage = stages.find((s) => s.id === activeStageId) || stages[0];
 
@@ -553,7 +579,15 @@ export const ComplianceGuidelineCenter: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetChecklist}
+              className="px-3 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200/80 border border-zinc-200 transition-colors cursor-pointer"
+              title="重置体检打分至默认状态"
+            >
+              重置体检表
+            </button>
             <button
               onClick={handleGenerateComplianceCase}
               disabled={isCreatingCase || currentUnmetItems.length === 0}
@@ -765,6 +799,29 @@ export const ComplianceGuidelineCenter: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* 瑕疵或未达标时：一键发起专案推演 */}
+                  {(currentStatus === 'flawed' || currentStatus === 'failed') && (
+                    <div className="pt-2 border-t border-zinc-200/50 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openCaseEntryWithPrefill({
+                            title: `海外合规排雷专案 - ${check.slice(0, 26)}`,
+                            jurisdiction: exportJur,
+                            governing_law: 'asean_sg',
+                            lifecycle_stage: activeStageId === 'stage_1' || activeStageId === 'stage_2' ? 'pre_investment' : 'execution_dispute',
+                            facts: `合规审查项：${check}\n所属阶段：${currentStage.stageName} (${lineData.title})\n判定状态：${currentStatus === 'flawed' ? '存在合规瑕疵' : '完全未达标'}`,
+                            claims: `针对 ${currentStage.stageName} 的 ${lineData.title} 合规缺口，开展专项法律调查与合规推演。`,
+                          });
+                          showToast('已携带该合规缺口发起专案建案！', 'info');
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50/80 hover:bg-blue-100/80 px-2 py-1 rounded-lg border border-blue-200/60 transition-colors cursor-pointer"
+                      >
+                        <span>针对此缺口发起专案推演 ➔</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

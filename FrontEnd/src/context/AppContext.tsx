@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { UserRole, CaseState, CaseSummary, Evidence } from '../types/lawAgent';
+import { UserRole, CaseState, CaseSummary, Evidence, RightDockMode } from '../types/lawAgent';
 import { lawAgentApi } from '../api/lawAgentApi';
 
 export type ActiveView =
@@ -49,7 +49,14 @@ interface AppContextType {
   setSearchDefaultKind: (kind: 'all' | 'norm' | 'case') => void;
   searchDefaultQuery: string;
   setSearchDefaultQuery: (query: string) => void;
-  // 右侧抽屉 / 对照窗状态
+  // 右侧统一副驾坞 (Unified Right Dock) 状态
+  isRightDockOpen: boolean;
+  setIsRightDockOpen: (open: boolean) => void;
+  rightDockMode: RightDockMode;
+  setRightDockMode: (mode: RightDockMode) => void;
+  openRightDock: (mode?: RightDockMode, evidenceId?: string) => void;
+  closeRightDock: () => void;
+  // 权威法源抽屉 / 对照窗状态
   selectedEvidenceEid: string | null;
   setSelectedEvidenceEid: (eid: string | null) => void;
   isDrawerOpen: boolean;
@@ -60,11 +67,21 @@ interface AppContextType {
   lawModalEid: string | null;
   isLawModalOpen: boolean;
   openLawModal: (eid: string) => void;
+  closeLawModal: () => void;
   // 新建查明案情弹窗状态
   isCaseEntryModalOpen: boolean;
   setIsCaseEntryModalOpen: (open: boolean) => void;
   openCaseEntryModal: () => void;
   closeCaseEntryModal: () => void;
+  // 全局命令面板 (Cmd/Ctrl + K) 状态
+  isCommandPaletteOpen: boolean;
+  setIsCommandPaletteOpen: (open: boolean) => void;
+  openCommandPalette: () => void;
+  closeCommandPalette: () => void;
+  // 跨组件建案预填参数
+  prefillIntakeParams: any | null;
+  setPrefillIntakeParams: (params: any | null) => void;
+  openCaseEntryWithPrefill: (params: any) => void;
   // 侧边栏折叠状态 (全局响应式与定位)
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
@@ -99,6 +116,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedEvidenceEid, setSelectedEvidenceEid] = useState<string | null>('E1');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
+  // 右侧统一副驾坞 (Unified Right Dock)
+  const [isRightDockOpen, setIsRightDockOpen] = useState<boolean>(false);
+  const [rightDockMode, setRightDockMode] = useState<RightDockMode>('law_reader');
+
+  const openRightDock = useCallback((mode: RightDockMode = 'law_reader', evidenceId?: string) => {
+    setRightDockMode(mode);
+    if (evidenceId) {
+      setSelectedEvidenceEid(evidenceId);
+    }
+    setIsRightDockOpen(true);
+    setIsDrawerOpen(true);
+  }, []);
+
+  const closeRightDock = useCallback(() => {
+    setIsRightDockOpen(false);
+    setIsDrawerOpen(false);
+  }, []);
+
+  // 全局命令面板 (Cmd/Ctrl + K)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  const openCommandPalette = useCallback(() => setIsCommandPaletteOpen(true), []);
+  const closeCommandPalette = useCallback(() => setIsCommandPaletteOpen(false), []);
+
+  // 跨组件建案预填参数
+  const [prefillIntakeParams, setPrefillIntakeParams] = useState<any | null>(null);
+  const openCaseEntryWithPrefill = useCallback((params: any) => {
+    setPrefillIntakeParams(params);
+    setIsCaseEntryModalOpen(true);
+  }, []);
+
   // 侧边栏折叠状态 (全局响应式与定位)
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
@@ -109,7 +156,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 新建查明案情弹窗状态
   const [isCaseEntryModalOpen, setIsCaseEntryModalOpen] = useState<boolean>(false);
   const openCaseEntryModal = useCallback(() => setIsCaseEntryModalOpen(true), []);
-  const closeCaseEntryModal = useCallback(() => setIsCaseEntryModalOpen(false), []);
+  const closeCaseEntryModal = useCallback(() => {
+    setIsCaseEntryModalOpen(false);
+    setPrefillIntakeParams(null);
+  }, []);
+
+  // 监听全局快捷键 (Cmd/Ctrl + K, Cmd/Ctrl + B)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setIsRightDockOpen((prev) => !prev);
+        setIsDrawerOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleSetCurrentView = useCallback((view: ActiveView) => {
     if (view === 'entry') {
@@ -275,6 +341,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsDrawerOpen,
         openLawDrawer,
         closeLawDrawer,
+        isRightDockOpen,
+        setIsRightDockOpen,
+        rightDockMode,
+        setRightDockMode,
+        openRightDock,
+        closeRightDock,
+        isCommandPaletteOpen,
+        setIsCommandPaletteOpen,
+        openCommandPalette,
+        closeCommandPalette,
+        prefillIntakeParams,
+        setPrefillIntakeParams,
+        openCaseEntryWithPrefill,
         lawModalEid,
         isLawModalOpen,
         openLawModal,

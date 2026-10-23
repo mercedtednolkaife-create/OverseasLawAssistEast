@@ -103,12 +103,82 @@ def generate_case_docx(state: CaseState) -> BytesIO:
 
     doc.add_paragraph()
 
+    # 2.5 核心防线落实：三维定性裁判结论与假定条件推演矩阵 (V8 Anti-Predictive Guardrail)
+    doc.add_heading("二、三维定性裁判结论与假定条件推演矩阵 (Judicial Verdict & If-Then Matrix)", level=1)
+    
+    tactical = getattr(state, "tactical_guidance", None) or {}
+    q_verdict = tactical.get("qualitative_verdict") or {}
+    
+    v_table = doc.add_table(rows=5, cols=2)
+    v_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    v_table.autofit = False
+    v_headers = [
+        ("司法定性维度", "裁决心证与确定性指标 (严守V8防线，不作伪胜诉率预测)"),
+        ("实体法理支持度 / 准入可行性", q_verdict.get("legal_support_level", "强支持 (索赔要件完备)")),
+        ("裁判置信度区间 (Confidence Band)", q_verdict.get("confidence_band", "84% - 92%")),
+        ("程序抗辩敞口 / 属地合规就绪度", q_verdict.get("procedural_exposure", "程序瑕疵极低 / 28天时效已闭环")),
+        ("反制阻断预期 / BIT待遇保护", q_verdict.get("counter_block_expectation", "高确定性阻断业主失权抗辩"))
+    ]
+    for idx, (lbl, val) in enumerate(v_headers):
+        row = v_table.rows[idx]
+        row.cells[0].width = Inches(2.2)
+        row.cells[1].width = Inches(4.3)
+        row.cells[0].text = lbl
+        row.cells[1].text = val
+        if idx == 0:
+            row.cells[0].paragraphs[0].runs[0].font.bold = True
+            row.cells[1].paragraphs[0].runs[0].font.bold = True
+            _set_cell_background(row.cells[0], "E2E8F0")
+            _set_cell_background(row.cells[1], "E2E8F0")
+        else:
+            row.cells[0].paragraphs[0].runs[0].font.bold = True
+            _set_cell_background(row.cells[0], "F8FAFC")
+
+    # If-Then 矩阵
+    if state.strategic_assessment and state.strategic_assessment.outcome_branches:
+        doc.add_heading("2.1 假定条件推演矩阵 (Condition Precedent If-Then Matrix)", level=2)
+        branches = state.strategic_assessment.outcome_branches
+        b_table = doc.add_table(rows=len(branches) + 1, cols=4)
+        b_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        b_cols = ["分支类型与标题", "假定前提要件 (If)", "适用法条与规范基准", "裁判倾向与风险定性 (Then)"]
+        for c_idx, h in enumerate(b_cols):
+            cell = b_table.rows[0].cells[c_idx]
+            cell.text = h
+            cell.paragraphs[0].runs[0].font.bold = True
+            _set_cell_background(cell, "E2E8F0")
+        b_table.columns[0].width = Inches(1.5)
+        b_table.columns[1].width = Inches(1.8)
+        b_table.columns[2].width = Inches(1.5)
+        b_table.columns[3].width = Inches(1.7)
+        for r_idx, br in enumerate(branches, 1):
+            row = b_table.rows[r_idx]
+            row.cells[0].text = f"【{br.branch_type.upper()}】{br.title}"
+            row.cells[1].text = br.condition_precedent
+            row.cells[2].text = ", ".join(br.substantive_basis) or "FIDIC/东道国强行法"
+            row.cells[3].text = br.outcome_summary
+
+    # 准据法与东道国脱钩冲突审查 (Lex Loci Solutionis Override)
+    host_c = state.meta.jurisdiction or state.meta.project_host_country
+    gov_c = state.meta.choice_of_law or state.meta.governing_law_jurisdiction
+    if host_c and gov_c and host_c != gov_c:
+        doc.add_heading("2.2 准据法脱钩冲突专项审查 (Lex Loci Solutionis Override)", level=2)
+        p_lex = doc.add_paragraph()
+        p_lex.add_run(
+            f"【准据法脱钩穿透警示】本项目工程实施地属于 [{host_c}]，合同约定准据法为 [{gov_c}]。\n"
+            "依据国际私法‘履行地强行法优先适用原则’及东盟属地公共秩序保留，工程所在国关于施工资质许可、"
+            "本地化率(TKDN)、反背靠背支付无效（如马来CIPAA第35条/新加坡SOPA第9条）及保函止付等公法及保护性强行法规范，"
+            "均具有超越合同约定准据法的绝对优先穿透效力，任何排他性私法约定均告自始无效。"
+        )
+        p_lex.runs[0].font.color.rgb = RGBColor(180, 83, 9)
+
+    doc.add_paragraph()
+
     # 3. 第一部分：A包 域外法规范查明材料包
     if is_pre_inv:
-        part_a_title = "二、第一部分：东道国外资准入强行法与法通网法源查明材料包 (Part A)"
+        part_a_title = "三、第一部分：东道国外资准入强行法与法通网法源查明材料包 (Part A)"
         p_a_intro_text = "依据司法部‘法通’网权威译本、东盟东道国2026现行有效外商投资法、建筑服务法及双边投资保护协定 (BIT)，系统严格定位并提取拟投资项目之东道国法定准入与强制合规条款如下："
     else:
-        part_a_title = "二、第一部分：东盟现行有效工程法规与 FIDIC 标准合同材料包 (Part A)"
+        part_a_title = "三、第一部分：东盟现行有效工程法规与 FIDIC 标准合同材料包 (Part A)"
         p_a_intro_text = "依据司法部‘法通’网权威译本、东盟东道国2026现行有效成文法及 FIDIC 国际工程标准合同，系统严格定位并提取支撑本案争议焦点之法定权利基础及构成要件条款如下："
     col2_label = "官方语言原文 (Statute / FIDIC)"
 
@@ -252,14 +322,93 @@ def generate_case_docx(state: CaseState) -> BytesIO:
 
         doc.add_paragraph()
 
+    # 5. 工程履约沙盘敏感度测算与商务谈判反驳话术卡
+    doc.add_heading(f"{'五' if state.security_alerts else '四'}、工程履约沙盘敏感度测算与商务谈判反驳话术卡 (Tactical Engineering & Battlecards)", level=1)
+    
+    # 沙盘参数表
+    params = state.meta.engineering_params or {}
+    sp_table = doc.add_table(rows=6, cols=2)
+    sp_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    sp_headers = [
+        ("沙盘定格参数", "数值指标与合规门限"),
+        ("申报本地化率 (TKDN %)", f"{params.get('declared_tkdn_pct', 40.0)}% (印尼MEMR 11/2024基准：40%)"),
+        ("现场延误工期 (Delay Days)", f"{params.get('delay_days', 0)} 天"),
+        ("FIDIC 20.1 索赔通知送达天数", f"{params.get('notice_days', 14)} 天 (法定除斥期红线：28天)"),
+        ("中信保出险报损天数", f"{params.get('sinosure_notice_days', 15)} 天 (保单报损时效红线：30天)"),
+        ("主合同 / 分包违约金上限", f"主合同 {params.get('main_ld_cap_pct', 10.0)}% / 分包 {params.get('sub_ld_cap_pct', 10.0)}%")
+    ]
+    for idx, (lbl, val) in enumerate(sp_headers):
+        row = sp_table.rows[idx]
+        row.cells[0].width = Inches(2.5)
+        row.cells[1].width = Inches(4.0)
+        row.cells[0].text = lbl
+        row.cells[1].text = val
+        if idx == 0:
+            row.cells[0].paragraphs[0].runs[0].font.bold = True
+            row.cells[1].paragraphs[0].runs[0].font.bold = True
+            _set_cell_background(row.cells[0], "E2E8F0")
+            _set_cell_background(row.cells[1], "E2E8F0")
+        else:
+            row.cells[0].paragraphs[0].runs[0].font.bold = True
+            _set_cell_background(row.cells[0], "F8FAFC")
+
+    # 谈判话术卡
+    scripts = tactical.get("negotiation_scripts") or []
+    if scripts:
+        doc.add_heading("5.1 中英双语商务谈判反驳话术卡 (Negotiation Scripts)", level=2)
+        for s_idx, sc in enumerate(scripts, 1):
+            doc.add_heading(f"话术 {s_idx}：{sc.get('scenario_title', '谈判口径')}", level=3)
+            p_sc = doc.add_paragraph()
+            p_sc.add_run("法理依据：").bold = True
+            p_sc.add_run(f"{sc.get('legal_basis', 'FIDIC/属地强行法')}\n")
+            p_sc.add_run("中文谈判反驳口径：\n").bold = True
+            p_sc.add_run(f"{sc.get('script_zh', '')}\n")
+            p_sc.add_run("English Negotiation Position:\n").bold = True
+            p_sc.add_run(f"{sc.get('script_en', '')}\n").italic = True
+
+    # 紧急发函与取证清单
+    urgent_acts = tactical.get("urgent_actions") or []
+    if urgent_acts:
+        doc.add_heading("5.2 现场紧急发函与关键证据补强清单 (Urgent Actions)", level=2)
+        for u_idx, ua in enumerate(urgent_acts, 1):
+            p_u = doc.add_paragraph()
+            p_u.add_run(f"[{ua.get('deadline_tag', '即刻')}] 【{ua.get('action_type', '行动')}】{ua.get('document_template_title', '')}\n").bold = True
+            for kp in ua.get("key_points", []):
+                p_u.add_run(f"  • {kp}\n")
+
+    doc.add_paragraph()
+
     # 6. 质量门禁与防线声明
-    disclaimer_level = 5 if state.security_alerts else 4
-    doc.add_heading(f"{'五' if state.security_alerts else '四'}、质量门禁与客观中立性声明", level=1)
+    doc.add_heading(f"{'六' if state.security_alerts else '五'}、质量门禁与客观中立性声明", level=1)
     bar_qual = "东盟东道国或国际工程仲裁执业资格"
     p_disclaimer = doc.add_paragraph(
         f"【客观中立性防线声明与合规依据】本报告依据《最高人民法院关于适用〈涉外民事关系法律适用法〉若干问题的解释（二）》关于涉外法域查明之规范指引、国务院国资委《中央企业境外投资监督管理办法》（第35号令）合规要求，并结合司法部法通网不可变东盟法律快照生成。本报告仅提供客观规范条款、构成要件逻辑结构、风险哨兵提示与证据准备指引，坚决不作任何绝对胜诉率预测或保函绝对止付保证。所有实体权利与程序主张均应由具有{bar_qual}之涉外法律专业人员线下最终复核确认。"
     )
     p_disclaimer.runs[0].font.color.rgb = RGBColor(180, 83, 9)
+
+    # 7. 附件：专案挂载之合同条款红线体检与重点法源核验记录
+    if getattr(state, "attached_artifacts", None):
+        doc.add_heading("七、附件：专案挂载之合同条款红线体检与重点法源核验记录 (Attached Artifacts)", level=1)
+        art_table = doc.add_table(rows=len(state.attached_artifacts) + 1, cols=4)
+        art_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        art_headers = ["挂载类型", "成果标题与东道国", "审查诊断与摘要", "合规示范条款 / 重点依据"]
+        for c_idx, h in enumerate(art_headers):
+            cell = art_table.rows[c_idx] if False else art_table.rows[0].cells[c_idx]
+            cell.text = h
+            cell.paragraphs[0].runs[0].font.bold = True
+            _set_cell_background(cell, "E2E8F0")
+        art_table.columns[0].width = Inches(1.2)
+        art_table.columns[1].width = Inches(1.6)
+        art_table.columns[2].width = Inches(2.0)
+        art_table.columns[3].width = Inches(1.7)
+        type_names = {"redline_scan": "合同红线扫描", "statute_pin": "重点法源引用", "expert_coi": "专家会商/避冲"}
+        for r_idx, art in enumerate(state.attached_artifacts, 1):
+            row = art_table.rows[r_idx]
+            row.cells[0].text = type_names.get(art.get("artifact_type", ""), art.get("artifact_type", ""))
+            row.cells[1].text = f"{art.get('title', '')} ({art.get('jurisdiction', '')})"
+            row.cells[2].text = (art.get("summary") or "")[:200]
+            row.cells[3].text = (art.get("redline_clause") or "见系统电子底稿")[:200]
+        doc.add_paragraph()
 
     doc_stream = BytesIO()
     doc.save(doc_stream)

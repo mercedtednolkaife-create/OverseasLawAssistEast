@@ -196,3 +196,65 @@ def test_e2e_docx_export(client):
     assert "FIDIC" in doc_text or "印尼" in doc_text
     # 必须包含权威法源或最高院司法解释（二）合规溯源说明
     assert "法通" in doc_text or "最高人民法院" in doc_text or "解释（二）" in doc_text
+
+
+def test_e2e_extract_intake(client):
+    """验收 9: 验证建案前原始邮件/索赔函一键智能要素抽提 (/api/cases/extract-intake)"""
+    claim_email = """
+    From: Employer PM (Jakarta)
+    To: China Contractor EPC Team
+    Subject: Notice of Default & Liquidated Damages - Central Java 300MW Power Plant
+    Dear Sirs,
+    Your progress is currently delayed by 45 days. Under FIDIC Silver Clause 20.1, you were required to serve notice within 28 days of the event, but your notice arrived after 35 days.
+    Furthermore, your TKDN local content is only 28%, violating MEMR Reg 11/2024. Liquidated damages will be capped at 10%. Sinosure notice must be preserved within 20 days.
+    """
+    res = client.post("/api/cases/extract-intake", json={"raw_text": claim_email})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["jurisdiction"] == "asean_id"
+    assert data["lifecycle_stage"] == "execution_dispute"
+    assert data["extracted_params"]["notice_days"] == 28 or data["extracted_params"]["notice_days"] == 35
+    assert data["extracted_params"]["delay_days"] == 45
+    assert data["extracted_params"]["declared_tkdn_pct"] == 28.0
+    assert data["extracted_params"]["main_ld_cap_pct"] == 10.0
+
+
+def test_e2e_attach_artifact_and_simulate_guidance(client):
+    """验收 10: 验证外部工具箱挂载闭环与工程沙盘实时返回中英双语谈判反驳话术"""
+    # 1. 测试挂载工具箱成果
+    art_payload = {
+        "artifact_type": "redline_scan",
+        "title": "CIPAA 第35条背靠背条款扫描",
+        "jurisdiction": "asean_my",
+        "summary": "分包Pay-when-paid背靠背付款条款依据CIPAA第35条法定绝对无效",
+        "redline_clause": "Payment to Subcontractor within 14 days of receipt from Employer (Pay-when-paid) -> 建议修订为独立里程碑验收付款"
+    }
+    art_res = client.post("/api/cases/C101/attach-artifact", json=art_payload)
+    assert art_res.status_code == 200
+    artifacts = art_res.json()
+    assert len(artifacts) >= 1
+    assert artifacts[0]["title"] == "CIPAA 第35条背靠背条款扫描"
+    art_id = artifacts[0]["artifact_id"]
+
+    # 2. 测试沙盘重算返回 tactical_guidance
+    sim_res = client.post("/api/cases/C101/simulate-engineering", json={
+        "notice_days": 35,  # 越过 28 天红线
+        "declared_tkdn_pct": 25.0,  # 低于 40%
+        "sinosure_notice_days": 35  # 越过 30 天红线
+    })
+    assert sim_res.status_code == 200
+    sim_case = sim_res.json()
+    assert sim_case["tactical_guidance"] is not None
+    tg = sim_case["tactical_guidance"]
+    assert "qualitative_verdict" in tg
+    assert "negotiation_scripts" in tg
+    assert len(tg["negotiation_scripts"]) >= 2
+    # 验证生成了中英双语谈判话术
+    assert any("FIDIC 20.1" in s["scenario_title"] for s in tg["negotiation_scripts"])
+    assert any("Prevention Principle" in s["script_en"] for s in tg["negotiation_scripts"])
+
+    # 3. 测试移除挂载成果
+    del_res = client.delete(f"/api/cases/C101/attach-artifact/{art_id}")
+    assert del_res.status_code == 200
+    del_artifacts = del_res.json()
+    assert all(a["artifact_id"] != art_id for a in del_artifacts)

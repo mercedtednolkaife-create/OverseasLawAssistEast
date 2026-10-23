@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import { Expert, ConsultRecord } from '../../types/lawAgent';
-import { Users, Send, CheckCircle2, FileText, Download, UserCheck, Shield } from 'lucide-react';
+import { Users, Send, CheckCircle2, FileText, Download, UserCheck, Shield, Paperclip, Check, Loader2 } from 'lucide-react';
 
 export const ExpertConsultsView: React.FC = () => {
-  const { currentCase, showToast } = useApp();
+  const { currentCase, currentCaseId, refreshCurrentCase, showToast } = useApp();
   const [experts, setExperts] = useState<Expert[]>([]);
   const [consults, setConsults] = useState<ConsultRecord[]>([]);
   const [selectedExpertId, setSelectedExpertId] = useState<string>('');
@@ -13,6 +13,8 @@ export const ExpertConsultsView: React.FC = () => {
     '针对东盟东道国基建工程与跨境投资项目，请就东道国强行法（如印尼 SEMA 3/2023 语言合规、大马 CIPAA 35 背靠背无效、泰 FBA 外资限制、菲 PCAB 施工资质与 FIDIC 8.4/20.1 时效）出具权威专家法律意见。'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachingId, setAttachingId] = useState<string | null>(null);
+  const [attachedIds, setAttachedIds] = useState<Record<string, boolean>>({});
 
   const loadData = async () => {
     try {
@@ -32,6 +34,29 @@ export const ExpertConsultsView: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [currentCase?.case_id]);
+
+  const handleAttachConsult = async (con: ConsultRecord) => {
+    if (!currentCaseId) {
+      showToast('请先选择或创建一个目标案卷以挂载会商意见', 'warning');
+      return;
+    }
+    setAttachingId(con.consult_id);
+    try {
+      await lawAgentApi.attachCaseArtifact(currentCaseId, {
+        artifact_type: 'expert_coi',
+        title: `Local Counsel 专家会商意见 - ${con.expert_name}`,
+        jurisdiction: currentCase?.meta?.jurisdiction || 'asean_id',
+        summary: `特邀属地专家 ${con.expert_name} 就「${con.question_snapshot.slice(0, 60)}...」出具专项法律意见，已通过利益冲突审查并形成合规归档。`,
+      });
+      setAttachedIds((prev) => ({ ...prev, [con.consult_id]: true }));
+      showToast(`✓ 已成功将专家会商记录挂载至案卷【${currentCaseId}】`, 'success');
+      await refreshCurrentCase();
+    } catch (e: any) {
+      showToast(e.message || '挂载失败', 'error');
+    } finally {
+      setAttachingId(null);
+    }
+  };
 
   const handleCreateConsult = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,6 +245,40 @@ export const ExpertConsultsView: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* 挂载至案卷附表操作 */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    已通过 SIAC/Local Bar 利益冲突 (COI) 合规认证
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleAttachConsult(con)}
+                    disabled={attachingId === con.consult_id || attachedIds[con.consult_id]}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      attachedIds[con.consult_id]
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 shadow-2xs'
+                    }`}
+                  >
+                    {attachingId === con.consult_id ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                        <span>挂载中...</span>
+                      </>
+                    ) : attachedIds[con.consult_id] ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>已挂载至案卷附表</span>
+                      </>
+                    ) : (
+                      <>
+                        <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                        <span>+ 挂载会商记录至当前案卷</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

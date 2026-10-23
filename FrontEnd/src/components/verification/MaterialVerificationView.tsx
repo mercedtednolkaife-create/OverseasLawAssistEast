@@ -15,13 +15,18 @@ import {
   Check,
   Sparkles,
   FileSearch,
-  Scale
+  Scale,
+  Paperclip,
+  FolderPlus,
+  Loader2,
 } from 'lucide-react';
 
 export const MaterialVerificationView: React.FC = () => {
-  const { currentCase, openLawModal, showToast } = useApp();
+  const { currentCase, currentCaseId, openLawModal, showToast, openCaseEntryWithPrefill, refreshCurrentCase } = useApp();
 
   const [verifyMode, setVerifyMode] = useState<'CONTRACT_REDLINE_AUDIT' | 'CITATION_CHECK'>('CONTRACT_REDLINE_AUDIT');
+  const [attachingIdx, setAttachingIdx] = useState<number | null>(null);
+  const [attachedIdxs, setAttachedIdxs] = useState<Record<number, boolean>>({});
 
   const sampleClauses = [
     {
@@ -94,6 +99,42 @@ export const MaterialVerificationView: React.FC = () => {
     setCopiedIndex(idx);
     showToast('合规替代示范条款已复制到剪贴板！', 'success');
     setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const handleAttachArtifact = async (item: any, idx: number) => {
+    if (!currentCaseId) {
+      showToast('请先选择或创建一个目标案卷以挂载体检记录', 'warning');
+      return;
+    }
+    setAttachingIdx(idx);
+    try {
+      await lawAgentApi.attachCaseArtifact(currentCaseId, {
+        artifact_type: 'redline_scan',
+        title: item.violated_rule_title || '合同强行法红线违规条款',
+        jurisdiction: currentCase?.meta?.jurisdiction || 'asean_id',
+        summary: item.mandatory_rule_desc || '强行法违规风险及后果',
+        redline_clause: item.recommended_revision,
+      });
+      setAttachedIdxs((prev) => ({ ...prev, [idx]: true }));
+      showToast(`✓ 已成功将该条款体检记录挂载至案卷【${currentCaseId}】附表`, 'success');
+      await refreshCurrentCase();
+    } catch (e: any) {
+      showToast(e.message || '挂载失败', 'error');
+    } finally {
+      setAttachingIdx(null);
+    }
+  };
+
+  const handleUpgradeToCase = (item: any) => {
+    openCaseEntryWithPrefill({
+      title: `${item.violated_rule_title || '合同条款强行法红线审查专案'}`,
+      jurisdiction: currentCase?.meta?.jurisdiction || 'asean_id',
+      governing_law: currentCase?.meta?.choice_of_law || currentCase?.meta?.jurisdiction || 'asean_sg',
+      lifecycle_stage: 'execution_dispute',
+      facts: `合同条款片段：\n"${item.clause_snippet}"\n\n东盟强行法依据：\n${item.mandatory_rule_desc}`,
+      claims: `针对 ${item.violated_norm_id || '东道国强行法'} 规范，主张条款合规重构或排除不当抗辩，落地推荐示范条款。`,
+    });
+    showToast('已携带该风险条款与强行法依据预填建案！', 'info');
   };
 
   return (
@@ -296,6 +337,53 @@ export const MaterialVerificationView: React.FC = () => {
                     </div>
                     <div className="p-3 bg-emerald-50/40 rounded-xl border border-emerald-100 font-mono text-emerald-950 text-[11px] leading-relaxed select-all">
                       {item.recommended_revision}
+                    </div>
+
+                    {/* 双出口动作闭环：挂载至案卷附表 + 以此条款新建深度专案 */}
+                    <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                        <span>挂载目标案卷：<strong className="text-slate-800 font-mono">{currentCaseId || '未选择'}</strong></span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleAttachArtifact(item, idx)}
+                          disabled={attachingIdx === idx || attachedIdxs[idx]}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                            attachedIdxs[idx]
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 hover:border-slate-300 shadow-2xs'
+                          }`}
+                        >
+                          {attachingIdx === idx ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                              <span>挂载中...</span>
+                            </>
+                          ) : attachedIdxs[idx] ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>已挂载至案卷附表</span>
+                            </>
+                          ) : (
+                            <>
+                              <Paperclip className="w-3.5 h-3.5 text-slate-500" />
+                              <span>+ 挂载体检记录至当前案卷</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleUpgradeToCase(item)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50/90 hover:bg-blue-100/90 border border-blue-200/80 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
+                        >
+                          <FolderPlus className="w-3.5 h-3.5 text-blue-600" />
+                          <span>以此条款新建深度专案</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

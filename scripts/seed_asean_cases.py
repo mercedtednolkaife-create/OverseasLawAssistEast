@@ -791,6 +791,19 @@ def seed_asean_demo_cases(db: StateDBManager, overwrite: bool = False):
     for cid, fn in cases_map:
         if cid not in existing_ids or overwrite:
             case = fn()
+            from lawagent.flow.security_sentinel import build_tactical_guidance
+            params = case.meta.engineering_params or {}
+            jur = case.meta.jurisdiction or "asean_id"
+            contract_type = case.meta.contract_type or "FIDIC_SILVER"
+            facts_text = f"{case.facts_zh or ''} {' '.join([f.text_zh for f in case.facts])}"
+            case.tactical_guidance = build_tactical_guidance(
+                facts_text=facts_text,
+                jurisdiction=jur,
+                contract_type=contract_type,
+                params=params,
+                lifecycle_stage=case.meta.lifecycle_stage.value if hasattr(case.meta.lifecycle_stage, "value") else str(case.meta.lifecycle_stage or "execution_dispute"),
+                security_alerts=case.security_alerts
+            )
             db.save_case(case, title=case.title)
             logger.info(f"Successfully seeded ASEAN Case {cid}")
 

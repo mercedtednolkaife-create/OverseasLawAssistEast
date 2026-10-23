@@ -23,6 +23,8 @@ import {
   SavedInsight,
   SaveInsightPayload,
   StrategicAssessment,
+  IntakeExtractResponse,
+  AttachedArtifact,
 } from '../types/lawAgent';
 
 export const lawAgentApi = {
@@ -424,6 +426,48 @@ export const lawAgentApi = {
   async getReferenceCases(): Promise<any[]> {
     return await request<any[]>('/compliance/reference-cases', {
       method: 'GET',
+    });
+  },
+
+  /**
+   * 建案前原始邮件/索赔通知函/投资备忘录一键智能要素抽提
+   * 对应 POST /cases/extract-intake
+   */
+  async extractCaseIntake(payload: { raw_text: string; hint_jurisdiction?: string }): Promise<IntakeExtractResponse> {
+    return await request<IntakeExtractResponse>('/cases/extract-intake', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * 将外部工具箱成果（合同红线体检、重点法条引证、专家避冲记录）一键挂载至案卷
+   * 对应 POST /cases/{id}/attach-artifact
+   */
+  async attachCaseArtifact(
+    caseId: string,
+    payload: {
+      artifact_type: 'redline_scan' | 'statute_pin' | 'expert_coi';
+      title: string;
+      jurisdiction?: string;
+      summary: string;
+      redline_clause?: string;
+      details?: Record<string, any>;
+    }
+  ): Promise<AttachedArtifact[]> {
+    return await request<AttachedArtifact[]>(`/cases/${caseId}/attach-artifact`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * 从案卷中移除已挂载的工具成果
+   * 对应 DELETE /cases/{id}/attach-artifact/{artifactId}
+   */
+  async removeCaseArtifact(caseId: string, artifactId: string): Promise<AttachedArtifact[]> {
+    return await request<AttachedArtifact[]>(`/cases/${caseId}/attach-artifact/${artifactId}`, {
+      method: 'DELETE',
     });
   },
 };

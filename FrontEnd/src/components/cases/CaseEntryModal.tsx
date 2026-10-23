@@ -24,7 +24,7 @@ interface CaseEntryModalProps {
 }
 
 export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose }) => {
-  const { loadCase, showToast, openPipelineAnimation } = useApp();
+  const { loadCase, showToast, openPipelineAnimation, prefillIntakeParams } = useApp();
 
   const [jurisdiction, setJurisdiction] = useState<string>('asean_id');
   const [projectHostCountry, setProjectHostCountry] = useState<string>('asean_id');
@@ -53,6 +53,60 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
     },
   ]);
   const [submitting, setSubmitting] = useState(false);
+
+  // AI 智能要素抽提状态
+  const [rawEmailText, setRawEmailText] = useState('');
+  const [extracting, setExtracting] = useState(false);
+  const [extractedSuccess, setExtractedSuccess] = useState(false);
+  const [extractedParams, setExtractedParams] = useState<Record<string, any>>({});
+  const [comparedJurisdictions, setComparedJurisdictions] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (isOpen && prefillIntakeParams) {
+      if (prefillIntakeParams.jurisdiction) {
+        setJurisdiction(prefillIntakeParams.jurisdiction);
+        setProjectHostCountry(prefillIntakeParams.jurisdiction);
+      }
+      if (prefillIntakeParams.title) setTitle(prefillIntakeParams.title);
+      if (prefillIntakeParams.facts) setFactsZh(prefillIntakeParams.facts);
+      if (prefillIntakeParams.claims) setClaimsZh(prefillIntakeParams.claims);
+      if (prefillIntakeParams.lifecycle_stage) setLifecycleStage(prefillIntakeParams.lifecycle_stage);
+      if (prefillIntakeParams.compared_jurisdictions) setComparedJurisdictions(prefillIntakeParams.compared_jurisdictions);
+      showToast('已自动从前置流程预填立项上下文', 'info');
+    }
+  }, [isOpen, prefillIntakeParams]);
+
+  const handleExtractIntake = async () => {
+    if (!rawEmailText.trim() || extracting) return;
+    setExtracting(true);
+    try {
+      const res = await lawAgentApi.extractCaseIntake({
+        raw_text: rawEmailText,
+        hint_jurisdiction: jurisdiction,
+      });
+      if (res.title) setTitle(res.title);
+      if (res.jurisdiction) {
+        setJurisdiction(res.jurisdiction);
+        setProjectHostCountry(res.jurisdiction);
+      }
+      if (res.governing_law) {
+        setGoverningLawOption(res.governing_law === res.jurisdiction ? 'same' : res.governing_law);
+      }
+      if (res.lifecycle_stage) setLifecycleStage(res.lifecycle_stage);
+      if (res.project_archetype) setProjectArchetypes([res.project_archetype]);
+      if (res.facts) setFactsZh(res.facts);
+      if (res.claims) setClaimsZh(res.claims);
+      if (res.extracted_params) setExtractedParams(res.extracted_params);
+
+      setExtractedSuccess(true);
+      showToast('✓ AI 要素抽提成功，已自动填入国别、阶段、延误天数与诉求', 'success');
+      setTimeout(() => setExtractedSuccess(false), 3000);
+    } catch (e: any) {
+      showToast(e.message || '要素抽提失败，请手动录入', 'error');
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -186,6 +240,8 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
         stage: lifecycleStage,
         project_archetypes: projectArchetypes,
         fidic_book_edition: fidicBookEdition,
+        engineering_params: extractedParams || {},
+        compared_jurisdictions: comparedJurisdictions || [],
       };
 
       const result = await lawAgentApi.createCase({
@@ -282,6 +338,67 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
 
         {/* 表单主体内容 */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* AI 智能要素抽提舱 (Smart Ingestion Box) */}
+          <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white p-5 space-y-3.5 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-xl bg-blue-600 text-white shadow-2xs">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    AI 智能要素抽提舱 (Smart Ingestion)
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    粘贴往来邮件、业主索赔通知函 (Claim Notice) 或招标文件，2 秒自动提取国别、阶段、延误天数与核心诉求
+                  </p>
+                </div>
+              </div>
+              <span className="text-[11px] font-mono text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md border border-blue-200">
+                POST /api/cases/extract-intake
+              </span>
+            </div>
+
+            <textarea
+              rows={3}
+              value={rawEmailText}
+              onChange={(e) => setRawEmailText(e.target.value)}
+              placeholder="在此粘贴原始英文/中文往来邮件、索赔通知函 (例如: Dear Contractor, progress is delayed by 45 days. Under FIDIC Silver 20.1...)"
+              className="w-full p-3 rounded-xl border border-blue-200/80 text-xs font-mono text-slate-800 bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
+            />
+
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[11px] text-slate-400">
+                {extractedSuccess ? (
+                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                    ✓ 要素已自动填入下方表单并完成高亮脉冲对齐
+                  </span>
+                ) : (
+                  '支持自动识别印尼、越南、马来、新加坡、泰国、菲律宾法律要素'
+                )}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleExtractIntake}
+                disabled={extracting || !rawEmailText.trim()}
+                className="px-4 py-2 rounded-xl btn-space-titanium text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
+              >
+                {extracting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>要素抽提中...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                    <span>一键智能抽提建案要素</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
           {/* 小屏幕示范按钮 */}
           <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto pb-1">
             <button

@@ -76,10 +76,25 @@ class CaseMeta(BaseModel):
     governing_law_jurisdiction: Optional[str] = None # 合同约定准据法/仲裁地，如 'asean_sg', 'asean_my'
     dispute_resolution: Optional[str] = None # 'SIAC' | 'BANI' | 'AIAC' | 'ICC' | 'Court' 等
     engineering_params: Dict[str, Any] = Field(default_factory=dict) # 结构化工程参数: declared_tkdn_pct, delay_days, main_ld_cap_pct, sub_ld_cap_pct 等
+    compared_jurisdictions: List[str] = Field(default_factory=list) # 多国投资准入比选国别列表，如 ['asean_id', 'asean_vn']
 
     # 历史字段废弃兼容器
     cisg_excluded: Optional[bool] = None
     both_merchants: Optional[bool] = None
+
+
+class EngineeringParams(BaseModel):
+    """工程履约与投前准入结构化沙盘参数模型"""
+    declared_tkdn_pct: Optional[float] = 40.0
+    delay_days: Optional[int] = 0
+    notice_days: Optional[int] = 14
+    main_ld_cap_pct: Optional[float] = 10.0
+    sub_ld_cap_pct: Optional[float] = 10.0
+    foreign_equity_pct: Optional[float] = 49.0
+    sinosure_notice_days: Optional[int] = 15
+    investment_structure: Optional[str] = "spv_sg" # 'direct' | 'spv_sg' | 'kso_jv'
+    local_subcontract_ratio: Optional[float] = 30.0
+    compared_jurisdictions: List[str] = Field(default_factory=list)
 
 
 class Claim(BaseModel):
@@ -315,6 +330,9 @@ class CaseState(BaseModel):
     parent_case_id: Optional[str] = None
     security_alerts: List[SecurityAlertItem] = Field(default_factory=list)
     engineering_audit: Optional[Dict[str, Any]] = None  # 结构化工程专项算子(TKDN, EOT, 接口传导)与合规核对表结果
+    tactical_guidance: Optional[Dict[str, Any]] = None  # 动态谈判话术卡与紧急发函清单 (重构新版)
+    attached_artifacts: List[Dict[str, Any]] = Field(default_factory=list)  # 挂载的合同红线扫描、重点法条引证、专家避冲记录
+    compared_jurisdictions: List[str] = Field(default_factory=list)  # 多国横向比选案卷国别列表
     status: CaseWorkflowStatus = "draft"
     created_at: str = ""
     updated_at: str = ""

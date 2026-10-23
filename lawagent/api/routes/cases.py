@@ -78,8 +78,26 @@ def get_case(
         state = db.get_case("C101")
     if not state:
         raise HTTPException(status_code=404, detail=f"案件 [{case_id}] 不存在")
+    need_save = False
     if state.strategic_assessment is None:
         state.strategic_assessment = build_strategic_assessment(state)
+        need_save = True
+    if state.tactical_guidance is None:
+        from lawagent.flow.security_sentinel import build_tactical_guidance
+        current_params = getattr(state.meta, "engineering_params", None) or {}
+        jur = state.meta.jurisdiction or "asean_id"
+        contract_type = state.meta.contract_type or "FIDIC_SILVER"
+        facts_text = f"{state.facts_zh or ''} {' '.join([f.text_zh for f in state.facts])}"
+        state.tactical_guidance = build_tactical_guidance(
+            facts_text=facts_text,
+            jurisdiction=jur,
+            contract_type=contract_type,
+            params=current_params,
+            lifecycle_stage=state.meta.lifecycle_stage.value if hasattr(state.meta.lifecycle_stage, "value") else str(state.meta.lifecycle_stage or "execution_dispute"),
+            security_alerts=state.security_alerts
+        )
+        need_save = True
+    if need_save:
         db.save_case(state)
     return state
 
@@ -93,8 +111,26 @@ def get_case_strategic_assessment(
     state = db.get_case(case_id)
     if not state:
         raise HTTPException(status_code=404, detail=f"案件 [{case_id}] 不存在")
+    need_save = False
     if state.strategic_assessment is None:
         state.strategic_assessment = build_strategic_assessment(state)
+        need_save = True
+    if state.tactical_guidance is None:
+        from lawagent.flow.security_sentinel import build_tactical_guidance
+        current_params = getattr(state.meta, "engineering_params", None) or {}
+        jur = state.meta.jurisdiction or "asean_id"
+        contract_type = state.meta.contract_type or "FIDIC_SILVER"
+        facts_text = f"{state.facts_zh or ''} {' '.join([f.text_zh for f in state.facts])}"
+        state.tactical_guidance = build_tactical_guidance(
+            facts_text=facts_text,
+            jurisdiction=jur,
+            contract_type=contract_type,
+            params=current_params,
+            lifecycle_stage=state.meta.lifecycle_stage.value if hasattr(state.meta.lifecycle_stage, "value") else str(state.meta.lifecycle_stage or "execution_dispute"),
+            security_alerts=state.security_alerts
+        )
+        need_save = True
+    if need_save:
         db.save_case(state)
     return state.strategic_assessment
 
@@ -1367,11 +1403,26 @@ def simulate_engineering(
         ))
 
     state.entry_checks = updated_entry_checks
+    from lawagent.flow.security_sentinel import build_tactical_guidance
+    tactical_guidance = build_tactical_guidance(
+        facts_text=facts_text,
+        jurisdiction=jur,
+        contract_type=contract_type,
+        params=updated_params,
+        tkdn_eval=tkdn_eval,
+        eot_eval=eot_eval,
+        interface_eval=interface_eval,
+        sinosure_eval=sinosure_eval,
+        lifecycle_stage=state.meta.lifecycle_stage.value if hasattr(state.meta.lifecycle_stage, "value") else str(state.meta.lifecycle_stage or "execution_dispute"),
+        security_alerts=state.security_alerts
+    )
+    state.tactical_guidance = tactical_guidance
     state.engineering_audit = {
         "tkdn_eval": tkdn_eval,
         "eot_eval": eot_eval,
         "interface_eval": interface_eval,
         "sinosure_eval": sinosure_eval,
+        "tactical_guidance": tactical_guidance,
         "simulation_params": updated_params,
         "updated_at": datetime.now().isoformat()
     }
@@ -1379,5 +1430,226 @@ def simulate_engineering(
     state.updated_at = datetime.now().isoformat()
     db.save_case(state)
     return state
+
+
+class ExtractIntakePayload(BaseModel):
+    raw_text: str
+    hint_jurisdiction: Optional[str] = None
+
+
+class IntakeExtractResponse(BaseModel):
+    title: str
+    jurisdiction: str
+    governing_law: str
+    lifecycle_stage: str
+    project_archetype: str
+    facts: str
+    claims: str
+    extracted_params: Dict[str, Any]
+    lex_loci_conflict: bool
+
+
+class AttachArtifactPayload(BaseModel):
+    artifact_type: Literal["redline_scan", "statute_pin", "expert_coi"]
+    title: str
+    jurisdiction: Optional[str] = None
+    summary: str
+    redline_clause: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+
+@router.post("/extract-intake", response_model=IntakeExtractResponse)
+def extract_case_intake(payload: ExtractIntakePayload):
+    """建案前原始往来邮件/索赔通知函/投资备忘录一键智能要素抽提接口"""
+    text = payload.raw_text.strip()
+    hint_jur = payload.hint_jurisdiction
+
+    # 1. 识别东道国 (jurisdiction)
+    jur = "asean_id"
+    if hint_jur and hint_jur in ("asean_id", "asean_vn", "asean_my", "asean_sg", "asean_th", "asean_ph"):
+        jur = hint_jur
+    elif any(k in text for k in ["印尼", "印度尼西亚", "Jakarta", "Indonesia", "PLN", "TKDN", "SEMA", "KUHPerdata"]):
+        jur = "asean_id"
+    elif any(k in text for k in ["越南", "Vietnam", "Hanoi", "EVN", "2025建设法", "Law 135"]):
+        jur = "asean_vn"
+    elif any(k in text for k in ["马来西亚", "大马", "Malaysia", "Kuala Lumpur", "CIPAA", "CIDB"]):
+        jur = "asean_my"
+    elif any(k in text for k in ["新加坡", "Singapore", "SIAC", "SOPA", "Mount Sophia", "JBE"]):
+        jur = "asean_sg"
+    elif any(k in text for k in ["泰国", "Thailand", "Bangkok", "FBA", "BOI", "CCC 596"]):
+        jur = "asean_th"
+    elif any(k in text for k in ["菲律宾", "Philippines", "Manila", "PCAB", "RA 11966"]):
+        jur = "asean_ph"
+
+    # 2. 识别准据法 (governing_law)
+    gov_law = jur
+    if any(k in text for k in ["新加坡法", "Singapore law", "SIAC", "根据新加坡"]):
+        gov_law = "asean_sg"
+    elif any(k in text for k in ["印尼法", "Indonesian law", "KUHPerdata"]):
+        gov_law = "asean_id"
+    elif any(k in text for k in ["马来西亚法", "Malaysian law"]):
+        gov_law = "asean_my"
+    elif any(k in text for k in ["越南法", "Vietnamese law"]):
+        gov_law = "asean_vn"
+    elif any(k in text for k in ["泰国法", "Thai law"]):
+        gov_law = "asean_th"
+    elif any(k in text for k in ["菲律宾法", "Philippine law"]):
+        gov_law = "asean_ph"
+
+    # 3. 识别生命周期阶段 (lifecycle_stage)
+    has_dispute = any(k in text for k in [
+        "工期", "索赔", "延误", "违约金", "停工", "保函", "止付", "除斥期", "20.1", "EOT", "LD",
+        "欠款", "结算", "仲裁", "争议", "Claim", "Delay", "Liquidated Damages"
+    ])
+    has_pre_invest = any(k in text for k in [
+        "投资", "并购", "准入", "尽调", "股权", "牌照", "SPV", "设立", "合营", "负面清单",
+        "FBA", "PCAB", "国资委", "35号令", "发改委", "11号令", "M&A", "Due Diligence"
+    ])
+    if has_pre_invest and not has_dispute:
+        stage = "pre_investment"
+    else:
+        stage = "execution_dispute"
+
+    # 4. 识别工程业态 (project_archetype)
+    if any(k in text for k in ["特许经营", "BOT", "PPP", "BOOT", "特许权"]):
+        archetype = "PPP_CONCESSION"
+    elif any(k in text for k in ["并购", "股权收购", "SPA", "SHA", "M&A"]):
+        archetype = "CROSS_BORDER_MA"
+    elif any(k in text for k in ["联营体", "KSO", "JO", "合资", "Consortium"]):
+        archetype = "JV_CONSORTIUM"
+    else:
+        archetype = "EPC_CONTRACTING"
+
+    # 5. 抽提数值工程参数
+    extracted_params: Dict[str, Any] = {
+        "declared_tkdn_pct": 40.0,
+        "delay_days": 0,
+        "notice_days": 14,
+        "main_ld_cap_pct": 10.0,
+        "sub_ld_cap_pct": 10.0,
+        "sinosure_notice_days": 15,
+        "foreign_equity_pct": 49.0
+    }
+    m_notice = re.search(r'(\d+)\s*(?:天|日|days?)[^\w\n]{0,25}?(?:通知|notice|索赔)', text, re.IGNORECASE) or \
+               re.search(r'(?:通知|notice|索赔)[^\d]{0,25}?(\d+)\s*(?:天|日|days?)', text, re.IGNORECASE)
+    if m_notice:
+        try:
+            extracted_params["notice_days"] = int(m_notice.group(1))
+        except Exception:
+            pass
+
+    m_delay = re.search(r'(?:延误|拖延|delay|delayed\s*by|逾期|工期滞后)[^\d]{0,25}?(\d+)\s*(?:天|日|days?)', text, re.IGNORECASE) or \
+              re.search(r'(\d+)\s*(?:天|日|days?)[^\w\n]{0,25}?(?:延误|delay)', text, re.IGNORECASE)
+    if m_delay:
+        try:
+            extracted_params["delay_days"] = int(m_delay.group(1))
+        except Exception:
+            pass
+
+    m_tkdn = re.search(r'(?:TKDN|local\s*content|本地化率|本地采购|属地采购)[^\d%]{0,30}?(\d+(?:\.\d+)?)\s*%', text, re.IGNORECASE)
+    if m_tkdn:
+        try:
+            extracted_params["declared_tkdn_pct"] = float(m_tkdn.group(1))
+        except Exception:
+            pass
+
+    m_ld = re.search(r'(?:违约金|LD|liquidated\s*damages|预定赔偿)[^\d%]{0,30}?(\d+(?:\.\d+)?)\s*%', text, re.IGNORECASE)
+    if m_ld:
+        try:
+            extracted_params["main_ld_cap_pct"] = float(m_ld.group(1))
+        except Exception:
+            pass
+
+    m_eq = re.search(r'(?:外资|中资|持股|股权|equity)[^\d%]{0,30}?(\d+(?:\.\d+)?)\s*%', text, re.IGNORECASE)
+    if m_eq:
+        try:
+            extracted_params["foreign_equity_pct"] = float(m_eq.group(1))
+        except Exception:
+            pass
+
+    m_sino = re.search(r'(?:信保|出险|报损|保单|sinosure)[^\d]{0,30}?(\d+)\s*(?:天|日|days?)', text, re.IGNORECASE)
+    if m_sino:
+        try:
+            extracted_params["sinosure_notice_days"] = int(m_sino.group(1))
+        except Exception:
+            pass
+
+    country_map = {
+        "asean_id": "印尼", "asean_vn": "越南", "asean_my": "马来西亚",
+        "asean_sg": "新加坡", "asean_th": "泰国", "asean_ph": "菲律宾"
+    }
+    c_name = country_map.get(jur, "东盟")
+    first_line = text.split("\n")[0].strip()
+    if len(first_line) > 6 and len(first_line) < 45 and not first_line.startswith(("Dear", "From:", "To:", "Subject:")):
+        title = first_line
+    else:
+        stage_name = "跨境投前准入审查" if stage == "pre_investment" else "建设工程索赔与履约争议"
+        title = f"{c_name}重点工程项目{stage_name}"
+
+    facts = text[:1500] if len(text) > 1500 else text
+    claims = "依法防范履约违约风险，主张工期顺延与费用赔偿，化解保函索兑与强行法违约敞口。" if stage == "execution_dispute" else "完成东道国投资准入负面清单穿透核查，优化跨境投资SPV架构，履行国资委35号令事前合规论证。"
+
+    lex_loci_conflict = (jur != gov_law)
+
+    return IntakeExtractResponse(
+        title=title,
+        jurisdiction=jur,
+        governing_law=gov_law,
+        lifecycle_stage=stage,
+        project_archetype=archetype,
+        facts=facts,
+        claims=claims,
+        extracted_params=extracted_params,
+        lex_loci_conflict=lex_loci_conflict
+    )
+
+
+@router.post("/{case_id}/attach-artifact", response_model=List[Dict[str, Any]])
+def attach_case_artifact(
+    case_id: str,
+    payload: AttachArtifactPayload,
+    db: StateDBManager = Depends(get_state_db)
+):
+    """将外部工具箱成果（合同红线体检、重点法条引证、专家避冲记录）一键挂载至案卷"""
+    state = db.get_case(case_id)
+    if not state:
+        raise HTTPException(status_code=404, detail=f"案件 [{case_id}] 不存在")
+
+    artifact = {
+        "artifact_id": f"art_{int(time.time() * 1000)}",
+        "artifact_type": payload.artifact_type,
+        "title": payload.title,
+        "jurisdiction": payload.jurisdiction or state.meta.jurisdiction,
+        "summary": payload.summary,
+        "redline_clause": payload.redline_clause,
+        "details": payload.details or {},
+        "created_at": datetime.now().isoformat()
+    }
+    current_artifacts = list(state.attached_artifacts or [])
+    # 避免重复挂载相同标题和类型的成果
+    current_artifacts = [a for a in current_artifacts if not (a.get("title") == artifact["title"] and a.get("artifact_type") == artifact["artifact_type"])]
+    current_artifacts.insert(0, artifact)
+    state.attached_artifacts = current_artifacts
+    state.updated_at = datetime.now().isoformat()
+    db.save_case(state)
+    return state.attached_artifacts
+
+
+@router.delete("/{case_id}/attach-artifact/{artifact_id}", response_model=List[Dict[str, Any]])
+def remove_case_artifact(
+    case_id: str,
+    artifact_id: str,
+    db: StateDBManager = Depends(get_state_db)
+):
+    """从案卷中移除已挂载的工具成果"""
+    state = db.get_case(case_id)
+    if not state:
+        raise HTTPException(status_code=404, detail=f"案件 [{case_id}] 不存在")
+
+    current_artifacts = list(state.attached_artifacts or [])
+    state.attached_artifacts = [a for a in current_artifacts if a.get("artifact_id") != artifact_id]
+    state.updated_at = datetime.now().isoformat()
+    db.save_case(state)
+    return state.attached_artifacts
 
 
