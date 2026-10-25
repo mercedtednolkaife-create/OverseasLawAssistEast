@@ -285,6 +285,492 @@ COMPARISON_MATRIX_DATA = [
 ]
 
 
+# 3. 5D 标杆案库数据（完全对齐 5 维结构）
+BENCHMARK_CASES_5D = [
+    {
+        "id": "C101",
+        "code": "C101",
+        "title": "爪哇 2×660MW 电站 EPC 习惯法土地征拆迟延、纯英文合同效力抗辩与 TKDN 处罚案",
+        "jurisdiction": "asean_id",
+        "countryName": "印度尼西亚",
+        "countryFlag": "🇮🇩",
+        "stage": "履约索赔与争议解决",
+        "archetypes": ["EPC_CONTRACTING", "JV_CONSORTIUM"],
+        "summary": "业主因原住民习惯法土地 (Hak Ulayat) 征拆阻碍迟延交地 180 天；承包商索赔工期与费用，业主以“28天逾期失权”、“补充协议未签印尼语故无效”及“逆变器未达 TKDN”拒付并威胁索兑保函。",
+        "dimension1_structure": {
+            "parties": [
+                {"role": "项目业主 (Employer)", "name": "印尼国家电力公司 PLN 控股项目特许权公司 (PT Cons)"},
+                {"role": "EPC总承包商 (Contractor)", "name": "中资能源建设央企海外工程局"},
+                {"role": "属地联营伙伴 (KSO Partner)", "name": "印尼本土一类施工企业 (PT Karya)"},
+                {"role": "保函开立行 (Guarantor Bank)", "name": "中国银行雅加达分行"}
+            ],
+            "dealSummary": "中资央企作为联合体牵头方签署 FIDIC 银皮书 EPC 总包合同，通过联合运营体 (KSO) 形式与本土企业实施属地施工。"
+        },
+        "dimension2_rootCause": {
+            "coreDiagnosis": "未在合同专用条件中将原住民习惯法土地 (Hak Ulayat) 征拆明确列为业主风险，且误以为签署英文补充协议即可生效，未留痕 TKDN 供应链豁免批文。",
+            "contractPitfall": "盲目接受删除 FIDIC 14.8 延误付款利息，且未针对印尼《语言法》(UU 24/2009) 建立双语即时签署机制。",
+            "triggerFactors": [
+                "地方习惯法首领阻工导致关键路径停工 180 天",
+                "业主法务援引 UU 24/2009 第 31 条主张纯英文工期顺延备忘录自始无效",
+                "工业部突击审查认定逆变器本地化率仅 28%（法定 40%），按日计提行政滞纳金"
+            ]
+        },
+        "dimension3_legalAnchors": [
+            {
+                "normId": "ID_SEMA:3_2023",
+                "nameZh": "印尼最高法院《2023年第3号通告》(SEMA 3/2023)",
+                "statuteSnippet": "除非证明存在恶意 (itikad tidak baik)，法院不得仅因涉外商事合同缺少印尼语版本而直接宣告合同无效。",
+                "keyRule": "成功推翻业主所谓“未签印尼语版则工期补偿协议绝对无效”之恶意抗辩，确立善意履约推定。"
+            },
+            {
+                "normId": "ID_UU:2_2017:Art57",
+                "nameZh": "印尼《建筑服务法》(UU 2/2017) 第 57 条",
+                "statuteSnippet": "BUJKA 必须与本土资质企业组建联合运营体 (KSO)，总包连带责任按约定分担。",
+                "keyRule": "保障联营体总包施工资质合法性，阻断业主关于无资质非法承揽之指控。"
+            },
+            {
+                "normId": "ID_MEMR:Reg11_2024",
+                "nameZh": "印尼能矿部《2024年第11号电力本地化率规程》",
+                "statuteSnippet": "电力基础设施建设本土供应链无法满足技术规范的，可依法申请特别技术豁免许可。",
+                "keyRule": "为光伏逆变器本土产能不足提供法定免罚抗辩通道。"
+            }
+        ],
+        "dimension4_modelClauses": [
+            {
+                "title": "反原住民习惯法土地征拆迟延专用条款 (Hak Ulayat Clause)",
+                "enClause": "The Employer warrants that the Site shall be delivered free from any traditional or customary land claims (Hak Ulayat). Any failure or delay in delivering site possession due to local community protests shall constitute an Employer Risk under Clause 17.3, entitling the Contractor to an Extension of Time (EOT) and direct reimbursement of prolongation costs without deduction.",
+                "zhExplanation": "在 FIDIC 银皮书专用条件中明确将习惯法争议划归业主绝对风险，发生社区阻工时承包商自动享有工期顺延与费用补偿。"
+            },
+            {
+                "title": "涉外双语协议同等法律效力及善意履约保障条款",
+                "enClause": "This Agreement is executed simultaneously in both the Indonesian and English languages. In case of any dispute or discrepancy between the two versions, the English version shall govern to the extent permitted by Law, and neither party shall raise any defense of contract invalidity based on Law No. 24 of 2009 pursuant to Supreme Court Circular SEMA No. 3/2023.",
+                "zhExplanation": "直接锁定以英文版为解释准据，并由双方在合同中共同签署“承诺不援引语言法瑕疵否定合同效力”的禁反言条款。"
+            }
+        ],
+        "dimension5_simulation": {
+            "initialFacts": "中资联合体总包印尼西爪哇光伏电站项目，业主迟延移交习惯法土地 180 天导致工期严重拖延，总包商依 FIDIC 8.4 发函索赔工期与费用，业主以补充协议仅有英文版且逆变器未达 TKDN 40% 为由扣留进度款并威胁索兑保函。",
+            "initialClaims": "1. 请求裁定工期顺延 180 天并免除逾期违约金；2. 依据印尼最高法院 SEMA 3/2023 确认英文顺延协议合法有效；3. 申请紧急仲裁禁令阻断业主滥用履约保函索兑。"
+        }
+    },
+    {
+        "id": "C102",
+        "code": "C102",
+        "title": "沿海 350MW 海上风电并购 (M&A) 关联 EPC 保函恶意索兑与 2025 新建设法违约金案",
+        "jurisdiction": "asean_vn",
+        "countryName": "越南",
+        "countryFlag": "🇻🇳",
+        "stage": "投前准入与签约审查",
+        "archetypes": ["CROSS_BORDER_MA", "EPC_CONTRACTING"],
+        "summary": "中资央企拟收购越南风电项目公司股权并实施 EPC 总包；因越南工贸部 (MOIT) FIT 电价过渡期调整，业主收益受损，恶意发起 10% 履约保函索兑并按旧法主张高额工期罚金。",
+        "dimension1_structure": {
+            "parties": [
+                {"role": "原项目公司股东 (Seller/Sponsor)", "name": "越南本土新能源民营投资财团"},
+                {"role": "并购方兼EPC总承包商 (Buyer/EPC)", "name": "中资跨国基建投资集团"},
+                {"role": "东道国购电方 (Offtaker)", "name": "越南国家电力公司 (EVN)"},
+                {"role": "独立见索即付保函开证行", "name": "渣打银行河内分行"}
+            ],
+            "dealSummary": "褐地跨境股权收购 (SPA) 与关联 EPC 施工合同捆绑实施，以投资拉动工程出海。"
+        },
+        "dimension2_rootCause": {
+            "coreDiagnosis": "在股权收购协议 (SPA) 中未对政府 FIT 电价下调设立交割前置条件调整机制，且未在 EPC 合同中对越南新旧建设法违约金封顶机制进行锁死。",
+            "contractPitfall": "保函未约定适用新加坡国际仲裁中心 (SIAC) 紧急仲裁员 (EA) 止付特别程序，缺乏快速司法阻断救济渠道。",
+            "triggerFactors": [
+                "越南工贸部追溯取消风电优惠上网电价，项目预期 IRR 骤降",
+                "业主商运日前夕向银行发出 10% 履约保函全额索兑通知",
+                "业主按旧建设法主张累计按日罚金高达合同总额 15%，突破法定上限"
+            ]
+        },
+        "dimension3_legalAnchors": [
+            {
+                "normId": "VN_Law135_2025:Art86_2",
+                "nameZh": "越南《2025年新建设法》(Law 135/2025/QH15) 第 86.2 条",
+                "statuteSnippet": "建设工程合同当事人可依法约定预定损害赔偿 (Liquidated Damages)，但因业主原因或不可抗力导致延误的，承包商享有法定免责与顺延权。",
+                "keyRule": "新法打破旧法 12% 惩罚性违约金机械限制，同时确立情势变更法定免除违约金机制。"
+            },
+            {
+                "normId": "VN_Decree210_2026:Art146",
+                "nameZh": "越南《第210/2026/ND-CP号建设合同法令》第 146 条",
+                "statuteSnippet": "因东道国法律政策重大调整导致工程无法继续履约的，各方应协商分担额外成本与工期影响。",
+                "keyRule": "为应对 FIT 电价政策变动提供东道国强行法层面的调价与顺延依据。"
+            },
+            {
+                "normId": "BIT_CHINA_ASEAN:Art6",
+                "nameZh": "《中国-东盟投资协议》(BIT) 第 6 条",
+                "statuteSnippet": "缔约方不得对投资采取直接或间接征收措施，违反者须给予迅速、充分、有效的公允补偿。",
+                "keyRule": "构筑防范东道国以电价追溯下调进行隐性征收的国际投资仲裁后盾。"
+            }
+        ],
+        "dimension4_modelClauses": [
+            {
+                "title": "FIT 电价政策变动与并购对价联动调整条款 (Tariff Adjustment in SPA)",
+                "enClause": "If prior to Closing or during commercial operation, MOIT or EVN reduces the approved Feed-in Tariff (FIT), the Purchase Price shall be downward adjusted dollar-for-dollar based on the revised financial model, or Buyer shall have the option to terminate this SPA without penalty.",
+                "zhExplanation": "在股权收购合同中设立电价滑脱保护机制，确保政策下调时直接冲减收购溢价或无损退出。"
+            },
+            {
+                "title": "履约保函滥用索兑紧急仲裁救济专用条款",
+                "enClause": "The Employer expressly covenants that it shall not encash the Performance Security unless a final and binding arbitral award has been rendered by SIAC confirming material contractor default. Any call in breach of this covenant shall entitle Contractor to immediate mandatory injunction from an Emergency Arbitrator.",
+                "zhExplanation": "将保函索兑与仲裁实体结果挂钩，并授权紧急仲裁员直接签发止付禁令，阻断恶意欺诈索兑。"
+            }
+        ],
+        "dimension5_simulation": {
+            "initialFacts": "中资央企收购越南沿海海上风电项目公司 70% 股权并总承包施工，工程因台风及海事审批延期，商运日前夕越南国家电力公司调低 FIT 补贴，业主突击向开证行索兑 10% 履约保函并索赔高额误期赔偿。",
+            "initialClaims": "1. 向新加坡国际仲裁中心 (SIAC) 申请紧急仲裁员 (EA) 禁令止付履约保函；2. 依据越南《2025新建设法》第86.2条主张台风属不可抗力并顺延工期；3. 保留依据中越 BIT 协定提起国际投资仲裁权利。"
+        }
+    },
+    {
+        "id": "C103",
+        "code": "C103",
+        "title": "吉隆坡轨道交通枢纽 CIPAA 快速裁决、背靠背付款无效与新加坡保函止付案",
+        "jurisdiction": "asean_my",
+        "countryName": "马来西亚 & 新加坡",
+        "countryFlag": "🇲🇾",
+        "stage": "履约索赔与争议解决",
+        "archetypes": ["EPC_CONTRACTING"],
+        "summary": "业主拖欠中资总承包商 4,500 万令吉工程款；总包商援引“背靠背付款 (Pay-when-paid)”拒付本地土著分包商被提起 CIPAA 极速法定裁决；同时业主向新加坡母公司索兑履约保函。",
+        "dimension1_structure": {
+            "parties": [
+                {"role": "项目业主 (Owner)", "name": "马来西亚交通部特许经营开发公司 (MRT Corp SPV)"},
+                {"role": "工程总承包商 (Main Contractor)", "name": "中资基建集团马来西亚分公司"},
+                {"role": "土著机电分包商 (Subcontractor)", "name": "马来西亚本土土著持股工程公司"},
+                {"role": "保函开立行 (Issuing Bank)", "name": "星展银行新加坡总行 (DBS Bank SG)"}
+            ],
+            "dealSummary": "EPC 总承包合同准据法约定为马来西亚法，母公司履约保函开立地为新加坡。"
+        },
+        "dimension2_rootCause": {
+            "coreDiagnosis": "严重低估马来西亚 CIPAA 2012 强行法效力，机械在分包合同中照搬“见业主付款后再向分包商付款”条款，导致触发极速裁决穿透。",
+            "contractPitfall": "未能预先在新加坡高等法院确立的 BS Mount Sophia“显失公平 (Unconscionability)”保函止付门槛下固定业主恶意违约证据。",
+            "triggerFactors": [
+                "业主以内部审计为由冻结支付总包商 4,500 万令吉进度款",
+                "土著分包商依据 CIPAA 2012 提起法定裁决，裁决员在 45 天内责令总承包商即刻付款",
+                "业主反向发起新加坡母公司履约保函索兑"
+            ]
+        },
+        "dimension3_legalAnchors": [
+            {
+                "normId": "MY_CIPAA:Sec35",
+                "nameZh": "马来西亚《CIPAA 2012》第 35 条",
+                "statuteSnippet": "建设工程合同中任何以第三方付款为条件的背靠背付款条款 (Conditional Payment / Pay-when-paid) 均属绝对无效。",
+                "keyRule": "强行法直接粉碎总承包商以“业主未付款”为由抗辩分包商工程款的法律依据。"
+            },
+            {
+                "normId": "MY_CIPAA:Sec13",
+                "nameZh": "马来西亚《CIPAA 2012》第 13 条",
+                "statuteSnippet": "快速裁决员的付款裁决具有法定强制执行力，债务人未遵期付款的总承包商可合法暂停施工。",
+                "keyRule": "赋予总承包商反向向业主启动 CIPAA 极速裁决并合法停工索赔的法律利器。"
+            },
+            {
+                "normId": "SG_BSMountSophia:2016",
+                "nameZh": "新加坡高等法院 BS Mount Sophia 先例",
+                "statuteSnippet": "确立“显失公平 (Unconscionability)”作为见索即付独立保函独立止付裁判标准。",
+                "keyRule": "无需达到严苛的刑事诈欺证明标准，只要证明业主滥用保函、缺乏正当性即可向新加坡法院成功申请临时禁令。"
+            }
+        ],
+        "dimension4_modelClauses": [
+            {
+                "title": "马来西亚分包合同受控付款节点条款 (替代无效的背靠背)",
+                "enClause": "Payments to Subcontractor shall become due strictly upon the Independent Engineer certifying the milestone completion and quality compliance, regardless of receipt of funds by Main Contractor from Owner, provided that the certification cycle shall strictly adhere to Section 36 of CIPAA 2012.",
+                "zhExplanation": "用“独立监理工程师完工核验”替代非法的“见业主付款后付款”，在合规前提下锁定验收抗辩权。"
+            },
+            {
+                "title": "保函止付管辖与显失公平救济特别约定条款",
+                "enClause": "The parties agree that this Performance Guarantee shall be subject to the exclusive jurisdiction of the High Court of Singapore, and that the Contractor shall be entitled to interlocutory injunctive relief upon demonstrating a prima facie case of unconscionability pursuant to BS Mount Sophia principles.",
+                "zhExplanation": "明文约定新加坡法院专属管辖，将 BS Mount Sophia 裁判规则直接吸纳为合同约定止付指引。"
+            }
+        ],
+        "dimension5_simulation": {
+            "initialFacts": "吉隆坡轨道交通总包项目中，马来西亚业主拖欠中资总包商 4,500 万令吉进度款，总包商以此为由暂缓向土著分包商付款；分包商依据 CIPAA 2012 第 35 条提起极速裁决，同时业主向新加坡开证行索兑履约保函。",
+            "initialClaims": "1. 依据马来西亚 CIPAA 2012 第 13 条反向向业主发起法定快速裁决并申请合法停工；2. 依据新加坡高等法院 BS Mount Sophia“显失公平”判例向新加坡法院申请保函止付禁令。"
+        }
+    },
+    {
+        "id": "C104",
+        "code": "C104",
+        "title": "菲律宾跨海大桥 PPP 特许经营政府换届单方停工 (隐性征收) 与 PCAB 牌照合规案",
+        "jurisdiction": "asean_ph",
+        "countryName": "菲律宾",
+        "countryFlag": "🇵🇭",
+        "stage": "投前准入与履约索赔双阶段",
+        "archetypes": ["PPP_CONCESSION", "EPC_CONTRACTING"],
+        "summary": "菲律宾地方政府换届后以环保审查与国家安全审查为由单方暂停跨海大桥特许经营协议并不予公允补偿；当地工会举报中资联营体 PCAB 施工资质违规。",
+        "dimension1_structure": {
+            "parties": [
+                {"role": "特许权授予方 (Grantor)", "name": "菲律宾公私合营管理中心与地方省政府 (LGU)"},
+                {"role": "特许经营项目公司 (Concessionaire)", "name": "中资联合体投资控股项目公司 (SPC)"},
+                {"role": "EPC总承包商 (Contractor)", "name": "中国交通建设某工程局"},
+                {"role": "海外投资政治险承保人", "name": "中国出口信用保险公司 (Sinosure)"}
+            ],
+            "dealSummary": "采用 BOT 投建营一体化架构，特许经营期 30 年，含政府可行性缺口补贴 (VGF)。"
+        },
+        "dimension2_rootCause": {
+            "coreDiagnosis": "特许权协议中仍援引已被废止的旧 BOT 法案 (RA 7718)，未对齐 2024 年生效的《菲律宾 PPP 法典》(RA 11966) 关于终止补偿的法定标准；未在 30 日内启动信保报损。",
+            "contractPitfall": "未能提前落实菲律宾最高院 PCAB v. Manila Water 案对外资普通施工许可证的最新准入备案。",
+            "triggerFactors": [
+                "新换届地方政府借环保规划单方通知暂停特许权协议",
+                "政府拒绝按公允市场价值对沉没资产及未来合理收益进行补偿",
+                "当地行会试图以 40% 外资股权红线吊销联合体 PCAB 执照"
+            ]
+        },
+        "dimension3_legalAnchors": [
+            {
+                "normId": "PH_RA11966:PPP_Code",
+                "nameZh": "《菲律宾公私合营法典》(The PPP Code, RA 11966)",
+                "statuteSnippet": "明文废止旧 BOT 法案 (RA 7718/RA 6957)，确立特许经营终止时政府必须依据重置成本与已投入资产进行公允补偿。",
+                "keyRule": "杜绝引用已废止法律，锁定政府违约导致特许权终止时的刚性赔偿公式。"
+            },
+            {
+                "normId": "PH_SC:G.R.217590_ManilaWater",
+                "nameZh": "菲律宾最高法院 PCAB v. Manila Water 里程碑判例",
+                "statuteSnippet": "最高法院裁定废除 PCAB 规则中关于常规施工牌照 60% 菲籍股权门槛，外资可合法取得普通承包执照。",
+                "keyRule": "直接粉碎当地行会关于“外资控股施工非法”的行政举报与资质吊销威胁。"
+            },
+            {
+                "normId": "PRC_SASAC:Order35",
+                "nameZh": "国务院国资委 35 号令与中信保海外投资险保全",
+                "statuteSnippet": "央企境外重大投资遭遇东道国主权违约或间接征收的，必须在 30 日内完成出险报损留痕。",
+                "keyRule": "确保中信保政治风险险保全代位求偿权完整，筑牢国资监管安全底线。"
+            }
+        ],
+        "dimension4_modelClauses": [
+            {
+                "title": "政府换届单方停工与特许权终止公允补偿条款 (RA 11966 对齐版)",
+                "enClause": "In the event of unilateral suspension or termination by the Grantor due to policy review or national security considerations, the Grantor shall pay the Concessionaire Termination Compensation equal to all outstanding Project Debt plus the audited Historical Equity Invested compounded at the Contract WACC, strictly adhering to Section 22 of RA No. 11966.",
+                "zhExplanation": "将换届违约明确列为政府原因终止，并锁定“全部已投入权益资金+合理加权资金成本”刚性退出补偿公式。"
+            },
+            {
+                "title": "PCAB 资质合规与 Manila Water 判例准用保障条款",
+                "enClause": "The Grantor acknowledges and agrees that the Contractor holds a valid regular PCAB license in full compliance with the landmark ruling of the Supreme Court of the Philippines in PCAB v. Manila Water (G.R. No. 217590), and shall not challenge the validity thereof.",
+                "zhExplanation": "在合同中由政府方明示确认承包商执照合规性，阻断下属监管部门的事后行政阻挠。"
+            }
+        ],
+        "dimension5_simulation": {
+            "initialFacts": "菲律宾跨海大桥 BOT 特许经营项目中，地方政府换届后单方停工并拒付可行性缺口补贴 (VGF)，行会指控中资承包商 PCAB 执照违规，项目面临隐性征收与资产沉没风险。",
+            "initialClaims": "1. 依据《菲律宾 PPP 法典》(RA 11966) 主张政府违约并索赔已投入资产全额补偿；2. 依据菲律宾最高院 PCAB v. Manila Water 判例驳回资质违法指控；3. 正式启动中信保 30 日出险报损保全程序。"
+        }
+    }
+]
+
+
+# 4. 2026 重大立法与司法转向数据
+LEGISLATIVE_SHIFTS = [
+    {
+        "id": "vn_2025_construction",
+        "country": "越南",
+        "countryFlag": "🇻🇳",
+        "title": "《2025年新建设法》(Law 135/2025/QH15) 正式施行",
+        "effectiveDate": "2026年7月1日施行",
+        "coreShift": "第 86.2 条正式确立“预定损害赔偿 (Liquidated Damages)”制度，打破了旧法下仅承认违规部分 12% 法定惩罚金封顶与实际损失的规则。",
+        "practiceImpact": "新签越南 EPC 合同必须重新设计工期误期损害赔偿与封顶条款，并严格把关情势变更免除违约金情形。",
+        "alertType": "critical"
+    },
+    {
+        "id": "id_sema_3_2023",
+        "country": "印度尼西亚",
+        "countryFlag": "🇮🇩",
+        "title": "最高法院 SEMA No. 3/2023 通告推翻纯英文合同无效判例",
+        "effectiveDate": "现行持续有效",
+        "coreShift": "最高法院发布指导意见明确：除非能证明当事人存在恶意 (itikad tidak baik)，法院不得仅因涉外商事合同未签署印尼语译本宣告自始无效。",
+        "practiceImpact": "极大减轻了中资企业历史纯英文合同被恶意宣告无效的风险；但在新项目签约阶段仍须落实双语同文签署以满足行政合规。",
+        "alertType": "warning"
+    },
+    {
+        "id": "ph_ra11966_ppp",
+        "country": "菲律宾",
+        "countryFlag": "🇵🇭",
+        "title": "《菲律宾公私合营法典》(The PPP Code, RA 11966) 明文废止旧 BOT 法",
+        "effectiveDate": "现行全面实施",
+        "coreShift": "全面明文废止实施三十余年的《BOT法案》(RA 6957/RA 7718)，建立中央与地方统一的特许经营法治体系及公允终止补偿规则。",
+        "practiceImpact": "严禁在新建特许经营合同中继续援引旧 BOT 法法条，应全面依照 RA 11966 重新梳理特许权提前终止补偿公式。",
+        "alertType": "critical"
+    },
+    {
+        "id": "my_cipaa_sec35",
+        "country": "马来西亚",
+        "countryFlag": "🇲🇾",
+        "title": "《CIPAA 2012》第35条背靠背条款法定绝对无效常态化执行",
+        "effectiveDate": "现行严格执行",
+        "coreShift": "联邦法院最新判例重申：任何以第三方付款为条件的背靠背付款条款 (Pay-when-paid) 在马来西亚一律绝对无效。",
+        "practiceImpact": "总承包商不得以业主拖欠工程款为由拒付本地分包商，分包商可随时发起 45 天快速裁决并申请依法停工。",
+        "alertType": "warning"
+    }
+]
+
+RISK_DOMAINS = [
+    "01 资质牌照与施工许可准入",
+    "02 外资股比限制与代持合规",
+    "03 土地物权与习惯法征拆 (Hak Ulayat)",
+    "04 涉外合同语言法定签署要求",
+    "05 本地化率 (TKDN) 与土著配额",
+    "06 外籍劳工配额与工作签证",
+    "07 工期延误、28天失权与违约金封顶",
+    "08 背靠背付款条款效力 (Pay-when-paid)",
+    "09 见索即付独立保函显失公平止付",
+    "10 电价补贴/特许权单方变更与隐性征收",
+    "11 税务常设机构 (PE) 判定与预提税",
+    "12 外汇汇出与涉外工程数据出境 (数安法36条)"
+]
+
+ASEAN_COUNTRIES = [
+    {"id": "asean_id", "name": "印度尼西亚", "flag": "🇮🇩"},
+    {"id": "asean_vn", "name": "越南", "flag": "🇻🇳"},
+    {"id": "asean_my", "name": "马来西亚", "flag": "🇲🇾"},
+    {"id": "asean_sg", "name": "新加坡", "flag": "🇸🇬"},
+    {"id": "asean_th", "name": "泰国", "flag": "🇹🇭"},
+    {"id": "asean_ph", "name": "菲律宾", "flag": "🇵🇭"}
+]
+
+
+def _build_risk_cell(domain_idx: int, country_id: str) -> Dict[str, Any]:
+    """生成 12 领域 × 6 国别实务风险预警单元格"""
+    if domain_idx == 2 and country_id == "asean_id":
+        return {
+            "level": "critical",
+            "summary": "印尼原住民习惯法土地 (Hak Ulayat) 征拆受阻为最核心工程拖延根因。",
+            "scenario": "业主以林业部或内政部证书移交场地，但地方原住民部落首领带人封锁进场道路，业主拒绝承担顺延责任。",
+            "statute": "ID_UU:2_2017:Art57 & Agrarian Law No. 5/1960",
+            "statuteText": "习惯法土地权益受宪法保护，未经部族充分协商与足额补偿不得强制施工。",
+            "dos": [
+                "签约前必须要求业主出具省级土地局关于清除 Hak Ulayat 负担的证明；",
+                "在 FIDIC 专用条件中将习惯法封路列为业主必须承担的特别风险；",
+                "设立属地社区关系公关专职工作组，建立善意沟通机制。"
+            ],
+            "donts": [
+                "严禁在未见习惯法协议前盲目出动大型设备强行清表；",
+                "严禁接受业主将征地拆迁包死在总包固定总价内；",
+                "严禁与当地部族发生肢体冲突导致恶性国际舆论。"
+            ]
+        }
+    if domain_idx == 7 and (country_id == "asean_my" or country_id == "asean_sg"):
+        return {
+            "level": "critical",
+            "summary": "马来西亚 CIPAA 第35条与新加坡 SOPA 第9条明确宣布背靠背付款一律绝对无效。",
+            "scenario": "总包商因业主延迟支付进度款，援引分包合同中的 Pay-when-paid 拒绝向属地分包商付款，被直接提起快速裁决。",
+            "statute": "MY_CIPAA:Sec35" if country_id == "asean_my" else "SG_SOPA:Sec9",
+            "statuteText": "任何以第三方付款为先决条件的背靠背付款条款均属法定绝对无效。",
+            "dos": [
+                "全面清理分包合同中的“见业主付款后付款”措辞；",
+                "改用“经独立工程师核验达标后 X 日内付款”的受控节点条款；",
+                "在遭受业主拖欠时同步向业主启动法定快速裁决程序。"
+            ],
+            "donts": [
+                "严禁以业主未付款作为拒绝参与 CIPAA/SOPA 快速裁决的抗辩理由；",
+                "严禁无视快速裁决员的付款命令导致被申请强制执行；",
+                "严禁扣压属地分包商正当计量款项。"
+            ]
+        }
+    if domain_idx == 3 and country_id == "asean_id":
+        return {
+            "level": "high",
+            "summary": "印尼《语言法》(UU 24/2009) 要求签署印尼语版本，SEMA 3/2023 已推翻机械无效裁决。",
+            "scenario": "业主在工程产生巨额索赔时，突然向印尼法院起诉主张纯英文补充协议由于缺少印尼语版本自始无效。",
+            "statute": "ID_SEMA:3_2023 & PR No. 63/2019",
+            "statuteText": "除非证明存在恶意，法院不得仅因缺少印尼语文本认定涉外合同无效。",
+            "dos": [
+                "新签合同与补充协议必须同时签署印尼语与英语版本；",
+                "在合同中明确约定英文版为争议解决唯一准据语言；",
+                "固定双方长期善意履行英文协议的事实凭证以证明无恶意。"
+            ],
+            "donts": [
+                "严禁仅签署单语英文备忘录即开工重大变更工程；",
+                "严禁在印尼语译本中出现关键技术与商务参数的实质性翻译偏离；",
+                "严禁在法庭答辩时自认存在规避语言法的故意。"
+            ]
+        }
+    if domain_idx == 8 and country_id == "asean_sg":
+        return {
+            "level": "high",
+            "summary": "新加坡高等法院确立“显失公平 (Unconscionability)”作为独立保函止付标准。",
+            "scenario": "业主明知自身存在重大过错且工程款被严重拖欠，为施加商业压力恶意向开证行突击索兑履约保函。",
+            "statute": "SG_BSMountSophia:2016",
+            "statuteText": "只要能初步证明业主索兑行为缺乏诚实信用或显失公平，法院即可裁定签发止付禁令。",
+            "dos": [
+                "在保函条款中明确约定新加坡法院管辖并适用 BS Mount Sophia 原则；",
+                "在收到索兑通知后 24 小时内启动新加坡高等法院紧急临时禁令程序；",
+                "系统梳理业主违约证据链证明索兑行为具有恶意或显失公平。"
+            ],
+            "donts": [
+                "严禁在保函开立时盲目接受不可撤销见索即付无任何异议限制条款；",
+                "严禁忽视业主的口头威胁，未提前准备禁令申请草案；",
+                "严禁在境外保函争议中直接向国内基层法院寻求不具备执行力的止付令。"
+            ]
+        }
+    if domain_idx == 9:
+        lvl = "critical" if country_id in ("asean_vn", "asean_ph") else "high"
+        return {
+            "level": lvl,
+            "summary": "特许权单方终止或电价补贴追溯下调，涉及间接征收与双边投资协定 (BIT) 防线。",
+            "scenario": "政府换届后以环保审查或反腐调查为由单方撤权或暂停 PPA 特许经营协议，拒付重置成本补偿。",
+            "statute": "BIT_CHINA_ASEAN:Art6 & PRC_SASAC:Order35",
+            "statuteText": "征收或等同措施须给予迅速、充分、有效的公允市场价值补偿。",
+            "dos": [
+                "发生政府单方废约之日起 30 日内向中国信保正式提交出险可能损失通知书；",
+                "向东道国政府发出正式 BIT 条约违约与投资仲裁友好磋商函；",
+                "完整保全项目全部历史投资审计报告与资金流向底稿。"
+            ],
+            "donts": [
+                "严禁超过 30 日期限未向信保报损导致代位求偿权丧失；",
+                "严禁现场项目部签署任何自愿交还特许权的免责备忘录；",
+                "严禁在未经国资委批准前私自接受严重不对等的打折退款和解方案。"
+            ]
+        }
+    if domain_idx == 4 and country_id == "asean_id":
+        return {
+            "level": "high",
+            "summary": "印尼能矿部 MEMR Reg 11/2024 电力设备本地化率 (TKDN) 强制达标红线。",
+            "scenario": "电力基础设施项目因逆变器、变压器本土采购比例未达标，被业主依工业部规程按日计提巨额罚金。",
+            "statute": "ID_MEMR:Reg11_2024",
+            "statuteText": "新能源电力设备应优先采购经 TKDN 官方认证本土产品，否则须依法取得豁免批文。",
+            "dos": [
+                "联合业主向能矿部申请本土无法供应特定精密设备的技术豁免批文；",
+                "在分包采购合同中向供货商严格传导 TKDN 证书核验责任；",
+                "保留本土企业无法提供同等合格产品的多方询价记录以资抗辩。"
+            ],
+            "donts": [
+                "严禁私自采购未经申报鉴定的走私或无票进口机电设备；",
+                "严禁在投标书中弄虚作假虚构本地化率；",
+                "严禁忽视东道国工业部定期开展的属地化突击核查。"
+            ]
+        }
+    if domain_idx == 11:
+        return {
+            "level": "critical",
+            "summary": "我国《数据安全法》第36条工程图纸与地质数据跨境调证审批红线。",
+            "scenario": "境外诉讼或仲裁庭下达开示命令，要求中资承包商直接提供国内存储的工程勘察与深化施工图纸。",
+            "statute": "PRC_DATA_SEC:Art36",
+            "statuteText": "非经主管机关批准，境内组织、个人不得向外国司法或执法机构提供境内数据。",
+            "dos": [
+                "依法向我国司法部或行业主管部委提交境外调证前置审批请示；",
+                "在境外仲裁中援引我国强行法提出法定不可抗力抗辩；",
+                "对非涉密商事材料进行脱敏脱密处理。"
+            ],
+            "donts": [
+                "严禁私自通过境外云盘或跨境专线直传敏感工程 GIS/地质测绘图纸；",
+                "严禁在未获批准前直接响应境外法院的大范围强制证据开示令；",
+                "严禁在涉密图纸上隐匿国家重要基础设施战略标记。"
+            ]
+        }
+
+    # 基础/常规领域
+    lvl = "high" if domain_idx % 3 == 0 else "caution" if domain_idx % 2 == 0 else "safe"
+    return {
+        "level": lvl,
+        "summary": "东道国建设工程属地合规重点把控要点。",
+        "scenario": "涉外工程施工与履约中的合同与属地行政监管合规要件。",
+        "statute": "Host Country Statutory Code & FIDIC Standard",
+        "statuteText": "依据东道国现行建设工程行政规程及 FIDIC 施工标准规范执行。",
+        "dos": ["严格落实日常履约留痕；", "规范合同变更书面发函；", "配合属地劳工与税务合法审计。"],
+        "donts": ["严禁擅自停工；", "严禁未经工程师书面签证实施重大变更；", "严禁违规雇佣非法劳工。"]
+    }
+
+
+# 预先生成完整的 12 × 6 矩阵映射表
+FULL_RISK_MATRIX: Dict[str, Dict[str, Any]] = {}
+for d_i in range(len(RISK_DOMAINS)):
+    for c in ASEAN_COUNTRIES:
+        c_id = c["id"]
+        key = f"{d_i}_{c_id}"
+        FULL_RISK_MATRIX[key] = _build_risk_cell(d_i, c_id)
+
+
 @router.get("/guidelines", response_model=List[Dict[str, Any]])
 def get_compliance_guidelines():
     """获取东盟出海建设工程五阶段 × 三道防线合规核查指南"""
@@ -303,50 +789,16 @@ def get_risk_matrix(jurisdiction: Optional[str] = None):
     return {
         "status": "success",
         "jurisdiction_filter": jurisdiction,
-        "total_risk_domains": 12,
-        "supported_countries": ["asean_id", "asean_vn", "asean_my", "asean_sg", "asean_th", "asean_ph"],
-        "updated_at": "2026-10-21T00:00:00Z"
+        "total_risk_domains": len(RISK_DOMAINS),
+        "supported_countries": ASEAN_COUNTRIES,
+        "domains": RISK_DOMAINS,
+        "shifts": LEGISLATIVE_SHIFTS,
+        "matrix": FULL_RISK_MATRIX,
+        "updated_at": "2026-10-24T00:00:00Z"
     }
 
 
 @router.get("/reference-cases", response_model=List[Dict[str, Any]])
 def get_reference_cases():
-    """获取东盟出海典型工程与投资示范案库"""
-    return [
-        {
-            "case_id": "C101",
-            "country": "印度尼西亚",
-            "jurisdiction": "asean_id",
-            "title": "爪哇混合电站 EPC 履约争议与 TKDN 豁免",
-            "stage": "履约争议与索赔",
-            "archetype": "EPC 总承包 + 联营体",
-            "pivotal_factors": ["印尼最高院 SEMA 3/2023 双语协议效力", "MEMR 11/2024 逆变器本土化率豁免批文"]
-        },
-        {
-            "case_id": "C102",
-            "country": "越南",
-            "jurisdiction": "asean_vn",
-            "title": "平顺省海上风电投资准入尽调与国资委合规",
-            "stage": "投前合规与准入",
-            "archetype": "跨境并购 + PPP",
-            "pivotal_factors": ["越南 2025 新建设法备案", "外资股权上限与国资委 35 号令事前论证"]
-        },
-        {
-            "case_id": "C103",
-            "country": "马来西亚",
-            "jurisdiction": "asean_my",
-            "title": "东海岸铁路分包背靠背付款无效法定快速裁决",
-            "stage": "履约争议与裁决",
-            "archetype": "EPC 分包",
-            "pivotal_factors": ["CIPAA 2012 第 35 条反背靠背无效令", "45 天极速裁决管辖"]
-        },
-        {
-            "case_id": "C104",
-            "country": "新加坡 / 菲律宾",
-            "jurisdiction": "asean_sg",
-            "title": "马尼拉湾填海大桥见索即付保函显失公平止付与 PCAB 准入",
-            "stage": "履约争议与保函",
-            "archetype": "EPC 总承包",
-            "pivotal_factors": ["BS Mount Sophia 显失公平止付标准", "Manila Water 案 PCAB 外资资质平等待遇"]
-        }
-    ]
+    """获取东盟出海典型工程与投资示范案库 (完整 5 维数据)"""
+    return BENCHMARK_CASES_5D

@@ -10,10 +10,7 @@ import {
   Check,
   ShieldCheck,
   FileText,
-  Clock,
   Layers,
-  CheckCircle2,
-  AlertTriangle,
   Maximize2,
   Minimize2,
 } from 'lucide-react';

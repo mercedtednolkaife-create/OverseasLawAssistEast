@@ -1,18 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { lawAgentApi } from '../../api/lawAgentApi';
 import {
   ChevronDown,
+  PanelLeft,
   GitBranch,
-  ShieldAlert,
   Bot,
   BookOpen,
   Compass,
   Download,
   Check,
-  FolderOpen,
-  Wrench,
-  Sparkles,
+  Gavel,
+  ShieldCheck,
+  Plus,
+  Search,
+  Landmark,
+  ChevronRight,
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -20,21 +22,24 @@ interface TopBarProps {
   onToggleCollapse?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = () => {
+export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) => {
   const {
     currentView,
+    setCurrentView,
     currentCase,
     currentCaseId,
     casesList,
     loadCase,
+    isRightDockOpen,
     openRightDock,
+    closeRightDock,
+    openCaseEntryModal,
     showToast,
     refreshCurrentCase,
   } = useApp();
 
   const [caseMenuOpen, setCaseMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [transitioning, setTransitioning] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -47,33 +52,8 @@ export const TopBar: React.FC<TopBarProps> = () => {
   }, []);
 
   const isCaseCockpit = currentView === 'analysis';
+  const isHome = currentView === 'home';
   const isPreInv = currentCase?.meta?.lifecycle_stage === 'pre_investment';
-
-  const hostJur = currentCase?.meta?.jurisdiction || 'asean_id';
-  const govLaw = currentCase?.meta?.choice_of_law || currentCase?.meta?.governing_law_jurisdiction || hostJur;
-  const hasLexLociConflict = hostJur !== govLaw;
-
-  // 阶段流转切换
-  const handleToggleStage = async () => {
-    if (!currentCaseId || transitioning) return;
-    const targetStage = isPreInv ? 'execution_dispute' : 'pre_investment';
-    setTransitioning(true);
-    try {
-      await lawAgentApi.transitionStage(currentCaseId, {
-        target_stage: targetStage,
-        inherit_params: true,
-      });
-      showToast(
-        `✓ 案卷已成功切换至【${targetStage === 'pre_investment' ? '投前准入审查模式' : '履约索赔争议模式'}】`,
-        'success'
-      );
-      await refreshCurrentCase();
-    } catch (e: any) {
-      showToast(e.message || '阶段切换失败', 'error');
-    } finally {
-      setTransitioning(false);
-    }
-  };
 
   const handleExportDocx = () => {
     if (!currentCaseId) return;
@@ -84,14 +64,12 @@ export const TopBar: React.FC<TopBarProps> = () => {
 
   // 工具箱模式下的视图标题
   const toolTitles: Record<string, string> = {
-    verification: '涉外合同强行法红线 & 外律意见书扫描核验仪',
-    search: '东盟六国法典与 FIDIC 国际工程判例搜索引擎',
-    consults: '东盟 Local Counsel 专家会商与利益冲突避冲库',
-    compliance: '五阶段合规健康度体检 & 六国横向比选中心',
-    cases: '专案档案库与历史查明卷宗',
-    workspace: 'AI 协同推演工作区',
-    review: '法律意见书呈报端',
-    dashboard: '防线门禁指标仪表板',
+    home: '工作台总览',
+    verification: '合同合规红线审查',
+    search: '东盟法规与裁判数据库',
+    consults: '属地法律顾问库',
+    compliance: '跨国合规评估与法域比选',
+    cases: '专案档案库',
   };
 
   return (
@@ -101,8 +79,8 @@ export const TopBar: React.FC<TopBarProps> = () => {
       {/* ========================================================================= */}
       {isCaseCockpit ? (
         <>
-          {/* 左侧：案卷选择器 + 母子血缘 + 准据法冲突穿透胶囊 */}
-          <div className="flex items-center gap-2 min-w-0" ref={dropdownRef}>
+          {/* 左侧：案卷选择器 + 母子血缘 (边栏已有折叠控件，顶栏去除重复) */}
+          <div className="flex items-center gap-2.5 min-w-0 shrink-0" ref={dropdownRef}>
             <div className="relative">
               <button
                 onClick={() => setCaseMenuOpen(!caseMenuOpen)}
@@ -146,99 +124,139 @@ export const TopBar: React.FC<TopBarProps> = () => {
                 <span>{currentCase.meta.parent_case_id} ➔ {currentCaseId}</span>
               </span>
             )}
+          </div>
 
-            {/* 准据法脱钩冲突穿透警示 (Lex Loci Solutionis Override) */}
-            {hasLexLociConflict && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 text-[11px] font-medium border border-amber-200/80 shadow-2xs">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                <span>准据法脱钩穿透 (Lex Loci)</span>
-              </span>
+          {/* 中央：案卷阶段只读徽标 (案卷类型强隔离：投前合规审查卷 vs 工程履约争议卷) */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100/90 border border-slate-200/80 shadow-2xs backdrop-blur-md select-none">
+            {isPreInv ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="text-xs font-semibold text-slate-800">
+                  投前准入与合规审查卷
+                </span>
+                <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-1.5 py-0.2 rounded-md">
+                  投前阶段
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
+                <Gavel className="w-3.5 h-3.5 text-purple-600" />
+                <span className="text-xs font-semibold text-slate-800">
+                  工程履约与索赔争议卷
+                </span>
+                <span className="text-[10px] font-mono text-purple-700 bg-purple-50 border border-purple-200/60 px-1.5 py-0.2 rounded-md">
+                  履约阶段
+                </span>
+              </>
             )}
           </div>
 
-          {/* 中央：灵动岛式生命周期模式分段控制器 */}
-          <div className="apple-segmented-control text-xs">
-            <button
-              onClick={() => isPreInv && handleToggleStage()}
-              disabled={transitioning}
-              className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                !isPreInv
-                  ? 'apple-segmented-item-active text-slate-900 font-semibold'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <span>履约争议模式</span>
-            </button>
-            <button
-              onClick={() => !isPreInv && handleToggleStage()}
-              disabled={transitioning}
-              className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
-                isPreInv
-                  ? 'apple-segmented-item-active text-slate-900 font-semibold'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span>投前准入模式</span>
-            </button>
-          </div>
-
-          {/* 右侧：副驾坞模态触发按钮组 + 导出公文 */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => openRightDock('case_copilot')}
-              className="p-1.5 px-2.5 rounded-xl border border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="呼出案卷 AI 副驾"
-            >
-              <Bot className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="hidden sm:inline">AI 副驾</span>
-            </button>
-
-            <button
-              onClick={() => openRightDock('law_reader')}
-              className="p-1.5 px-2.5 rounded-xl border border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="查看权威法源正本 (B)"
-            >
-              <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-              <span className="hidden sm:inline">法源 (B)</span>
-            </button>
-
-            <button
-              onClick={() => openRightDock('country_playbook')}
-              className="p-1.5 px-2.5 rounded-xl border border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="属地合规排雷指南"
-            >
-              <Compass className="w-3.5 h-3.5 text-amber-600" />
-              <span className="hidden sm:inline">排雷指南</span>
-            </button>
-
+          {/* 右侧：导出公文 + 统一法律辅助面板开关 (去除与右侧栏头部重复的三组切换控件) */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleExportDocx}
-              className="p-1.5 px-3 rounded-xl btn-space-titanium text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm ml-1"
+              className="p-1.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all"
             >
               <Download className="w-3.5 h-3.5" />
               <span>导出意见书 (.docx)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => (isRightDockOpen ? closeRightDock() : openRightDock('case_copilot'))}
+              className={`p-1.5 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isRightDockOpen
+                  ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs'
+                  : 'border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+              title={isRightDockOpen ? "收起法律辅助面板" : "展开 AI 法律助手"}
+            >
+              <Bot className="w-3.5 h-3.5 text-blue-600" />
+              <span>AI 法律助手</span>
+            </button>
+          </div>
+        </>
+      ) : isHome ? (
+        /* ========================================================================= */
+        /* 形态 B：工作台总览模式 (Home Overview) */
+        /* ========================================================================= */
+        <>
+          {/* 左侧：标题与就绪指示 (去除重复折叠按钮) */}
+          <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600 shadow-2xs">
+                <Landmark className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-900 tracking-tight">工作台总览</span>
+                <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">/ Overview</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 中央：快速法典检索跳转框 */}
+          <button
+            type="button"
+            onClick={() => setCurrentView('search')}
+            className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100/80 hover:bg-slate-200/70 border border-slate-200/60 text-xs text-slate-400 hover:text-slate-600 transition-all cursor-pointer w-72"
+          >
+            <Search className="w-3.5 h-3.5 text-slate-400" />
+            <span className="truncate">搜索东盟法典、裁判案例或 FIDIC 条款...</span>
+          </button>
+
+          {/* 右侧：新建案卷 + 专案研判快捷入口 + AI 法律助手 (精简无重复) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={openCaseEntryModal}
+              className="p-1.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>新建查明案卷</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentView('analysis')}
+              className="p-1.5 px-2.5 rounded-xl border border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+              title="进入专案法律研判"
+            >
+              <span>专案研判</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => (isRightDockOpen ? closeRightDock() : openRightDock('case_copilot'))}
+              className={`p-1.5 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isRightDockOpen
+                  ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs'
+                  : 'border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+              title={isRightDockOpen ? "收起法律辅助面板" : "展开 AI 法律助手"}
+            >
+              <Bot className="w-3.5 h-3.5 text-blue-600" />
+              <span className="hidden sm:inline">AI 法律助手</span>
             </button>
           </div>
         </>
       ) : (
         /* ========================================================================= */
-        /* 形态 B：独立公共工具箱模式 */
+        /* 形态 C：独立公共实务工具箱模式 */
         /* ========================================================================= */
         <>
-          <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs">
-              <Wrench className="w-3 h-3 text-slate-300" />
-              独立实务工具模式 · 操作不改动现有案卷
-            </span>
-            <span className="text-xs font-bold text-slate-800">
-              {toolTitles[currentView] || '实务工具箱'}
-            </span>
+          <div className="flex items-center gap-2.5 min-w-0 shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-800">
+                {toolTitles[currentView] || '实务工具箱'}
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">挂载目标案卷：</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-slate-400">当前案卷：</span>
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setCaseMenuOpen(!caseMenuOpen)}
@@ -276,11 +294,16 @@ export const TopBar: React.FC<TopBarProps> = () => {
             </div>
 
             <button
-              onClick={() => openRightDock('country_playbook')}
-              className="p-1.5 px-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+              onClick={() => (isRightDockOpen ? closeRightDock() : openRightDock('country_playbook'))}
+              className={`p-1.5 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                isRightDockOpen
+                  ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+              title={isRightDockOpen ? "收起法律辅助面板" : "查阅东道国合规指引"}
             >
               <Compass className="w-3.5 h-3.5 text-amber-600" />
-              <span>属地排雷</span>
+              <span>合规指引</span>
             </button>
           </div>
         </>

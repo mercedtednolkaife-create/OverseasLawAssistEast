@@ -7,19 +7,15 @@ import {
   FileText,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
   ArrowRight,
   BookOpen,
   Layers,
   Copy,
   Check,
-  Sparkles,
   FileSearch,
-  Scale,
   Paperclip,
   FolderPlus,
   Loader2,
-  GitCompare,
 } from 'lucide-react';
 
 export const MaterialVerificationView: React.FC = () => {
@@ -167,14 +163,14 @@ export const MaterialVerificationView: React.FC = () => {
             </div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">
               {verifyMode === 'CONTRACT_REDLINE_AUDIT'
-                ? '出海工程合同条款强行法红线体检工作台'
-                : '外国法证据材料与法律意见书真实性核验'}
+                ? '涉外工程合同合规红线审查'
+                : '外国法条文引用与真实性核验'}
             </h1>
           </div>
           <p className="text-xs text-slate-500 pl-11.5">
             {verifyMode === 'CONTRACT_REDLINE_AUDIT'
-              ? '针对招标文件、EPC主合同与分包协议，扫描背靠背付款、单语种有效性、无上限违约金与保函止付等东盟强行法红线'
-              : '对当事人主张或当地律所法律意见书中引用的东盟成文法典、司法通告、FIDIC 标准条款进行真实性比对与现行效力核验'}
+              ? '针对招标文件、EPC主合同与分包协议，系统审查背靠背付款、官方语言强制性、违约金上限与见索即付保函等东盟强行法红线'
+              : '对当事人主张或境外律所法律意见书中引用的东盟成文法典、司法通告、FIDIC 标准条款进行真实性比对与现行效力核验'}
           </p>
         </div>
 
@@ -194,8 +190,8 @@ export const MaterialVerificationView: React.FC = () => {
             }`}
           >
             <span className="flex items-center gap-1.5">
-              <Scale className="w-3.5 h-3.5 text-blue-600" />
-              <span>合同条款红线体检</span>
+              <FileText className="w-3.5 h-3.5 text-blue-600" />
+              <span>合同合规红线审查</span>
             </span>
           </button>
           <button
@@ -223,7 +219,7 @@ export const MaterialVerificationView: React.FC = () => {
       {verifyMode === 'CONTRACT_REDLINE_AUDIT' && (
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="text-slate-400 font-medium flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+            
             <span>东盟高频风险条款范本：</span>
           </span>
           {sampleClauses.map((sc, idx) => (

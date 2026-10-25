@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import { Expert, ConsultRecord } from '../../types/lawAgent';
-import { Users, Send, CheckCircle2, FileText, Download, UserCheck, Shield, Paperclip, Check, Loader2 } from 'lucide-react';
+import {
+  Users,
+  Send,
+  FileText,
+  Shield,
+  Paperclip,
+  Check,
+  Loader2,
+} from 'lucide-react';
 
 export const ExpertConsultsView: React.FC = () => {
   const { currentCase, currentCaseId, refreshCurrentCase, showToast } = useApp();
@@ -89,11 +97,11 @@ export const ExpertConsultsView: React.FC = () => {
               <Users className="w-4 h-4 text-blue-600" />
             </div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-              东盟 Local Counsel 与 FIDIC DAAB 专家会商管理
+              东盟属地法律顾问与专家咨询库
             </h1>
           </div>
           <p className="text-xs text-slate-500 pl-11.5">
-            特邀印尼、新加坡、大马、越南、泰国、菲律宾六国属地执业大律师与 FIDIC DAAB 裁决人，开展利益冲突排除与专家意见留痕
+            特邀东盟重点法域执业律师与国际争议裁决专家，开展利益冲突排查与专业意见留痕
           </p>
         </div>
       </div>
@@ -105,7 +113,7 @@ export const ExpertConsultsView: React.FC = () => {
           <div className="apple-bento-card rounded-[28px] p-6 space-y-4 shadow-2xs">
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <FileText className="w-4 h-4 text-blue-600" />
-              发起东盟属地大律师 / DAAB 专家会商委托单
+              发起属地法律顾问 / 专家咨询委托
             </h3>
 
             <form onSubmit={handleCreateConsult} className="space-y-4 text-xs">

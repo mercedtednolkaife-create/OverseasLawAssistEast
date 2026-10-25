@@ -57,6 +57,8 @@ export interface CaseMeta {
   stage?: 'pre_investment' | 'dispute' | string;
   engineering_params?: Record<string, any>;
   compared_jurisdictions?: string[];
+  dispute_resolution?: string;
+  tactical_guidance?: TacticalGuidance;
 }
 
 export interface Claim {
@@ -218,7 +220,6 @@ export interface DashboardMetrics {
   comparative_law_flags_count: number;
   grades_distribution: { A: number; B: number; C: number; D: number };
   timepoint_level: 'green' | 'red' | 'yellow';
-  cisg_triggered: boolean;
   snapshot_id: string;
   report_version: number;
   content_hash: string;
@@ -228,7 +229,6 @@ export interface DashboardMetrics {
 export type CaseWorkflowStatus =
   | 'draft'
   | 'running'
-  | 'paused_cisg'
   | 'paused_s3'
   | 'paused_s8'
   | 'completed'
@@ -484,6 +484,11 @@ export interface IntakeExtractResponse {
   claims: string;
   extracted_params: Record<string, any>;
   lex_loci_conflict: boolean;
+  contract_date?: string;
+  event_date?: string;
+  dispute_resolution?: string;
+  parties?: string;
+  contract_type?: string;
 }
 
 export interface NegotiationScript {
@@ -518,7 +523,25 @@ export interface AttachedArtifact {
   jurisdiction?: string;
   summary: string;
   redline_clause?: string;
+  source_url?: string;
   details?: Record<string, any>;
   created_at: string;
 }
 
+
+export interface PrefillIntakeParams {
+  jurisdiction?: string;
+  title?: string;
+  facts?: string;
+  facts_zh?: string;
+  claims?: string;
+  claims_zh?: string;
+  lifecycle_stage?: LifecycleStage;
+  stage?: LifecycleStage | string;
+  compared_jurisdictions?: string[];
+  project_archetypes?: ProjectArchetype[];
+  contract_type?: string;
+  governing_law?: string;
+  raw_text?: string;
+  meta?: Partial<CaseMeta>;
+}

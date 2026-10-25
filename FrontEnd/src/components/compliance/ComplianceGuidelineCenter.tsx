@@ -7,17 +7,11 @@ import {
   AlertCircle,
   FileCheck,
   ShieldCheck,
-  Layers,
   Building,
-  Users,
   Compass,
-  FileText,
-  Clock,
-  ArrowRight,
-  ChevronDown,
   AlertTriangle,
   Activity,
-  Sparkles,
+  Loader2,
 } from 'lucide-react';
 
 type CheckStatus = 'passed' | 'flawed' | 'failed';
@@ -64,205 +58,55 @@ interface StageGuideline {
   };
 }
 
-const LIFECYCLE_GUIDELINES: StageGuideline[] = [
-  {
-    id: 'stage_1',
-    stageNumber: '01',
-    stageName: '前期跟踪与立项尽调',
-    subTitle: '投资并购准入、国资备案与土地习惯法排查',
-    coreFocus: '外资准入负面清单核查、国资委 35 号令事前论证、合作伙伴背景与多边制裁筛查、原住民习惯法土地 (Hak Ulayat) 权属前置尽调。',
-    defenseLines: {
-      line1_operational: {
-        title: '海外市场部 / 属地开拓团队实操清单',
-        checklists: [
-          '取得东道国投资主管部委（如印尼 BKPM / 菲律宾 BOI / 泰国 BOI）关于本项目行业分类的外资股比与准入确认函；',
-          '对项目地块进行现场踏勘，排查是否存在原住民习惯法部落、生态红线或未征拆农田争议；',
-          '摸排当地电网或特许经营主体财务支付信用记录。',
-        ],
-        riskTip: '切勿在未明确土地性质前提前签署具有排他性或高额定金罚款的谅解备忘录 (MOU)。',
-      },
-      line2_legal: {
-        title: '涉外法务合规官审查要点',
-        checklists: [
-          '核实项目主体及联合体各方均不在世行/亚行跨行联合除名 (Cross-Debarment) 及制裁名单中；',
-          '严格依据国资委 35 号令准备境外投资可行性研究与合规性专项法律意见书；',
-          '设计防范隐性征收的跨境投资架构（建议通过新加坡/香港中转以激活双边投资协定 BIT 保护）。',
-        ],
-        riskTip: '涉及国家安全与敏感基础设施的，必须提前论证当地外资国安审查审批风险。',
-      },
-      line3_audit: {
-        title: '集团内部审计 / 国资监管穿透核查表',
-        checklists: [
-          '穿透审查境外项目资本金出境通道是否履行发改委、商务部与外管局 (ODI) 审批备案；',
-          '核查非主业境外投资是否履行国资委专项核准程序；',
-          '建立境外投资全周期风险评估档案底稿。',
-        ],
-        riskTip: '严禁向未经集团董事会批准的境外项目主体提供母公司连带兜底担保。',
-      },
-    },
-  },
-  {
-    id: 'stage_2',
-    stageNumber: '02',
-    stageName: '招投标与联营体组建',
-    subTitle: '施工牌照准入、联合体责任隔离与反腐败合规',
-    coreFocus: '属地法定施工牌照 (BUJKA / PCAB / CIDB / BCA) 合规、强制联营体 (KSO/JO) 协议连带责任隔离、外籍与本土劳工配额审查。',
-    defenseLines: {
-      line1_operational: {
-        title: '商务投标与属地施工组实操清单',
-        checklists: [
-          '完成属地施工许可执照注册或申请（如印尼 BUJKA 代表处、马来西亚 CIDB G7 牌照）；',
-          '与合资格的东道国本土一类施工企业签署联合运营体协议 (KSO/JO Agreement)；',
-          '测算投标文件中的本地化率 (TKDN) 成本及属地劳工聘用比例。',
-        ],
-        riskTip: '避免盲目承诺无法落地的属地采购比例，防止履约阶段遭受巨额行政罚款。',
-      },
-      line2_legal: {
-        title: '涉外法务合规官审查要点',
-        checklists: [
-          '审查 KSO 联营体协议，明确约定内部损益分摊与违约追索机制，设立单方违约防火墙；',
-          '排查招标文件是否存在单方严重失衡条款（如完全免除业主交地迟延责任）；',
-          '开展属地中介代理商反海外商业贿赂背景审查并签署合规承诺书。',
-        ],
-        riskTip: '菲律宾最高院 PCAB v. Manila Water 虽然打破外资股比限制，但公建招投标仍受特别法规约束。',
-      },
-      line3_audit: {
-        title: '纪检监督与内控合规核查表',
-        checklists: [
-          '核实海外投标保证金与保函开立流程规范性；',
-          '核查第三方代理佣金支付是否符合国资反商业贿赂合规红线；',
-          '对联营体合作伙伴资信等级实施穿透核查。',
-        ],
-        riskTip: '严禁以任何咨询费、中介费名义向东道国公职人员或其利益关联方输送利益。',
-      },
-    },
-  },
-  {
-    id: 'stage_3',
-    stageNumber: '03',
-    stageName: '合同谈判与签署红线',
-    subTitle: 'FIDIC 黄金原则、双语法定要求与保函止付约定',
-    coreFocus: 'FIDIC 银皮书专用条件审查、双语/三语文本同步签署与准据语言约定、见索即付保函反欺诈索兑限制条款、PPA/EPC 接口风险传导。',
-    defenseLines: {
-      line1_operational: {
-        title: '合同谈判小组实操清单',
-        checklists: [
-          '核实工程合同价格调整公式，锁定主要原材料（钢材、水泥）与汇率波动分担机制；',
-          '落实开工预付款支付与动员期挂钩时间表；',
-          '确认移交施工红线图与现场地质资料的正式签收程序。',
-        ],
-        riskTip: '严禁在专用条件中放弃第 14.8 款延误付款利息或接受不合理的逾期违约金无封顶条款。',
-      },
-      line2_legal: {
-        title: '涉外法务合规官审查要点',
-        checklists: [
-          '印尼项目严格依据印尼最高法院 SEMA 3/2023 通告，实现印尼语与英语版本同步同文签署；',
-          '越南项目严格依据《2025新建设法》第 86.2 条重构预定损害赔偿 (LD) 封顶条款；',
-          '马来西亚/新加坡项目坚决剔除背靠背付款条款 (CIPAA 35条与 SOPA 9条法定绝对无效)；',
-          '在履约保函条款中约定：争议受新加坡法院专属管辖，准用 BS Mount Sophia 显失公平止付规则。',
-        ],
-        riskTip: '准据法与争议解决优先约定 SIAC/ICC 境外仲裁，并授权仲裁庭签发紧急禁令。',
-      },
-      line3_audit: {
-        title: '集团法律与风控委员会穿透核查表',
-        checklists: [
-          '复核合同文本与集团标准海外工程示范文本的黄金原则偏离度报告；',
-          '核查保函开立金额、期限与履约进度减额机制是否匹配；',
-          '评估特许经营协议与 EPC 总包合同的背靠背接口风险敞口。',
-        ],
-        riskTip: '对包含政治风险、电价调整风险的重大涉外项目，须报请集团党委会/执委会审议。',
-      },
-    },
-  },
-  {
-    id: 'stage_4',
-    stageNumber: '04',
-    stageName: '现场履约与过程留痕',
-    subTitle: '28天索赔通知时效、工期延误留痕与 TKDN 认证',
-    coreFocus: '开工令与交地纪要签收、28天索赔通知标准化发函模板、外籍劳工配额与工作签台账、TKDN 本地采购认证留痕、工程进度款法定催告函。',
-    defenseLines: {
-      line1_operational: {
-        title: '现场项目经理与工程管理部实操清单',
-        checklists: [
-          '接收场地受阻时，必须在 24 小时内形成现场阻工纪要并由监理工程师签字确认；',
-          '任何业主风险导致的延误事件，必须在 28 天内正式发出 FIDIC 20.1 索赔意向通知函；',
-          '每月更新 Primavera P6 关键路径进度计划并形成不可抗力延期对比报告；',
-          '严格保存本地采购设备发票与工业部 TKDN 原产地合格证书。',
-        ],
-        riskTip: '切勿通过口头或非正式即时通讯沟通替代正式 FIDIC 合同信函，防范机械失权。',
-      },
-      line2_legal: {
-        title: '驻场涉外法务与索赔顾问审查要点',
-        checklists: [
-          '审核项目部对外发出的每一份工期顺延 (EOT) 与附加费用索赔报告；',
-          '业主发出违约警告函时，即刻开展抗辩函件起草，援引善意原则 (Itikad Baik) 反制；',
-          '对拖欠工程款情形，依据东道国法定付款保障法（如 CIPAA/SOPA）起草正式催告函。',
-        ],
-        riskTip: '如需签署工期顺延补充备忘录，印尼法域必须同步签署印尼语译本并备案。',
-      },
-      line3_audit: {
-        title: '海外项目现场巡视与合规内审表',
-        checklists: [
-          '抽查外籍中方管理人员与技术工人的工作签证、劳工配额合规档案；',
-          '核查现场资金结算与分包款支付是否严格依工程进度验收单执行；',
-          '检查涉外安全保卫与突发社区群体性事件应急预案演练记录。',
-        ],
-        riskTip: '严禁违规挂靠、虚假发票结算或拖欠当地劳工薪资引发国际舆论风险。',
-      },
-    },
-  },
-  {
-    id: 'stage_5',
-    stageNumber: '05',
-    stageName: '竣工移交、争议解决与退出清算',
-    subTitle: '保函安全退还、CIPAA快速裁决、信保报损与数据调证',
-    coreFocus: '缺陷责任期保函减额退还、CIPAA/SOPA 快速法定裁决应对、SIAC 紧急仲裁保函止付、中信保 30 日报损保全、《数据安全法》第36条跨境调证审批。',
-    defenseLines: {
-      line1_operational: {
-        title: '收尾清算组与资产移交团队实操清单',
-        checklists: [
-          '取得最终竣工验收证书 (Taking-Over Certificate) 后即刻向银行办理履约保函减额 50%；',
-          '完成最终工程结算对账单签署，锁定无争议已确认款项；',
-          '妥善办理设备移交、竣工图纸档案移交与属地税务清算注销。',
-        ],
-        riskTip: '在未取得全额最终付款或可靠支付担保前，严禁盲目向业主全额交还现场管领权。',
-      },
-      line2_legal: {
-        title: '国际争议解决与涉外法务专家审查要点',
-        checklists: [
-          '业主发生恶意索兑保函迹象时，第一时间向新加坡国际仲裁中心 (SIAC) 申请紧急仲裁员止付禁令；',
-          '遭遇东道国政府单方废约或隐性征收，严格在 30 个自然日内向中国信保提交正式《可能损失通知书》；',
-          '若境外仲裁庭要求调取工程高精度测绘地质数据，依法依规报请我国司法部/主管机关批准（数安法36条）。',
-        ],
-        riskTip: '未经中信保书面同意，严禁擅自签署任何免除东道国政府责任的和解协议。',
-      },
-      line3_audit: {
-        title: '终期项目后评价与国资审计核查表',
-        checklists: [
-          '审查海外项目投资回报率、合同结算利润与当初可行性研究报告的偏离度；',
-          '核实全部对外保函、备用信用证是否已全部注销解除敞口；',
-          '归档全生命周期合规档案与典型经验复盘手册，作为后续海外项目风控基线。',
-        ],
-        riskTip: '对因主观重大过失导致国资流失或重大境外败诉的，依法依规启动责任倒查追责。',
-      },
-    },
-  },
-];
-
 export const ComplianceGuidelineCenter: React.FC = () => {
   const { showToast, loadCase, openPipelineAnimation, setCurrentView, openCaseEntryWithPrefill } = useApp();
-  const [stages, setStages] = useState<StageGuideline[]>(LIFECYCLE_GUIDELINES);
-  const [activeStageId, setActiveStageId] = useState<string>('stage_1');
+  const [stages, setStages] = useState<StageGuideline[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [activeStageId, setActiveStageId] = useState<string>('');
 
   useEffect(() => {
+    let mounted = true;
     lawAgentApi
       .getComplianceGuidelines()
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setStages(data as any);
+        if (mounted && Array.isArray(data) && data.length > 0) {
+          const list = data as StageGuideline[];
+          setStages(list);
+          setActiveStageId(list[0].id);
+          setItemStatuses((prev) => {
+            if (Object.keys(prev).length > 0) return prev;
+            const init: Record<string, CheckStatus> = {};
+            list.forEach((stage, sIdx) => {
+              (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
+                const line = stage.defenseLines?.[lineKey];
+                if (!line || !Array.isArray(line.checklists)) return;
+                line.checklists.forEach((_, idx) => {
+                  const key = `${stage.id}_${lineKey}_${idx}`;
+                  if (sIdx === 0 && lineKey === 'line1_operational' && idx === 1) {
+                    init[key] = 'flawed';
+                  } else if (sIdx === 2 && lineKey === 'line2_legal' && idx === 0) {
+                    init[key] = 'flawed';
+                  } else if (sIdx === 3 && lineKey === 'line1_operational' && idx === 1) {
+                    init[key] = 'failed';
+                  } else {
+                    init[key] = 'passed';
+                  }
+                });
+              });
+            });
+            return init;
+          });
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('Failed to load compliance guidelines', err);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const [activeDefenseLine, setActiveDefenseLine] = useState<'line1' | 'line2' | 'line3'>('line1');
@@ -277,25 +121,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
       const saved = localStorage.getItem('compliance_guidelines_status');
       if (saved) return JSON.parse(saved);
     } catch {}
-    const init: Record<string, CheckStatus> = {};
-    LIFECYCLE_GUIDELINES.forEach((stage) => {
-      (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
-        const line = stage.defenseLines[lineKey];
-        line.checklists.forEach((_, idx) => {
-          const key = `${stage.id}_${lineKey}_${idx}`;
-          if (stage.id === 'stage_1' && lineKey === 'line1_operational' && idx === 1) {
-            init[key] = 'flawed'; // 土地原住民 Hak Ulayat 瑕疵
-          } else if (stage.id === 'stage_3' && lineKey === 'line2_legal' && idx === 0) {
-            init[key] = 'flawed'; // 印尼双语签署瑕疵
-          } else if (stage.id === 'stage_4' && lineKey === 'line1_operational' && idx === 1) {
-            init[key] = 'failed'; // 28天索赔通知时效未满足
-          } else {
-            init[key] = 'passed';
-          }
-        });
-      });
-    });
-    return init;
+    return {};
   });
 
   useEffect(() => {
@@ -307,7 +133,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
   const handleResetChecklist = () => {
     localStorage.removeItem('compliance_guidelines_status');
     const init: Record<string, CheckStatus> = {};
-    LIFECYCLE_GUIDELINES.forEach((stage) => {
+    stages.forEach((stage) => {
       (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
         const line = stage.defenseLines[lineKey];
         line.checklists.forEach((_, idx) => {
@@ -324,6 +150,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
 
   // 当前阶段所有核验点
   const currentStageItems = useMemo(() => {
+    if (!currentStage || !currentStage.defenseLines) return [];
     const items: Array<{
       key: string;
       lineKey: string;
@@ -333,6 +160,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
     }> = [];
     (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
       const line = currentStage.defenseLines[lineKey];
+      if (!line || !Array.isArray(line.checklists)) return;
       line.checklists.forEach((text, idx) => {
         const key = `${currentStage.id}_${lineKey}_${idx}`;
         items.push({
@@ -365,7 +193,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
   const overallScore = useMemo(() => {
     let totalItems = 0;
     let totalPoints = 0;
-    LIFECYCLE_GUIDELINES.forEach((stage) => {
+    stages.forEach((stage) => {
       (['line1_operational', 'line2_legal', 'line3_audit'] as const).forEach((lineKey) => {
         const line = stage.defenseLines[lineKey];
         line.checklists.forEach((_, idx) => {
@@ -391,7 +219,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
 
       const jurName = JUR_NAMES[exportJur] || '东盟法域';
       const archName = ARCHETYPE_NAMES[exportArchetype] || '建设工程';
-      const isPre = currentStage.id === 'stage_1';
+      const isPre = currentStage?.id?.includes('investment') || currentStage?.id === 'stage_1';
       const stage = isPre ? 'pre_investment' : 'execution_dispute';
 
       const factsText = `本项目（${archName}，目标法域：${jurName}）在“${currentStage.stageName}”全周期合规自测中发现以下 ${currentUnmetItems.length} 项未达标或瑕疵要件：\n\n` +
@@ -427,7 +255,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
 
       await loadCase(res.case_id, true);
       openPipelineAnimation();
-      setCurrentView('workspace');
+      setCurrentView('analysis');
       showToast(`已成功将 ${currentUnmetItems.length} 项未达标点转化为专项查明案卷并启动多 Agent 推演流水线！`, 'success');
     } catch (err: any) {
       showToast(err.message || '专项立项推演失败', 'error');
@@ -467,6 +295,15 @@ export const ComplianceGuidelineCenter: React.FC = () => {
   };
 
   const lineData = getLineData();
+
+  if (loading || !currentStage) {
+    return (
+      <div className="py-24 bg-white rounded-2xl border border-zinc-200/80 shadow-xs flex flex-col items-center justify-center space-y-3 min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <p className="text-xs text-zinc-500 font-medium">正在自东盟出海建设工程五阶段 × 三道防线知识库载入核查表...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -554,6 +391,14 @@ export const ComplianceGuidelineCenter: React.FC = () => {
             }`}>
               {overallScore >= 80 ? '合规健康 · 低风险' : overallScore >= 60 ? '审慎关注 · 中风险' : '警报隐患 · 高风险'}
             </span>
+            <div className="w-28 bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1.5 ml-auto">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  overallScore >= 80 ? 'bg-emerald-500' : overallScore >= 60 ? 'bg-amber-500' : 'bg-rose-500'
+                }`}
+                style={{ width: `${overallScore}%` }}
+              />
+            </div>
           </div>
         </div>
 

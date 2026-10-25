@@ -8,11 +8,9 @@ import {
   ShieldCheck,
   FileCheck2,
   Users,
-  FileText,
   Plus,
-  BookOpen,
   ArrowRight,
-  Sparkles,
+  Bot,
   Command,
 } from 'lucide-react';
 
@@ -58,9 +56,9 @@ export const CommandPaletteModal: React.FC = () => {
       {
         id: 'action-open-copilot',
         category: '快捷操作',
-        title: '呼出案卷 AI 专属副驾坞',
-        desc: '进入 S1~S9 推理对话与红队攻防对抗',
-        icon: Sparkles,
+        title: '打开 AI 法律助手',
+        desc: '案卷智能法律对话与抗辩分析',
+        icon: Bot,
         action: () => {
           closeCommandPalette();
           openRightDock('case_copilot');
@@ -69,8 +67,8 @@ export const CommandPaletteModal: React.FC = () => {
       {
         id: 'action-open-playbook',
         category: '快捷操作',
-        title: '东盟属地排雷与合规手册 (Playbook)',
-        desc: '查看 6 国 12 风险域 Do\'s & Don\'ts',
+        title: '东盟重点法域合规指引手册',
+        desc: '查看东盟各重点法域实务合规要点与禁忌事项',
         icon: ShieldCheck,
         action: () => {
           closeCommandPalette();
@@ -81,8 +79,8 @@ export const CommandPaletteModal: React.FC = () => {
       {
         id: 'tool-scanner',
         category: '实务工具',
-        title: '合同强行法红线 & 外律意见书扫描核验仪',
-        desc: '5秒穿透扫描背靠背、保函止付与语言法红线',
+        title: '涉外合同强行法合规红线审查',
+        desc: '快速审查背靠背付款、见索即付保函与法定语言红线',
         icon: FileCheck2,
         action: () => {
           closeCommandPalette();
@@ -92,8 +90,8 @@ export const CommandPaletteModal: React.FC = () => {
       {
         id: 'tool-search',
         category: '实务工具',
-        title: '东盟六国与 FIDIC 权威法典判例库',
-        desc: '中英双语检索 31 部现行有效法典与 7 篇金标准先例',
+        title: '东盟法规与裁判先例数据库',
+        desc: '中英双语检索东盟现行有效法典与典型裁判先例',
         icon: Scale,
         action: () => {
           closeCommandPalette();
@@ -103,8 +101,8 @@ export const CommandPaletteModal: React.FC = () => {
       {
         id: 'tool-experts',
         category: '实务工具',
-        title: '东盟 Local Counsel 与 DAAB 专家会商枢纽',
-        desc: 'SIAC/BANI/AIAC/VIAC 注册资深大律师利益冲突排查',
+        title: '东盟属地法律顾问与专家咨询',
+        desc: '重点法域执业律师与国际争议裁决专家利益冲突审查',
         icon: Users,
         action: () => {
           closeCommandPalette();
@@ -114,8 +112,8 @@ export const CommandPaletteModal: React.FC = () => {
       {
         id: 'tool-compliance',
         category: '实务工具',
-        title: '五阶段合规体检打分 & 六国横向比选',
-        desc: '实时测算健康度指数与未达标项定向立项',
+        title: '涉外合规评估与法域横向比选',
+        desc: '评估全流程合规指数与各法域规则横向对比',
         icon: Sliders,
         action: () => {
           closeCommandPalette();

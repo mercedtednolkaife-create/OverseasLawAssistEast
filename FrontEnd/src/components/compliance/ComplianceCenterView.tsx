@@ -5,15 +5,11 @@ import { ComplianceGuidelineCenter } from './ComplianceGuidelineCenter';
 import { RiskPromptDashboard } from './RiskPromptDashboard';
 import { ASEANComparisonMatrix } from './ASEANComparisonMatrix';
 import {
-  ShieldAlert,
   Compass,
   FileCheck2,
   TrendingUp,
   TableProperties,
-  ArrowRight,
   BookOpen,
-  Sparkles,
-  Layers,
 } from 'lucide-react';
 
 export type ComplianceTab = 'cases' | 'guidelines' | 'risk_radar' | 'matrix';
@@ -25,26 +21,26 @@ export const ComplianceCenterView: React.FC = () => {
   const tabs = [
     {
       id: 'cases',
-      label: '5D 典型案例参考库',
-      sub: '四大标杆案例与五维复盘卡',
+      label: '典型实务案例库',
+      sub: '代表性判例与处置复盘',
       icon: Compass,
     },
     {
       id: 'guidelines',
-      label: '全周期合规指引引擎',
-      sub: '五阶段 SOP 与三道防线核查',
+      label: '投资建设全周期合规指引',
+      sub: '全流程合规核查标准与流程',
       icon: FileCheck2,
     },
     {
       id: 'risk_radar',
-      label: '风险提示与立法预警',
-      sub: '6×12 风险矩阵与修法雷达',
+      label: '风险提示与立法动态预警',
+      sub: '东盟各法域修法动态与监管预警',
       icon: TrendingUp,
     },
     {
       id: 'matrix',
-      label: '六国实务横向对比',
-      sub: '东盟六国成文法与司法规则对比',
+      label: '东盟主要法域实务对比',
+      sub: '现行法典与裁判规则横向比选',
       icon: TableProperties,
     },
   ];
@@ -60,21 +56,21 @@ export const ComplianceCenterView: React.FC = () => {
           </div>
 
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-            央国企东盟工程与投资合规体系建设中心
+            东盟涉外工程与投资合规评估中心
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-            聚焦中资央国企出海东盟“投建营一体化”全链条法律风险防范。集成 5D 典型案例复盘、全生命周期“三道防线”SOP、6×12 场景化风险矩阵及一键生成交底合规手册。
+            出海工程与投资全生命周期合规防护支持，提供跨法域横向比对、实务案例复盘与东道国合规指引。
           </p>
 
           <div className="flex flex-wrap items-center gap-2.5 pt-1">
             <button
               onClick={() => openRightDock('country_playbook')}
-              className="btn-space-titanium px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all"
             >
               <BookOpen className="w-3.5 h-3.5 text-blue-300" />
-              <span>呼出右侧属地排雷速查坞</span>
-              <kbd className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-mono">Cmd+B</kbd>
+              <span>查阅东道国合规指引</span>
+              <kbd className="text-[10px] bg-blue-700/60 text-blue-100 border border-blue-400/40 px-1.5 py-0.5 rounded font-mono">Cmd+B</kbd>
             </button>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 pl-2">
               <span className="text-[11px] text-slate-400">已收录东道国：</span>

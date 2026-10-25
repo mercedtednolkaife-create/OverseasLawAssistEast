@@ -1,15 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { UserRole, CaseState, CaseSummary, Evidence, RightDockMode } from '../types/lawAgent';
+import { UserRole, CaseState, CaseSummary, Evidence, RightDockMode, PrefillIntakeParams } from '../types/lawAgent';
 import { lawAgentApi } from '../api/lawAgentApi';
 
 export type ActiveView =
   | 'home'
   | 'cases'
   | 'entry'
-  | 'workspace'
   | 'analysis'
-  | 'review'
-  | 'dashboard'
   | 'search'
   | 'verification'
   | 'consults'
@@ -79,9 +76,9 @@ interface AppContextType {
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   // 跨组件建案预填参数
-  prefillIntakeParams: any | null;
-  setPrefillIntakeParams: (params: any | null) => void;
-  openCaseEntryWithPrefill: (params: any) => void;
+  prefillIntakeParams: PrefillIntakeParams | null;
+  setPrefillIntakeParams: (params: PrefillIntakeParams | null) => void;
+  openCaseEntryWithPrefill: (params: PrefillIntakeParams) => void;
   // 侧边栏折叠状态 (全局响应式与定位)
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
@@ -140,8 +137,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const closeCommandPalette = useCallback(() => setIsCommandPaletteOpen(false), []);
 
   // 跨组件建案预填参数
-  const [prefillIntakeParams, setPrefillIntakeParams] = useState<any | null>(null);
-  const openCaseEntryWithPrefill = useCallback((params: any) => {
+  const [prefillIntakeParams, setPrefillIntakeParams] = useState<PrefillIntakeParams | null>(null);
+  const openCaseEntryWithPrefill = useCallback((params: PrefillIntakeParams) => {
     setPrefillIntakeParams(params);
     setIsCaseEntryModalOpen(true);
   }, []);
@@ -263,10 +260,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const data = await lawAgentApi.getCase(targetCaseId);
       setCurrentCase(data);
-      const summaries = await lawAgentApi.getCases();
-      if (Array.isArray(summaries)) {
-        setCasesList(summaries);
-      }
     } catch (err: any) {
       setError(err.message || '刷新案件数据失败');
     }

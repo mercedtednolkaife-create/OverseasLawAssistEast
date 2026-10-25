@@ -43,7 +43,6 @@ def search_norms_and_cases(
     court: Optional[str] = Query(None, description="法院/仲裁庭过滤，如 SGHC, BANI, AIAC"),
     kind: Optional[str] = Query("all", description="类型过滤: all, norm, case"),
     snapshot_mgr: SnapshotManager = Depends(get_snapshot_mgr),
-    retriever: HybridRetriever = Depends(get_retriever)
 ):
     """搜索东盟六国成文法典、FIDIC 国际工程标准条款与司法判例先例"""
     query = q.strip()
@@ -166,50 +165,140 @@ def search_norms_and_cases(
                     ))
         return items
 
-    # 2. 混合检索召回
-    kind_filter = kind if kind in ("norm", "case") else None
-    evidences = retriever.search(query, top_k=20, law_filter=law, kind_filter=kind_filter)
+    # 2. 混合检索召回：优先执行 SQLite 快速全文/关键词检索 (毫秒级响应，100% 可靠性)
+    seen_ids = set()
+    conn = snapshot_mgr.get_connection()
+    if conn:
+        cursor = conn.cursor()
+        keywords = [k.strip() for k in query.replace("+", " ").replace("、", " ").replace(",", " ").split() if k.strip()]
+        if not keywords:
+            keywords = [query]
 
-    for ev in evidences:
-        if ev.kind == "norm":
-            norm = snapshot_mgr.norm_lookup(ev.ref_id)
-            if norm:
-                items.append(NormOrCaseItem(
-                    id=norm["norm_id"],
-                    kind="norm",
-                    law=norm["law"],
-                    enbez=norm["enbez"],
-                    title=norm["title"] or f"{norm['law']} {norm['enbez']}",
-                    heading_path=norm.get("heading_path"),
-                    text_de=norm.get("text_zh") or norm["text_de"][:1500],
-                    text_original=norm.get("text_original"),
-                    text_en=norm.get("text_en"),
-                    text_zh=norm.get("text_zh"),
-                    text_zh_machine=norm.get("text_zh") or f"【释义】针对 {norm['norm_id']} 之法定要件",
-                    language_mode=norm.get("language_mode", "bilingual"),
-                    translation_source=norm.get("translation_source", "MOJ_FATONG_2026"),
-                    fidic_tier=norm.get("fidic_tier"),
-                    fidic_edition=norm.get("fidic_edition"),
-                    stand=norm.get("stand"),
-                    has_pending_amend=bool(norm.get("has_pending_amend")),
-                    source_url=norm["source_url"]
-                ))
-        else:
-            case_data = snapshot_mgr.case_lookup(ev.ref_id)
-            if case_data:
-                items.append(NormOrCaseItem(
-                    id=case_data["case_id"],
-                    kind="case",
-                    court=case_data["court"],
-                    az=case_data["az"],
-                    decided=case_data["decided"],
-                    title=f"{case_data['court']} {case_data['az']} ({case_data['decided']})",
-                    text_de=case_data.get("leitsatz") or (case_data.get("gruende") or "")[:1500],
-                    text_original=case_data.get("gruende"),
-                    text_en=case_data.get("tenor"),
-                    text_zh=case_data.get("leitsatz"),
-                    text_zh_machine=f"【裁判要旨】{case_data['court']} 建设工程裁判要旨",
-                    source_url=case_data["source_url"]
-                ))
+        # 匹配法条
+        if kind != "case":
+            conditions = []
+            params = []
+            for kw in keywords[:3]:
+                conditions.append("(norm_id LIKE ? OR law LIKE ? OR enbez LIKE ? OR title LIKE ? OR text_zh LIKE ? OR text_de LIKE ?)")
+                p = f"%{kw}%"
+                params.extend([p, p, p, p, p, p])
+            if conditions:
+                if law:
+                    sql = f"SELECT norm_id FROM norms WHERE law = ? AND ({' OR '.join(conditions)}) LIMIT 25"
+                    params = [law] + params
+                else:
+                    sql = f"SELECT norm_id FROM norms WHERE {' OR '.join(conditions)} LIMIT 25"
+
+                cursor.execute(sql, tuple(params))
+                for row in cursor.fetchall():
+                    nid = row[0]
+                    if nid not in seen_ids:
+                        seen_ids.add(nid)
+                        norm = snapshot_mgr.norm_lookup(nid)
+                        if norm:
+                            items.append(NormOrCaseItem(
+                                id=norm["norm_id"],
+                                kind="norm",
+                                law=norm["law"],
+                                enbez=norm["enbez"],
+                                title=norm["title"] or f"{norm['law']} {norm['enbez']}",
+                                heading_path=norm.get("heading_path"),
+                                text_de=norm.get("text_zh") or norm["text_de"][:1500],
+                                text_original=norm.get("text_original"),
+                                text_en=norm.get("text_en"),
+                                text_zh=norm.get("text_zh"),
+                                text_zh_machine=norm.get("text_zh") or f"【释义】针对 {norm['norm_id']} 之法定要件",
+                                language_mode=norm.get("language_mode", "bilingual"),
+                                translation_source=norm.get("translation_source", "MOJ_FATONG_2026"),
+                                fidic_tier=norm.get("fidic_tier"),
+                                fidic_edition=norm.get("fidic_edition"),
+                                stand=norm.get("stand"),
+                                has_pending_amend=bool(norm.get("has_pending_amend")),
+                                source_url=norm["source_url"]
+                            ))
+
+        # 匹配判例
+        if kind != "norm":
+            case_conditions = []
+            case_params = []
+            for kw in keywords[:3]:
+                case_conditions.append("(case_id LIKE ? OR court LIKE ? OR az LIKE ? OR leitsatz LIKE ? OR gruende LIKE ?)")
+                p = f"%{kw}%"
+                case_params.extend([p, p, p, p, p])
+            if case_conditions:
+                sql_cases = f"SELECT case_id FROM cases WHERE {' OR '.join(case_conditions)} LIMIT 10"
+                cursor.execute(sql_cases, tuple(case_params))
+                for row in cursor.fetchall():
+                    cid = row[0]
+                    if cid not in seen_ids:
+                        seen_ids.add(cid)
+                        case_data = snapshot_mgr.case_lookup(cid)
+                        if case_data:
+                            items.append(NormOrCaseItem(
+                                id=case_data["case_id"],
+                                kind="case",
+                                court=case_data["court"],
+                                az=case_data["az"],
+                                decided=case_data["decided"],
+                                title=f"{case_data['court']} {case_data['az']} ({case_data['decided']})",
+                                text_de=case_data.get("leitsatz") or (case_data.get("gruende") or "")[:1500],
+                                text_original=case_data.get("gruende"),
+                                text_en=case_data.get("tenor"),
+                                text_zh=case_data.get("leitsatz"),
+                                text_zh_machine=f"【裁判要旨】{case_data['court']} 司法裁判要旨",
+                                source_url=case_data["source_url"]
+                            ))
+
+    # 尝试混合 Retriever 向量/BM25 增强召回 (若可用，不阻断主链路)
+    try:
+        retriever = get_retriever()
+        kind_filter = kind if kind in ("norm", "case") else None
+        evidences = retriever.search(query, top_k=20, law_filter=law, kind_filter=kind_filter)
+        for ev in evidences:
+            if ev.ref_id in seen_ids:
+                continue
+            seen_ids.add(ev.ref_id)
+            if ev.kind == "norm":
+                norm = snapshot_mgr.norm_lookup(ev.ref_id)
+                if norm:
+                    items.append(NormOrCaseItem(
+                        id=norm["norm_id"],
+                        kind="norm",
+                        law=norm["law"],
+                        enbez=norm["enbez"],
+                        title=norm["title"] or f"{norm['law']} {norm['enbez']}",
+                        heading_path=norm.get("heading_path"),
+                        text_de=norm.get("text_zh") or norm["text_de"][:1500],
+                        text_original=norm.get("text_original"),
+                        text_en=norm.get("text_en"),
+                        text_zh=norm.get("text_zh"),
+                        text_zh_machine=norm.get("text_zh") or f"【释义】针对 {norm['norm_id']} 之法定要件",
+                        language_mode=norm.get("language_mode", "bilingual"),
+                        translation_source=norm.get("translation_source", "MOJ_FATONG_2026"),
+                        fidic_tier=norm.get("fidic_tier"),
+                        fidic_edition=norm.get("fidic_edition"),
+                        stand=norm.get("stand"),
+                        has_pending_amend=bool(norm.get("has_pending_amend")),
+                        source_url=norm["source_url"]
+                    ))
+            else:
+                case_data = snapshot_mgr.case_lookup(ev.ref_id)
+                if case_data:
+                    items.append(NormOrCaseItem(
+                        id=case_data["case_id"],
+                        kind="case",
+                        court=case_data["court"],
+                        az=case_data["az"],
+                        decided=case_data["decided"],
+                        title=f"{case_data['court']} {case_data['az']} ({case_data['decided']})",
+                        text_de=case_data.get("leitsatz") or (case_data.get("gruende") or "")[:1500],
+                        text_original=case_data.get("gruende"),
+                        text_en=case_data.get("tenor"),
+                        text_zh=case_data.get("leitsatz"),
+                        text_zh_machine=f"【裁判要旨】{case_data['court']} 建设工程裁判要旨",
+                        source_url=case_data["source_url"]
+                    ))
+    except Exception:
+        pass
 
     return items

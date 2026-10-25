@@ -9,15 +9,13 @@ import {
   Plus,
   Trash2,
   ArrowRight,
-  FileCheck2,
-  Sparkles,
+  Bot,
   Layers,
   Building2,
   GitMerge,
   Briefcase,
-  AlertTriangle,
   Paperclip,
-  UploadCloud,
+  Check,
 } from 'lucide-react';
 
 interface CaseEntryModalProps {
@@ -98,11 +96,17 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
       if (res.project_archetype) setProjectArchetypes([res.project_archetype]);
       if (res.facts) setFactsZh(res.facts);
       if (res.claims) setClaimsZh(res.claims);
+      if (res.contract_date) setContractDate(res.contract_date);
+      if (res.event_date) setEventDate(res.event_date);
+      if (res.dispute_resolution) setDisputeResolution(res.dispute_resolution);
+      if (res.parties) setPartiesStr(res.parties);
+      if (res.contract_type) setContractType(res.contract_type);
       if (res.extracted_params) setExtractedParams(res.extracted_params);
 
+      setConsentAccepted(true);
       setExtractedSuccess(true);
-      showToast('✓ AI 要素抽提成功，已自动填入国别、阶段、延误天数与诉求', 'success');
-      setTimeout(() => setExtractedSuccess(false), 3000);
+      showToast('✓ AI 要素抽提成功，已自动填入全部建案必填项（可直接启动研判）', 'success');
+      setTimeout(() => setExtractedSuccess(false), 4000);
     } catch (e: any) {
       showToast(e.message || '要素抽提失败，请手动录入', 'error');
     } finally {
@@ -138,9 +142,17 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
       if (intakeRes.project_archetype) setProjectArchetypes([intakeRes.project_archetype]);
       if (intakeRes.facts) setFactsZh(intakeRes.facts);
       if (intakeRes.claims) setClaimsZh(intakeRes.claims);
+      if (intakeRes.contract_date) setContractDate(intakeRes.contract_date);
+      if (intakeRes.event_date) setEventDate(intakeRes.event_date);
+      if (intakeRes.dispute_resolution) setDisputeResolution(intakeRes.dispute_resolution);
+      if (intakeRes.parties) setPartiesStr(intakeRes.parties);
+      if (intakeRes.contract_type) setContractType(intakeRes.contract_type);
       if (intakeRes.extracted_params) setExtractedParams(intakeRes.extracted_params);
+
+      setConsentAccepted(true);
       setExtractedSuccess(true);
-      setTimeout(() => setExtractedSuccess(false), 3000);
+      showToast('✓ 文档解析与要素抽提完成，已自动填入全部建案必填项', 'success');
+      setTimeout(() => setExtractedSuccess(false), 4000);
     } catch (e: any) {
       showToast(e.message || '文档解析失败', 'error');
     } finally {
@@ -316,22 +328,17 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
         onClick={(e) => e.stopPropagation()}
       >
         {/* 顶部标题区 */}
-        <div className="px-6 py-5 border-b border-slate-200/80 flex items-center justify-between shrink-0 bg-white/70 backdrop-blur-md">
+        <div className="px-6 py-4.5 border-b border-slate-200/80 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200/60 flex items-center justify-center shadow-2xs">
-              <ShieldCheck className="w-5 h-5 text-blue-600" />
+              <Building2 className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
-                  新建涉外工程与投资查明案件
-                </h2>
-                <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                  东盟核心六国 · 2026 现行有效法源
-                </span>
-              </div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+                新建涉外工程与投资查明案件
+              </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                录入涉外工程合同架构、客观事实与争议焦点，启动智能研判与合规查明
+                录入专案基本信息、客观事实与审查诉求，启动智能研判与合规查明
               </p>
             </div>
           </div>
@@ -377,24 +384,25 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* 表单主体内容 */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* AI 智能要素抽提舱 (Smart Ingestion Box) */}
-          <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/70 via-indigo-50/40 to-white p-5 space-y-3.5 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-xl bg-blue-600 text-white shadow-2xs">
-                  <Sparkles className="w-4 h-4" />
+          <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/60 via-indigo-50/30 to-white p-4.5 space-y-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-2xs shrink-0">
+                  <Bot className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-slate-900">
-                    AI 智能要素抽提舱 (Smart Ingestion)
+                    AI 智能要素抽提 (可选)
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    粘贴往来邮件、业主索赔通知函 (Claim Notice) 或招标文件，2 秒自动提取国别、阶段、延误天数与核心诉求
+                    支持粘贴中英文往来函件、索赔通知 (Claim Notice) 或招标文件，快速提取建案要素
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -409,14 +417,11 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isParsingDoc}
-                  className="px-2.5 py-1 text-xs font-semibold bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 rounded-lg flex items-center gap-1 cursor-pointer shadow-2xs"
+                  className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-blue-50/80 border border-blue-200 text-blue-700 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
                 >
                   <Paperclip className="w-3.5 h-3.5 text-blue-600" />
-                  <span>{isParsingDoc ? '文档解析中...' : '上传/拖拽 .docx / .txt 索赔函'}</span>
+                  <span>{isParsingDoc ? '文档解析中...' : '上传 .docx / .txt 索赔函'}</span>
                 </button>
-                <span className="text-[11px] font-mono text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md border border-blue-200">
-                  POST /api/cases/extract-intake
-                </span>
               </div>
             </div>
 
@@ -431,17 +436,18 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 if (f) handleDocUpload(f);
               }}
               placeholder="在此粘贴原始英文/中文往来邮件、索赔通知函，或直接拖拽 .docx / .txt 文件至此 (例如: Dear Contractor, progress is delayed by 45 days. Under FIDIC Silver 20.1...)"
-              className="w-full p-3 rounded-xl border border-blue-200/80 text-xs font-mono text-slate-800 bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
+              className="w-full p-3 rounded-xl border border-blue-200/80 text-xs font-mono text-slate-800 bg-white/95 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 resize-none leading-relaxed"
             />
 
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] text-slate-400">
+            <div className="flex items-center justify-between gap-3 pt-0.5">
+              <span className="text-[11px] text-slate-500">
                 {extractedSuccess ? (
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    ✓ 要素已自动填入下方表单并完成高亮脉冲对齐
+                  <span className="text-emerald-600 font-semibold flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>✓ 已自动预填法域、阶段、事实与订立日等全部必填项，可直接启动研判</span>
                   </span>
                 ) : (
-                  '支持自动识别印尼、越南、马来、新加坡、泰国、菲律宾法律要素'
+                  '支持自动识别东盟各法域项目、阶段、合同订立日与争议索赔要素'
                 )}
               </span>
 
@@ -449,7 +455,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 type="button"
                 onClick={handleExtractIntake}
                 disabled={extracting || !rawEmailText.trim()}
-                className="px-4 py-2 rounded-xl btn-space-titanium text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
+                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-40 shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all"
               >
                 {extracting ? (
                   <>
@@ -458,98 +464,73 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                    <span>一键智能抽提建案要素</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-white" />
+                    <span>一键智能解析并预填</span>
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* 小屏幕示范按钮 */}
-          <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto pb-1">
-            <button
-              type="button"
-              onClick={handleFillDemoID}
-              className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg shrink-0"
-            >
-              🇮🇩 印尼示范
-            </button>
-            <button
-              type="button"
-              onClick={handleFillDemoVN}
-              className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg shrink-0"
-            >
-              🇻🇳 越南示范
-            </button>
-            <button
-              type="button"
-              onClick={handleFillDemoMY}
-              className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg shrink-0"
-            >
-              🇲🇾 马来示范
-            </button>
-          </div>
-
-          {/* 1. 目标东盟法域选择 */}
-          <div className="apple-bento-card rounded-2xl p-5 space-y-3.5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-slate-900 tracking-tight">
-                1. 目标涉外东道国法域 <span className="text-rose-500">*</span>
+          {/* 1. 专案业务名称与目标法域 */}
+          <div className="apple-bento-card rounded-2xl p-5 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-900 tracking-tight mb-1.5">
+                专案规范业务全称 <span className="text-rose-500">*</span>
               </label>
-              <span className="text-[11px] text-slate-500">
-                当前语言模式：
-                <span className="font-semibold text-slate-700 ml-1">
-                  {currentJurisdictionConfig.language_mode === 'trilingual' ? '三语模式（属地官方语+英+中）' : '双语模式（官方英文+中）'}
-                </span>
-              </span>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="例如：印尼爪哇电站 EPC 征地延误与 TKDN 处罚争议案"
+                className="w-full px-3.5 py-2.5 text-xs sm:text-sm font-semibold border border-slate-200 rounded-xl bg-white text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/10 shadow-2xs transition-all"
+                required
+              />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {ASEAN_JURISDICTIONS.map((j) => {
-                const isSelected = jurisdiction === j.code;
-                return (
-                  <button
-                    key={j.code}
-                    type="button"
-                    onClick={() => {
-                      setJurisdiction(j.code);
-                      setChoiceOfLaw(`${j.name_zh}实体法`);
-                    }}
-                    className={`p-3 text-left rounded-xl border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-500/20 text-slate-900 shadow-2xs'
-                        : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs sm:text-sm font-bold flex items-center gap-1.5">
-                        <span>{j.flag}</span>
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-900 tracking-tight">
+                  目标涉外东道国法域 <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  语言模式：
+                  <span className="font-semibold text-slate-700 ml-1">
+                    {currentJurisdictionConfig.language_mode === 'trilingual' ? '三语模式（官方语+英+中）' : '双语模式（英文+中）'}
+                  </span>
+                </span>
+              </div>
+
+              {/* 纯净法域卡片：仅展示国旗、国名与选中状态，去除冗余法律小字 */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {ASEAN_JURISDICTIONS.map((j) => {
+                  const isSelected = jurisdiction === j.code;
+                  return (
+                    <button
+                      key={j.code}
+                      type="button"
+                      onClick={() => {
+                        setJurisdiction(j.code);
+                        setChoiceOfLaw(`${j.name_zh}实体法`);
+                      }}
+                      className={`p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-50/70 ring-1 ring-blue-500/20 text-blue-950 font-semibold shadow-2xs'
+                          : 'border-slate-200/80 bg-white/70 hover:bg-white hover:border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      <span className="text-xs sm:text-sm flex items-center gap-2">
+                        <span className="text-base">{j.flag}</span>
                         <span>{j.short_name}</span>
                       </span>
                       {isSelected ? (
-                        <div className="flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-                          <span className="text-[10px] text-blue-700 font-semibold font-mono">ACTIVE</span>
-                        </div>
+                        <span className="w-2 h-2 rounded-full bg-blue-600 shadow-2xs shrink-0" />
                       ) : (
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
                       )}
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-slate-500 line-clamp-2">
-                      {j.description_zh}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* 实务焦点微提示 */}
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 flex items-start gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <span className="font-semibold text-slate-800">实务关注要害：</span>
-                <span className="text-slate-600 ml-1">{currentJurisdictionConfig.practice_focus}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -560,51 +541,53 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
               2. 项目生命周期阶段与业态组合标签
             </label>
 
-            {/* 阶段选择器 (双模式切换) */}
+            {/* 阶段选择器 (双模式切换: 投前准入在左，履约争议在右) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setLifecycleStage('execution_dispute')}
-                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                  lifecycleStage === 'execution_dispute'
-                    ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-500/20 text-slate-900 shadow-2xs'
-                    : 'border-slate-200 bg-white/70 hover:bg-white text-slate-600'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold flex items-center gap-1.5">
-                    <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-                    <span>履约索赔与争议推演模式 (Mode 2)</span>
-                  </span>
-                  {lifecycleStage === 'execution_dispute' && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  针对现场延误索赔、28天失权、工程款拖欠快速裁决及保函恶意索兑止付
-                </p>
-              </button>
-
+              {/* Mode 1: 投前准入与签约合规审查模式 (左侧, 靛蓝系) */}
               <button
                 type="button"
                 onClick={() => setLifecycleStage('pre_investment')}
                 className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                   lifecycleStage === 'pre_investment'
-                    ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-500/20 text-slate-900 shadow-2xs'
+                    ? 'border-indigo-600 bg-indigo-50/60 ring-1 ring-indigo-500/20 text-indigo-950 shadow-2xs'
                     : 'border-slate-200 bg-white/70 hover:bg-white text-slate-600'
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-bold flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                    <span>投前并购、准入与签约合规审查模式 (Mode 1)</span>
+                    <ShieldCheck className={`w-3.5 h-3.5 ${lifecycleStage === 'pre_investment' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span>投前准入与签约合规审查模式 (Mode 1)</span>
                   </span>
                   {lifecycleStage === 'pre_investment' && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                    <span className="w-2 h-2 rounded-full bg-indigo-600" />
                   )}
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  针对施工资质许可准入、外资股比、土地环评、合同语言法定要求及FIDIC偏离度审查
+                  施工资质准入、外资股权比例、原住民土地权属核验与 FIDIC 偏离度审查
+                </p>
+              </button>
+
+              {/* Mode 2: 履约索赔与争议推演模式 (右侧, 紫罗兰系) */}
+              <button
+                type="button"
+                onClick={() => setLifecycleStage('execution_dispute')}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  lifecycleStage === 'execution_dispute'
+                    ? 'border-purple-600 bg-purple-50/60 ring-1 ring-purple-500/20 text-purple-950 shadow-2xs'
+                    : 'border-slate-200 bg-white/70 hover:bg-white text-slate-600'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    <Briefcase className={`w-3.5 h-3.5 ${lifecycleStage === 'execution_dispute' ? 'text-purple-600' : 'text-slate-400'}`} />
+                    <span>履约索赔与争议推演模式 (Mode 2)</span>
+                  </span>
+                  {lifecycleStage === 'execution_dispute' && (
+                    <span className="w-2 h-2 rounded-full bg-purple-600" />
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  工期延误索赔、28天失权除斥期、工程款快速裁决与见索即付保函止付
                 </p>
               </button>
             </div>
@@ -612,7 +595,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
             {/* 业态组合标签 (支持多选) */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
               <span className="text-xs font-semibold text-slate-700 block">
-                项目业务业态（支持组合标签）：
+                项目业务业态（支持多选组合）：
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
@@ -649,44 +632,29 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
             </div>
 
             {/* FIDIC 范本版本选择 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  FIDIC 范本基准版本
-                </label>
-                <select
-                  value={fidicBookEdition}
-                  onChange={(e) => setFidicBookEdition(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
-                >
-                  <option value="1999_SILVER">1999版 银皮书 (EPC/交钥匙总承包)</option>
-                  <option value="1999_YELLOW">1999版 黄皮书 (生产设备与设计-施工承包)</option>
-                  <option value="1999_RED">1999版 红皮书 (施工总承包)</option>
-                  <option value="2017_SILVER">2017版 银皮书 (更新版交钥匙合同)</option>
-                  <option value="2017_YELLOW">2017版 黄皮书 (更新版设备与设计建造)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  案件规范业务标题
-                </label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="例如：印尼爪哇电站 EPC 征地延误与 TKDN 处罚争议案"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
-                />
-              </div>
+            <div className="pt-2 border-t border-slate-100 text-xs">
+              <label className="block font-semibold text-slate-700 mb-1">
+                FIDIC 范本基准版本
+              </label>
+              <select
+                value={fidicBookEdition}
+                onChange={(e) => setFidicBookEdition(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
+              >
+                <option value="1999_SILVER">1999版 银皮书 (EPC/交钥匙总承包)</option>
+                <option value="1999_YELLOW">1999版 黄皮书 (生产设备与设计-施工承包)</option>
+                <option value="1999_RED">1999版 红皮书 (施工总承包)</option>
+                <option value="2017_SILVER">2017版 银皮书 (更新版交钥匙合同)</option>
+                <option value="2017_YELLOW">2017版 黄皮书 (更新版设备与设计建造)</option>
+              </select>
             </div>
           </div>
 
-          {/* 3. 案情经过与核心诉求 (针对投前合规审查自适应调整术语) */}
+          {/* 3. 案情经过与核心诉求 */}
           <div className="apple-bento-card rounded-2xl p-5 space-y-4">
             <label className="block text-xs font-bold text-slate-900 tracking-tight">
               {lifecycleStage === 'pre_investment'
-                ? '3. 拟投资项目客观概况与核心合规审查诉求'
+                ? '3. 拟投资项目客观概况与合规审查诉求'
                 : '3. 客观事实经过与诉求主张'}
             </label>
 
@@ -695,11 +663,6 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 <span className="text-xs font-semibold text-slate-700">
                   {lifecycleStage === 'pre_investment' ? '拟投资项目概况与交易架构说明' : '案件事实经过'} <span className="text-rose-500">*</span>
                 </span>
-                <span className="text-[11px] text-slate-400">
-                  {lifecycleStage === 'pre_investment'
-                    ? '说明东道国股权架构、习惯法土地、设备采购计划、国资委35号令备案与出境数据'
-                    : '详细说明合同订立、交地受阻、通知时效、牌照资质、TKDN认证及各方函件往来'}
-                </span>
               </div>
               <textarea
                 rows={4}
@@ -707,8 +670,8 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 onChange={(e) => setFactsZh(e.target.value)}
                 placeholder={
                   lifecycleStage === 'pre_investment'
-                    ? "请详述拟投资/并购项目概况：东道国属地公司股权比例、特许经营权期限、土地不动产性质（是否涉及原住民习惯法土地）、拟采购设备进口与本地化计划、国资委35号令合规备案进展..."
-                    : "请详述案件事实：合同版本与专用条件、现场征地与原住民习惯法受阻时间线、监理指令、28天索赔函件发出时间、本地化率审计与业主拒付理由..."
+                    ? "简要描述拟投资项目概况、东道国合作方、外资持股架构与土地/资质关键事实..."
+                    : "简要描述案件事实经过、合同订立背景、工期受阻节点与索赔沟通经过..."
                 }
                 className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 leading-relaxed bg-white transition-all shadow-2xs font-sans"
                 required
@@ -717,7 +680,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
 
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-slate-700 block">
-                {lifecycleStage === 'pre_investment' ? '核心合规审查诉求（股比/土地/TKDN/国资备案等）' : '各方主张诉求与抗辩意见'}
+                {lifecycleStage === 'pre_investment' ? '核心合规审查诉求' : '各方主张诉求与抗辩意见'}
               </span>
               <textarea
                 rows={3}
@@ -725,15 +688,15 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 onChange={(e) => setClaimsZh(e.target.value)}
                 placeholder={
                   lifecycleStage === 'pre_investment'
-                    ? "投资人审查诉求：1. 评估东道国外商投资负面清单与施工资质持牌门槛；2. 核验印尼 MEMR 11/2024 本地化率豁免可行性；3. 论证特许经营合同与双边投资保护协定 (BIT) 保护架构..."
-                    : "承包商主张：请求工期顺延EOT及费用补偿；主张无恶意事实下外文协议有效；申请保函止付...&#10;业主抗辩：28天时效已过失权；协议未签印尼语无效；TKDN违约罚金..."
+                    ? "输入合规审查诉求（如外资持股上限、本地化率豁免可行性、BIT 保护伞条款设计等）"
+                    : "输入各方核心主张与诉求（如工期顺延与费用赔偿、抗辩 28 天失权、保函紧急止付等）"
                 }
                 className="w-full px-3.5 py-2.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 leading-relaxed bg-white transition-all shadow-2xs font-sans"
               />
             </div>
           </div>
 
-          {/* 4. 合同参数与法律适用条款 */}
+          {/* 4. 关键合同时间节点与争议解决条款 */}
           <div className="apple-bento-card rounded-2xl p-5 space-y-4">
             <label className="block text-xs font-bold text-slate-900 tracking-tight">
               4. 关键合同时间节点与争议解决条款
@@ -751,7 +714,6 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-mono focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
                   required
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">用于锁定东道国现行成文法典版本</span>
               </div>
 
               <div>
@@ -764,7 +726,6 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                   onChange={(e) => setEventDate(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white font-mono focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">用于核验 28 天失权与除斥期间</span>
               </div>
 
               <div>
@@ -775,9 +736,9 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                   type="text"
                   value={choiceOfLaw}
                   onChange={(e) => setChoiceOfLaw(e.target.value)}
+                  placeholder="例如：印度尼西亚实体法"
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block">如“印度尼西亚实体法”或“越南法”</span>
               </div>
             </div>
 
@@ -791,7 +752,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                   value={partiesStr}
                   onChange={(e) => setPartiesStr(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-blue-600/80 focus:ring-2 focus:ring-blue-500/10 shadow-2xs"
-                  placeholder="中资总包商, 东道国电力业主"
+                  placeholder="例如：中资总包商, 东道国业主"
                 />
               </div>
 

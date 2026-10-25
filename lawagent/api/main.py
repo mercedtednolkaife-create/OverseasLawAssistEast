@@ -32,7 +32,12 @@ app = FastAPI(
 # 配置全局跨域访问 (CORS)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,11 +50,7 @@ app.include_router(verify.router, prefix="/api")
 app.include_router(consults.router, prefix="/api")
 app.include_router(compliance.router, prefix="/api")
 
-app.include_router(cases.router)
-app.include_router(search.router)
-app.include_router(verify.router)
-app.include_router(consults.router)
-app.include_router(compliance.router)
+# (已移除根路径重复挂载，API 统一收敛至 /api 前缀以对齐规范)
 
 
 @app.get("/api/health")

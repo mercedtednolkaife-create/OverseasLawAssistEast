@@ -336,24 +336,6 @@ export const lawAgentApi = {
     };
   },
 
-  /**
-   * 阶段流转：投前合规审查 <-> 履约索赔与争议
-   * 对应 POST /cases/{id}/transition-stage
-   */
-  async transitionStage(
-    caseId: string,
-    payload: {
-      target_stage: 'pre_investment' | 'execution_dispute';
-      transition_note?: string;
-      override_title?: string;
-      project_archetypes?: string[];
-    }
-  ): Promise<CaseState> {
-    return await request<CaseState>(`/cases/${caseId}/transition-stage`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  },
 
   /**
    * 工程合规与争议交互式沙盘试算接口 (What-If Engineering Simulation)
@@ -452,6 +434,7 @@ export const lawAgentApi = {
       jurisdiction?: string;
       summary: string;
       redline_clause?: string;
+      source_url?: string;
       details?: Record<string, any>;
     }
   ): Promise<AttachedArtifact[]> {

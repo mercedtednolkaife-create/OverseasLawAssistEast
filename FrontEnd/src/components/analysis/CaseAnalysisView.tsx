@@ -1,44 +1,35 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import {
   Layers,
-  Search,
   FileText,
   ShieldCheck,
-  CheckCircle2,
-  AlertTriangle,
   Clock,
   Swords,
   ChevronRight,
   ArrowRight,
   SlidersHorizontal,
   BookOpen,
-  Plus,
   Play,
   RotateCcw,
   Check,
   Copy,
   Download,
-  ExternalLink,
   Loader2,
   Compass,
   Activity,
   Zap,
   Target,
-  Paperclip,
-  AlertCircle,
-  FileCheck,
-  Building,
-  Sparkles,
   X,
-  ShieldAlert,
-  Award,
   Globe,
-  Radio,
+  Share2,
+  Sparkles,
+  Maximize2,
+  Bot,
 } from 'lucide-react';
 import { GradeBadge } from '../common/GradeBadge';
-import { InteractiveCitationGraph } from './InteractiveCitationGraph';
+import { CitationGraphFullscreenModal } from './CitationGraphFullscreenModal';
 import { ViabilityCalculationModal } from './ViabilityCalculationModal';
 import { TacticalGuidance, NegotiationScript, UrgentAction, AttachedArtifact } from '../../types/lawAgent';
 
@@ -53,6 +44,7 @@ export const CaseAnalysisView: React.FC = () => {
     openLawModal,
     openLawDrawer,
     openRightDock,
+    closeRightDock,
     openPipelineAnimation,
     showToast,
     isRightDockOpen,
@@ -63,11 +55,6 @@ export const CaseAnalysisView: React.FC = () => {
 
   // 当前主切面：verdict (决策/准入全景) | elements (争点/红线要件) | sandbox (沙盘/工坊) | export (图谱/意见书)
   const [facet, setFacet] = useState<AnalysisFacet>('verdict');
-
-  // 跨生命周期阶段流转弹窗
-  const [showTransitionModal, setShowTransitionModal] = useState<boolean>(false);
-  const [transitionNote, setTransitionNote] = useState<string>('');
-  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
   const isPreInv = currentCase?.meta?.lifecycle_stage === 'pre_investment';
 
@@ -100,8 +87,14 @@ export const CaseAnalysisView: React.FC = () => {
 
   // 测算模型与依据弹窗开关
   const [showViabilityModal, setShowViabilityModal] = useState<boolean>(false);
+  // 法源因果拓扑图谱全屏弹窗开关
+  const [showGraphModal, setShowGraphModal] = useState<boolean>(false);
 
-  // 当案件变更时同步沙盘滑块数值
+  // 当案件变更时同步沙盘滑块数值 (仅在切换不同案件 ID 时初始化，不重复触发自旋重算)
+  const userInteractedRef = useRef<boolean>(false);
+  const currentCaseRef = useRef(currentCase);
+  currentCaseRef.current = currentCase;
+
   useEffect(() => {
     const params = currentCase?.meta?.engineering_params || {};
     if (params.declared_tkdn_pct !== undefined) setSimTkdn(params.declared_tkdn_pct);
@@ -110,7 +103,14 @@ export const CaseAnalysisView: React.FC = () => {
     if (params.main_ld_cap_pct !== undefined) setSimMainLd(params.main_ld_cap_pct);
     if (params.sub_ld_cap_pct !== undefined) setSimSubLd(params.sub_ld_cap_pct);
     if (params.sinosure_notice_days !== undefined) setSimSinosureDays(params.sinosure_notice_days);
-  }, [currentCase?.case_id, currentCase?.meta?.engineering_params]);
+    userInteractedRef.current = false;
+  }, [currentCase?.case_id]);
+
+  // 用户主动交互滑块辅助处理
+  const handleSliderChange = (setter: (val: number) => void, val: number) => {
+    userInteractedRef.current = true;
+    setter(val);
+  };
 
   // 全键盘流桌面级微交互 (1/2/3/4 切换切面, B 呼出副驾坞)
   useEffect(() => {
@@ -133,7 +133,6 @@ export const CaseAnalysisView: React.FC = () => {
         openRightDock('case_copilot');
       } else if (e.key === 'Escape') {
         setShowViabilityModal(false);
-        setShowTransitionModal(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -142,12 +141,13 @@ export const CaseAnalysisView: React.FC = () => {
 
   // 沙盘试算防抖与并发写锁保护
   const simReqVersionRef = useRef<number>(0);
-  const handleSimulateEngineering = async () => {
-    if (!currentCase || isSimulatingEng) return;
+  const handleSimulateEngineering = useCallback(async () => {
+    const activeCase = currentCaseRef.current;
+    if (!activeCase || isSimulatingEng) return;
     setIsSimulatingEng(true);
     const reqVersion = ++simReqVersionRef.current;
     try {
-      const updatedCase = await lawAgentApi.simulateEngineering(currentCase.case_id, {
+      const updatedCase = await lawAgentApi.simulateEngineering(activeCase.case_id, {
         declared_tkdn_pct: simTkdn,
         delay_days: simDelayDays,
         notice_days: simNoticeDays,
@@ -159,7 +159,7 @@ export const CaseAnalysisView: React.FC = () => {
         if (updatedCase) {
           setCurrentCase(updatedCase);
         } else {
-          await loadCase(currentCase.case_id, true);
+          await loadCase(activeCase.case_id, true);
         }
         showToast('✓ 工程沙盘算子与中信保合规门禁已完成实时重算！', 'success');
         // 触发右侧话术卡高亮呼吸
@@ -175,13 +175,14 @@ export const CaseAnalysisView: React.FC = () => {
         setIsSimulatingEng(false);
       }
     }
-  };
+  }, [isSimulatingEng, simTkdn, simDelayDays, simNoticeDays, simSinosureDays, simMainLd, simSubLd, setCurrentCase, loadCase, showToast]);
 
   // 基准参数快照
   const baselineParams = useMemo(() => currentCase?.meta?.engineering_params || {}, [currentCase?.case_id]);
 
   // 恢复案卷初始基准参数
   const handleResetBaseline = () => {
+    userInteractedRef.current = true;
     const p = baselineParams;
     if (p.declared_tkdn_pct !== undefined) setSimTkdn(p.declared_tkdn_pct);
     if (p.delay_days !== undefined) setSimDelayDays(p.delay_days);
@@ -192,18 +193,17 @@ export const CaseAnalysisView: React.FC = () => {
     showToast('已恢复案卷初始基准参数', 'info');
   };
 
-  // 350ms 防抖自动实时试算
-  const isFirstMountRef = useRef<boolean>(true);
+  // 350ms 防抖自动实时试算 (仅在用户主动拖动滑块时生效，杜绝案件加载时自旋弹窗)
   useEffect(() => {
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
+    if (!userInteractedRef.current) {
       return;
     }
     const timer = setTimeout(() => {
+      userInteractedRef.current = false;
       handleSimulateEngineering();
     }, 350);
     return () => clearTimeout(timer);
-  }, [simTkdn, simDelayDays, simNoticeDays, simSinosureDays, simMainLd, simSubLd]);
+  }, [simTkdn, simDelayDays, simNoticeDays, simSinosureDays, simMainLd, simSubLd, handleSimulateEngineering]);
 
   // 移除挂载成果
   const handleRemoveArtifact = async (artifactId: string) => {
@@ -220,32 +220,6 @@ export const CaseAnalysisView: React.FC = () => {
     }
   };
 
-  // 阶段流转处理
-  const handleConfirmTransition = async () => {
-    if (!currentCase) return;
-    setIsTransitioning(true);
-    try {
-      const currentStage = currentCase.meta?.lifecycle_stage || 'execution_dispute';
-      const targetStage = currentStage === 'pre_investment' ? 'execution_dispute' : 'pre_investment';
-      await lawAgentApi.transitionStage(currentCase.case_id, {
-        target_stage: targetStage,
-        transition_note: transitionNote.trim() || undefined,
-        inherit_params: true,
-      });
-      showToast(
-        `案件已成功流转至【${targetStage === 'execution_dispute' ? '履约索赔与争议推演' : '投前准入审查'}】模式！`,
-        'success'
-      );
-      await refreshCurrentCase();
-      setShowTransitionModal(false);
-      setTransitionNote('');
-    } catch {
-      showToast('阶段流转失败，请稍后重试', 'error');
-    } finally {
-      setIsTransitioning(false);
-    }
-  };
-
   // 案件元数据提取
   const caseMeta = useMemo(() => {
     const meta = currentCase?.meta;
@@ -256,7 +230,6 @@ export const CaseAnalysisView: React.FC = () => {
     const criticalDate = meta?.contract_date || meta?.signing_date || '2024-03-15';
     const hostJur = meta?.jurisdiction || 'asean_id';
     const choiceOfLaw = meta?.choice_of_law || meta?.governing_law_jurisdiction || hostJur;
-    const hasLexLociConflict = hostJur !== choiceOfLaw;
 
     return {
       title,
@@ -265,7 +238,6 @@ export const CaseAnalysisView: React.FC = () => {
       criticalDate,
       choiceOfLaw,
       hostJur,
-      hasLexLociConflict,
     };
   }, [currentCase, casesList, isPreInv]);
 
@@ -339,21 +311,50 @@ export const CaseAnalysisView: React.FC = () => {
   const issues = useMemo(() => {
     const rawIssues = currentCase?.issues || [];
     if (rawIssues.length === 0) {
-      return [
-        {
-          id: 'issue-1',
-          code: '争点 01',
-          category: isPreInv ? '准入资格与强行法审查' : '程序除斥与意思自治',
-          title: isPreInv ? '外资准入负面清单与土地确权审查' : 'FIDIC 20.1 索赔通知28天时效失权与属地强行法反制',
-          norms: isPreInv ? ['IDN:BKPM_5/2021', 'IDN:Law_2/2017:Art_30'] : ['FIDIC:Silver:20.1', 'IDN:SEMA_3/2023'],
-          tldr: isPreInv ? '外资股比满足东道国限制，但原住民土地习惯法确权存在事实瑕疵。' : '索赔通知送达存在瑕疵，但可依据阻碍原则与善意履约阻断失权抗辩。',
-        },
-      ];
+      return isPreInv
+        ? [
+            {
+              id: 'issue-1',
+              code: '审查支柱 01',
+              category: '准入许可与资质牌照',
+              title: '东道国外资准入牌照 (BUJKA/PCAB/CIDB) 与强制联营体协议合规',
+              norms: ['IDN:Law_2/2017:Art_30', 'IDN:BKPM_5/2021'],
+              tldr: '外资股比满足东道国负面清单限制，且持有合格外资建筑施工总承包牌照。',
+            },
+            {
+              id: 'issue-2',
+              code: '审查支柱 02',
+              category: '国际条约与间接征收',
+              title: '特许权法律变动、电价补贴调整与双边投资协定 (BIT) 间接征收保护',
+              norms: ['BIT:China_ASEAN:Art_6', 'ICSID:Precedents'],
+              tldr: '搭建新加坡 SPV 中转架构，激活中新双边投资保护协定间接征收仲裁管辖。',
+            },
+          ]
+        : [
+            {
+              id: 'issue-1',
+              code: '争点 01',
+              category: '程序除斥与时效抗辩',
+              title: 'FIDIC 20.1 索赔通知28天时效失权与属地强行法反制',
+              norms: ['FIDIC:Silver:20.1', 'IDN:SEMA_3/2023'],
+              tldr: '索赔通知送达存在瑕疵，但可依据阻碍原则与善意履约阻断失权抗辩。',
+            },
+            {
+              id: 'issue-2',
+              code: '争点 02',
+              category: '实体请求权成立',
+              title: 'FIDIC 8.4 迟延交地工期顺延 (EOT) 与预定违约金抗辩',
+              norms: ['FIDIC:Silver:8.4', 'IDN:CivCode:Art_1338'],
+              tldr: '业主交地迟延构成关键路径阻工，我方享有法定工期全额顺延请求权。',
+            },
+          ];
     }
     return rawIssues.map((iss, idx) => ({
       id: iss.issue_id || `issue-${idx + 1}`,
-      code: `争点 0${idx + 1}`,
-      category: iss.kind === 'fact' ? '事实与时效审查' : '实体请求权与抗辩阻断',
+      code: isPreInv ? `支柱 0${idx + 1}` : `争点 0${idx + 1}`,
+      category: isPreInv
+        ? '准入合规与强行法审查'
+        : iss.kind === 'fact' ? '事实与时效审查' : '实体请求权与抗辩阻断',
       title: iss.text_zh.length > 40 ? iss.text_zh.slice(0, 40) + '...' : iss.text_zh,
       norms: (iss.element_ids || [])
         .map((eid) => (currentCase?.elements || []).find((e) => e.element_id === eid))
@@ -373,35 +374,65 @@ export const CaseAnalysisView: React.FC = () => {
   const activeElements = useMemo(() => {
     const rawElements = currentCase?.elements || [];
     if (rawElements.length === 0) {
-      return [
-        {
-          element_id: 'elem-1',
-          name_zh: '迟延交地事实与发包人违约责任归属',
-          status: 'covered' as const,
-          match_note: '在卷现场监理日志证明交地迟延达 180 天，且责任完全归属于发包人。',
-          gap_note: '要件事实闭合完整。',
-          ref_norm: 'FIDIC Silver 8.4(c)',
-          eid: 'E1',
-        },
-        {
-          element_id: 'elem-2',
-          name_zh: '28天索赔通知送达与发包人知情推定',
-          status: 'partial' as const,
-          match_note: '承包商发出多封往来邮件通报阻工，但未形成符合合同正式形式之发函。',
-          gap_note: '需补强监理工程例会纪要与发包人书面签收回复凭证。',
-          ref_norm: 'FIDIC Silver 20.1',
-          eid: 'E2',
-        },
-        {
-          element_id: 'elem-3',
-          name_zh: '双语法定语言签署与强制法合规',
-          status: 'covered' as const,
-          match_note: '已签署印尼语及英语双语同文合同，符合最高法院 SEMA 3/2023 形式合规标准。',
-          gap_note: '合规要件通过。',
-          ref_norm: 'SEMA 3/2023',
-          eid: 'E3',
-        },
-      ];
+      return isPreInv
+        ? [
+            {
+              element_id: 'elem-1',
+              name_zh: '东道国外商直接投资牌照与资质许可',
+              status: 'covered' as const,
+              match_note: '持有有效的东道国外资承包工程执照（BUJKA）及 BKPM 外资准入备案。',
+              gap_note: '资质牌照要件齐备。',
+              ref_norm: 'IDN Law 2/2017 Art 30',
+              eid: 'E1',
+            },
+            {
+              element_id: 'elem-2',
+              name_zh: '双语合同签署与文本效力强行法合规',
+              status: 'covered' as const,
+              match_note: '已签署印尼语及英语双语同文合同，符合印尼最高法院 SEMA 3/2023 形式合规标准。',
+              gap_note: '合规要件通过。',
+              ref_norm: 'SEMA 3/2023',
+              eid: 'E2',
+            },
+            {
+              element_id: 'elem-3',
+              name_zh: '本地化采购率 (TKDN) 部长特许豁免批复',
+              status: 'partial' as const,
+              match_note: '当前申报 TKDN 为 28%，低于法定 40% 红线，已提交能矿部 MEMR 11/2024 豁免申请。',
+              gap_note: '需跟进东道国能矿部最终豁免批文。',
+              ref_norm: 'MEMR 11/2024',
+              eid: 'E3',
+            },
+          ]
+        : [
+            {
+              element_id: 'elem-1',
+              name_zh: '迟延交地事实与发包人违约责任归属',
+              status: 'covered' as const,
+              match_note: '在卷现场监理日志证明交地迟延达 180 天，且责任完全归属于发包人。',
+              gap_note: '要件事实闭合完整。',
+              ref_norm: 'FIDIC Silver 8.4(c)',
+              eid: 'E1',
+            },
+            {
+              element_id: 'elem-2',
+              name_zh: '28天索赔通知送达与发包人知情推定',
+              status: 'partial' as const,
+              match_note: '承包商发出多封往来邮件通报阻工，但未形成符合合同正式形式之发函。',
+              gap_note: '需补强监理工程例会纪要与发包人书面签收回复凭证。',
+              ref_norm: 'FIDIC Silver 20.1',
+              eid: 'E2',
+            },
+            {
+              element_id: 'elem-3',
+              name_zh: '双语法定语言签署与强制法合规',
+              status: 'covered' as const,
+              match_note: '已签署印尼语及英语双语同文合同，符合最高法院 SEMA 3/2023 形式合规标准。',
+              gap_note: '合规要件通过。',
+              ref_norm: 'SEMA 3/2023',
+              eid: 'E3',
+            },
+          ];
     }
     // 过滤出与当前选中争点相关的要件
     const matched = rawElements.filter((el) => {
@@ -480,12 +511,7 @@ export const CaseAnalysisView: React.FC = () => {
             <span className="text-slate-600 font-sans">
               履行地：<strong className="text-slate-900 font-mono">{caseMeta.hostJur}</strong>
             </span>
-            {caseMeta.hasLexLociConflict && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/70">
-                <ShieldAlert className="w-3 h-3 text-amber-600" />
-                <span>强行法脱钩穿透 (Lex Loci)</span>
-              </span>
-            )}
+
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             {caseMeta.title}
@@ -499,22 +525,22 @@ export const CaseAnalysisView: React.FC = () => {
               {
                 id: 'verdict',
                 key: '1',
-                label: isPreInv ? '投前准入全景' : '决策全景看板',
+                label: isPreInv ? '准入评估结论' : '综合研判结论',
               },
               {
                 id: 'elements',
                 key: '2',
-                label: isPreInv ? `准入红线 (${activeElements.length})` : `争点拆解 (${issues.length})`,
+                label: isPreInv ? `准入要件审查 (${activeElements.length})` : `争点要件审查 (${issues.length})`,
               },
               {
                 id: 'sandbox',
                 key: '3',
-                label: isPreInv ? '架构比选 & 商务工坊' : '工程沙盘 & 攻防工坊',
+                label: isPreInv ? '投资架构与商务方案' : '工程履约与争议抗辩',
               },
               {
                 id: 'export',
                 key: '4',
-                label: '法源图谱 & 意见书',
+                label: '法源图谱与意见书',
               },
             ].map((tab) => (
               <button
@@ -534,38 +560,29 @@ export const CaseAnalysisView: React.FC = () => {
             ))}
           </div>
 
-          {/* 快捷操作：阶段流转 + 3D推演 + 副驾坞 */}
+          {/* 快捷操作：查明动效 + AI 法律助手 */}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowTransitionModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50/90 hover:bg-blue-100/90 border border-blue-200/80 transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
-              title="切换项目生命周期阶段（投前合规审查 ⇄ 履约争议索赔）"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
-              <span>{isPreInv ? '转履约争议' : '转投前准入'}</span>
-            </button>
             <button
               type="button"
               onClick={openPipelineAnimation}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200/80 transition-all shadow-2xs cursor-pointer"
-              title="启动 S1~S9 3D 景深查明推演动画"
+              title="查看智能多智能体查明全流程"
             >
               <Play className="w-3 h-3 text-slate-700 fill-slate-700" />
-              <span>推演遥测</span>
+              <span>查明流程回溯</span>
             </button>
             <button
               type="button"
-              onClick={() => openRightDock('case_copilot')}
+              onClick={() => (isRightDockOpen ? closeRightDock() : openRightDock('case_copilot'))}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
                 isRightDockOpen
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs'
                   : 'bg-white/90 text-slate-700 border-slate-200/80 hover:bg-white shadow-2xs'
               }`}
-              title="呼出右侧统一副驾坞 (Cmd/Ctrl + B)"
+              title={isRightDockOpen ? "收起法律辅助面板" : "展开 AI 法律助手 (Cmd/Ctrl + B)"}
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>副驾坞 (B)</span>
+              <Bot className="w-3.5 h-3.5 text-blue-600" />
+              <span>AI 法律助手</span>
             </button>
           </div>
         </div>
@@ -576,13 +593,13 @@ export const CaseAnalysisView: React.FC = () => {
       {/* ========================================================================= */}
       {facet === 'verdict' && (
         <div key="facet-verdict" className="space-y-6 animate-in fade-in duration-200">
-          {/* 顶部：三维定性结论遥测带 (严格遵循 V8 中立假定推演防线，废除单一伪百分比胜诉率) */}
+          {/* 顶部：三维定性结论遥测带 (中立多维定性研判结论) */}
           <div className="apple-bento-card rounded-[30px] p-6 sm:p-7 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
-                  V8 Anti-Predictive Guardrail · Executive 3D Qualitative Verdict
+                <span className="text-xs font-semibold text-slate-700 tracking-wide">
+                  {isPreInv ? '项目投前准入三维评估结论' : '涉外争议三维研判结论'}
                 </span>
               </div>
               <button
@@ -591,46 +608,46 @@ export const CaseAnalysisView: React.FC = () => {
                 className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 transition-colors cursor-pointer"
               >
                 <Layers className="w-3.5 h-3.5 text-blue-600" />
-                <span>查看三维测算依据与 Critic 规则</span>
+                <span>查看量化测算模型与评分依据</span>
                 <span>→</span>
               </button>
             </div>
 
             {/* 三维定性指标胶囊组 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 维度 1: 实体法理支持度 */}
+              {/* 维度 1: 实体索赔胜诉确定性 */}
               <div className="p-4.5 rounded-2xl bg-blue-50/50 border border-blue-100 space-y-1.5">
                 <div className="text-[11px] font-mono text-blue-600 font-semibold uppercase tracking-wider">
-                  {isPreInv ? '外资准入合规度' : '实体法理支持度'}
+                  {isPreInv ? '外资持牌准入合规度' : '实体索赔胜诉确定性'}
                 </div>
                 <div className="text-lg font-bold text-slate-900 tracking-tight">
-                  {tacticalGuidance?.qualitative_verdict?.legal_support_level || '强支持 (Substantial Support)'}
+                  {tacticalGuidance?.qualitative_verdict?.legal_support_level || (isPreInv ? '合规可准入 (Permissible)' : '高度确定支持 (Substantial Support)')}
                 </div>
                 <div className="text-xs text-slate-500 font-mono">
-                  {tacticalGuidance?.qualitative_verdict?.confidence_band || '置信区间 82%-90% · 实体请求权完整闭环'}
+                  {tacticalGuidance?.qualitative_verdict?.confidence_band || (isPreInv ? '置信区间 85%-92% · 资质牌照与股比完备' : '置信区间 82%-90% · 实体索赔请求权成立')}
                 </div>
               </div>
 
-              {/* 维度 2: 程序抗辩敞口 */}
+              {/* 维度 2: 程序失权驳回风险 */}
               <div className="p-4.5 rounded-2xl bg-amber-50/50 border border-amber-100 space-y-1.5">
                 <div className="text-[11px] font-mono text-amber-700 font-semibold uppercase tracking-wider">
-                  {isPreInv ? '属地强行法门槛' : '程序抗辩敞口'}
+                  {isPreInv ? '属地强行法合规防线' : '程序失权驳回风险'}
                 </div>
                 <div className="text-lg font-bold text-slate-900 tracking-tight">
-                  {tacticalGuidance?.qualitative_verdict?.procedural_exposure || '可控中度威胁 (FIDIC 20.1)'}
+                  {tacticalGuidance?.qualitative_verdict?.procedural_exposure || (isPreInv ? '受控合规关注 (TKDN 40%)' : '可控中度威胁 (FIDIC 20.1 时效)')}
                 </div>
                 <div className="text-xs text-slate-500 font-mono">
                   {isPreInv ? '印尼 TKDN 40% & SEMA 3/2023 语言刚性规制' : '对方主张 28 天失权，需落实监理事实送达底稿'}
                 </div>
               </div>
 
-              {/* 维度 3: 反制阻断预期 */}
+              {/* 维度 3: 保函止付与反制预期 */}
               <div className="p-4.5 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-1.5">
                 <div className="text-[11px] font-mono text-emerald-700 font-semibold uppercase tracking-wider">
-                  {isPreInv ? 'BIT条约保护就绪度' : '反制阻断预期'}
+                  {isPreInv ? '双边投资保护力 (BIT)' : '保函止付与反制预期'}
                 </div>
                 <div className="text-lg font-bold text-slate-900 tracking-tight">
-                  {tacticalGuidance?.qualitative_verdict?.counter_block_expectation || '高确定性阻断 (阻碍原则)'}
+                  {tacticalGuidance?.qualitative_verdict?.counter_block_expectation || (isPreInv ? '高保护力 (中新BIT框架)' : '高确定性阻断 (阻碍原则)')}
                 </div>
                 <div className="text-xs text-slate-500 font-mono">
                   {isPreInv ? '设立新加坡 SPV 可激活中新 BIT 间接征收保护' : '援引 Prevention Principle 与善意原则阻断失权'}
@@ -658,7 +675,7 @@ export const CaseAnalysisView: React.FC = () => {
             </p>
           </div>
 
-          {/* 下半区 8:4 布局：假定条件推演矩阵 (65%) + 准据法脱钩穿透与多国雷达 (35%) */}
+          {/* 下半区 8:4 布局：假定条件推演矩阵 (65%) + 谈判行动底线 (35%) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* 左侧 8 列 (65%)：假定条件推演矩阵 (If-Then Condition Precedent Matrix) */}
             <div className="lg:col-span-8 apple-bento-card rounded-[30px] p-6 sm:p-7 space-y-5">
@@ -667,11 +684,13 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-blue-600" />
                     <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                      假定条件推演矩阵 (If-Then Condition Precedent Matrix)
+                      {isPreInv ? '东盟投资与特许经营多情景后果推演' : '争议多情景裁判走势推演'}
                     </h3>
                   </div>
                   <p className="text-xs text-slate-500">
-                    基于多阶假定条件展现判例后果，杜绝虚假预言，明确诉讼与谈判落地前提
+                    {isPreInv
+                      ? '结合不同资质审批与股权架构前提，模拟乐观、基准、压力情景下的准入落地走向'
+                      : '结合不同证据充分度与事实认定前提，模拟乐观、基准、压力情景下的裁判走向与抗辩后果'}
                   </p>
                 </div>
                 <span className="text-[11px] font-mono text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
@@ -686,21 +705,29 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span>【乐观假定 · Optimistic Scenario】</span>
+                      <span>{isPreInv ? '【乐观情景 · 外资持牌准入与BIT全保护】' : '【乐观情景 · 胜诉与完全顺延】'}</span>
                     </span>
                     <span className="text-[11px] font-mono text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md font-semibold">
-                      胜券锁定 · 阻断失权
+                      {isPreInv ? '牌照齐备 · BIT保护生效' : '胜券锁定 · 阻断失权'}
                     </span>
                   </div>
                   <div className="text-xs text-slate-700 space-y-1">
                     <p>
-                      <strong>前提前提 (If)：</strong> 调取现场监理签发之每日阻工日志，或取得印尼能矿部 MEMR 11/2024 TKDN 豁免函批复。
+                      <strong>事实认定前提 (If)：</strong>{' '}
+                      {isPreInv
+                        ? '调取当地工业部出具的 TKDN 40% 豁免批复，并通过新加坡 SPV 完成外资股比核准（符合东道国负面清单 49% 上限）。'
+                        : '调取现场监理签发之每日阻工日志，或取得印尼能矿部 MEMR 11/2024 TKDN 豁免函批复。'}
                     </p>
                     <p>
-                      <strong>法理结果 (Then)：</strong> 阻断发包人 28 天失权主张，工期获全额顺延 (EOT)，完全排除预定违约金 (LD)，保函获法院/仲裁庭专属禁令止付。
+                      <strong>法律适用后果 (Then)：</strong>{' '}
+                      {isPreInv
+                        ? '获得东道国 BKPM 外资准入与 BUJKA 总承包持牌许可，特许权协议受中新 BIT 间接征收保护与 ICSID 国际仲裁管辖。'
+                        : '阻断发包人 28 天失权主张，工期获全额顺延 (EOT)，完全排除预定违约金 (LD)，保函获法院/仲裁庭专属禁令止付。'}
                     </p>
                     <p className="text-[11px] font-mono text-slate-400">
-                      依据：FIDIC Silver 8.4(c) · Prevention Principle · SEMA 3/2023 · BS Mount Sophia [2016] SGCA 57
+                      {isPreInv
+                        ? '依据：东道国 Law 2/2017 · 中新 BIT 第 6 条 · BKPM 5/2021'
+                        : '依据：FIDIC Silver 8.4(c) · Prevention Principle · SEMA 3/2023 · BS Mount Sophia [2016] SGCA 57'}
                     </p>
                   </div>
                 </div>
@@ -710,21 +737,29 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-800">
                       <span className="w-2 h-2 rounded-full bg-blue-600" />
-                      <span>【基准稳健 · Baseline Scenario】</span>
+                      <span>{isPreInv ? '【基准情景 · 联营体准入与常规合规】' : '【基准情景 · 核心抗辩成立】'}</span>
                     </span>
                     <span className="text-[11px] font-mono text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md font-semibold">
-                      要件齐备 · 部分交锋
+                      {isPreInv ? '资质合规 · 监管受控' : '要件齐备 · 部分交锋'}
                     </span>
                   </div>
                   <div className="text-xs text-slate-700 space-y-1">
                     <p>
-                      <strong>前提前提 (If)：</strong> 依托在卷往来邮件与会议纪要间接证明发包人知情事实，但未获正式书面签署确认。
+                      <strong>事实认定前提 (If)：</strong>{' '}
+                      {isPreInv
+                        ? '依托属地 KSO 联合体满足本地劳工与承包配额，主合同完成官方印尼语与英语双语同文签署。'
+                        : '依托在卷往来邮件与会议纪要间接证明发包人知情事实，但未获正式书面签署确认。'}
                     </p>
                     <p>
-                      <strong>法理结果 (Then)：</strong> 实体请求权成立，可主张部分工期补偿；发包人将针对违约金上限 (10%~15%) 展开激烈抵扣抗辩。
+                      <strong>法律适用后果 (Then)：</strong>{' '}
+                      {isPreInv
+                        ? '特许经营协议合法生效，满足行业强制准入门槛，属地强行法排斥风险在受控区间。'
+                        : '实体请求权成立，可主张部分工期补偿；发包人将针对违约金上限 (10%~15%) 展开激烈抵扣抗辩。'}
                     </p>
                     <p className="text-[11px] font-mono text-slate-400">
-                      依据：东道国民法典第 1338 条善意原则 · 比例分担并发延误
+                      {isPreInv
+                        ? '依据：东道国第 24/2009 号法律 · SEMA 3/2023 · 属地资质管理条例'
+                        : '依据：东道国民法典第 1338 条善意原则 · 比例分担并发延误'}
                     </p>
                   </div>
                 </div>
@@ -734,85 +769,72 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800">
                       <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      <span>【底线突破 · Downside Risk Scenario】</span>
+                      <span>{isPreInv ? '【压力情景 · 股权穿透超标与强行法效力挑战】' : '【压力情景 · 证据瑕疵与违约交锋】'}</span>
                     </span>
-                    <span className="text-[11px] font-mono text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-md font-semibold">
-                      失权威胁 · 刚性违约
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {!isPreInv && simNoticeDays > 28 && (
+                        <span className="text-[10px] font-mono text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full font-bold border border-rose-300 animate-pulse">
+                          ⚡ 索赔通知 {simNoticeDays}d &gt; 28d 已触发此泳道
+                        </span>
+                      )}
+                      <span className="text-[11px] font-mono text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-md font-semibold">
+                        {isPreInv ? '合同无效风险 · 审查挑战' : '失权威胁 · 刚性违约'}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-xs text-slate-700 space-y-1">
                     <p>
-                      <strong>前提前提 (If)：</strong> 索赔通知超过 28 天且无法举证发包人实际知情，或合同未签署属地官方语言版本。
+                      <strong>事实认定前提 (If)：</strong>{' '}
+                      {isPreInv
+                        ? '合同仅签署单语版本，或外资实际控股穿透超过东道国负面清单法定上限且未获特许豁免。'
+                        : '索赔通知超过 28 天且无法举证发包人实际知情，或合同未签署属地官方语言版本。'}
                     </p>
                     <p>
-                      <strong>法理结果 (Then)：</strong> 仲裁员可能机械适用时效条款认定失权；单语合同面临印尼第 24/2009 号法律绝对无效挑战。
+                      <strong>法律适用后果 (Then)：</strong>{' '}
+                      {isPreInv
+                        ? '特许权协议面临东道国最高法院确认合同无效风险，且无法穿透享受双边投资保护协定待遇。'
+                        : '仲裁员可能机械适用时效条款认定失权；单语合同面临印尼第 24/2009 号法律绝对无效挑战。'}
                     </p>
                     <p className="text-[11px] font-mono text-slate-400">
-                      依据：严格字面解释 · 印尼最高法院 601 K/Pdt/2015 判例
+                      {isPreInv
+                        ? '依据：印尼第 24/2009 号法律 · 印尼最高法院 601 K/Pdt/2015 判例'
+                        : '依据：严格字面解释 · 印尼最高法院 601 K/Pdt/2015 判例'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* 底部跳转工坊引导 */}
+              {/* 底部跳转模块引导 */}
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
                 <span className="text-slate-500">
-                  想要改变假定情景走向？可在工坊内调整工程参数或标记调取关键补强证据
+                  {isPreInv
+                    ? '如需调整投资架构与股比参数并推演法律后果，可前往投资架构分析模块'
+                    : '如需调整分析参数并推演法律后果，可前往履约与抗辩分析模块'}
                 </span>
                 <button
                   type="button"
                   onClick={() => setFacet('sandbox')}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
                 >
-                  <span>前往工程沙盘与攻防工坊</span>
+                  <span>{isPreInv ? '前往投资架构与商务方案' : '前往工程履约与争议抗辩'}</span>
                   <span>→</span>
                 </button>
               </div>
             </div>
 
-            {/* 右侧 4 列 (35%)：准据法脱钩穿透警示卡 & 属地雷达 */}
+            {/* 右侧 4 列 (35%)：7 天行动底线 */}
             <div className="lg:col-span-4 space-y-5">
-              {/* 卡片 1: 准据法脱钩穿透 (Lex Loci Solutionis Override) */}
-              <div className="apple-bento-card rounded-[30px] p-6 space-y-4 border-l-4 border-l-amber-500">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>准据法脱钩穿透警示</span>
-                  </span>
-                  <span className="text-[10px] font-mono font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded">
-                    Lex Loci Override
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-600 space-y-2 leading-relaxed">
-                  <p>
-                    合同约定准据法为{' '}
-                    <strong className="text-slate-900 font-mono font-semibold">{caseMeta.choiceOfLaw}</strong>
-                    ，但由于实际履约及不动产所在地位于{' '}
-                    <strong className="text-slate-900 font-mono font-semibold">{caseMeta.hostJur}</strong>
-                    ，东道国强行法享有属地专属优先管辖：
-                  </p>
-                  <ul className="space-y-1.5 text-[11px] font-mono text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200/60">
-                    <li>• 印尼 Law No. 2/2017: 建筑服务合资联营强行规范</li>
-                    <li>• SEMA 3/2023: 涉外商事合同双语同文刚性令</li>
-                    <li>• MEMR 11/2024: 新能源发电项目 TKDN 40% 门槛</li>
-                    <li>• CIPAA 2012: 大马建筑工程背靠背条款法定绝对无效</li>
-                  </ul>
-                  <p className="text-[11px] text-amber-800 font-medium">
-                    即使选择境外仲裁，裁决在东道国承认执行时仍受公共秩序保留 (Public Policy) 审查限制。
-                  </p>
-                </div>
-              </div>
-
               {/* 卡片 2: 7天紧急行动与商务谈判底线 */}
               <div className="apple-bento-card rounded-[30px] p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-blue-600" />
-                    <span>首席法务官 7 天行动底线</span>
+                    <span>{isPreInv ? '法务风控 7 天审查与发函要点' : '首席法务官 7 天行动底线'}</span>
                   </span>
                   <span className="text-[11px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-semibold">
-                    {tacticalGuidance.urgent_actions.length} 项紧急发函
+                    {isPreInv
+                      ? `${tacticalGuidance.urgent_actions.length} 项前置审查`
+                      : `${tacticalGuidance.urgent_actions.length} 项紧急发函`}
                   </span>
                 </div>
 
@@ -912,9 +934,9 @@ export const CaseAnalysisView: React.FC = () => {
               {/* 要件四态比对列表 (三列分区卡片：法定要件 & 法条徽章 -> 在卷事实涵摄 -> 缺口与补强) */}
               <div className="space-y-4">
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                  <span>法定构成要件四态涵摄 (Statutory Elements Audit)</span>
+                  <span>法定要件审查与在案事实涵摄</span>
                   <span className="font-normal font-sans text-slate-500">
-                    点击法条徽章可直接在右侧副驾坞对照双语原文
+                    点击法条可直接在右侧辅助面板对照中英双语原文
                   </span>
                 </div>
 
@@ -946,12 +968,12 @@ export const CaseAnalysisView: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {/* 点击法条徽章直接呼出右侧副驾坞精读 */}
+                          {/* 点击法条徽章直接呼出右侧辅助面板精读 */}
                           <button
                             type="button"
                             onClick={() => openRightDock('law_reader', elem.eid)}
                             className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-blue-700 bg-white hover:bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200/80 transition-all cursor-pointer shadow-2xs"
-                            title="在副驾坞中阅读双语全文"
+                            title="在右侧辅助面板中阅读双语全文"
                           >
                             <BookOpen className="w-3 h-3 text-blue-600" />
                             <span>{elem.ref_norm}</span>
@@ -1018,11 +1040,13 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal className="w-4 h-4 text-blue-600" />
                     <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                      {isPreInv ? '投资架构比选与商务博弈沙盘' : '东盟工程审查算子与敏感度沙盘'}
+                      {isPreInv ? '投资架构与商务方案模拟' : '合同履约参数与索赔敏感度模拟'}
                     </h3>
                   </div>
                   <p className="text-xs text-slate-500">
-                    调节工程参数，滑轨自带法定红线刻度锚点，实时推演强行法合规后果
+                    {isPreInv
+                      ? '调节外资股比与设立架构，系统基于东道国外资准入负面清单与双边投资协定实时测算合规后果'
+                      : '调节工程履约与通知时效参数，系统基于法定红线与先例规则实时测算法律责任后果'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1044,12 +1068,12 @@ export const CaseAnalysisView: React.FC = () => {
                     {isSimulatingEng ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>自动重算中...</span>
+                        <span>自动测算中...</span>
                       </>
                     ) : (
                       <>
                         <Zap className="w-3.5 h-3.5 fill-white" />
-                        <span>350ms 自动重算</span>
+                        <span>重新测算后果</span>
                       </>
                     )}
                   </button>
@@ -1083,7 +1107,7 @@ export const CaseAnalysisView: React.FC = () => {
                         min="10"
                         max="80"
                         value={simTkdn}
-                        onChange={(e) => setSimTkdn(Number(e.target.value))}
+                        onChange={(e) => handleSliderChange(setSimTkdn, Number(e.target.value))}
                         className="w-full accent-blue-600 cursor-pointer"
                       />
                       {/* 法定刻度锚点 */}
@@ -1123,7 +1147,7 @@ export const CaseAnalysisView: React.FC = () => {
                         min="1"
                         max="60"
                         value={simNoticeDays}
-                        onChange={(e) => setSimNoticeDays(Number(e.target.value))}
+                        onChange={(e) => handleSliderChange(setSimNoticeDays, Number(e.target.value))}
                         className="w-full accent-blue-600 cursor-pointer"
                       />
                       {/* 法定刻度锚点 */}
@@ -1163,7 +1187,7 @@ export const CaseAnalysisView: React.FC = () => {
                         min="1"
                         max="60"
                         value={simSinosureDays}
-                        onChange={(e) => setSimSinosureDays(Number(e.target.value))}
+                        onChange={(e) => handleSliderChange(setSimSinosureDays, Number(e.target.value))}
                         className="w-full accent-blue-600 cursor-pointer"
                       />
                       {/* 法定刻度锚点 */}
@@ -1189,7 +1213,7 @@ export const CaseAnalysisView: React.FC = () => {
                         min="5"
                         max="25"
                         value={simMainLd}
-                        onChange={(e) => setSimMainLd(Number(e.target.value))}
+                        onChange={(e) => handleSliderChange(setSimMainLd, Number(e.target.value))}
                         className="w-full accent-blue-600 cursor-pointer"
                       />
                     </div>
@@ -1203,7 +1227,7 @@ export const CaseAnalysisView: React.FC = () => {
                         min="5"
                         max="25"
                         value={simSubLd}
-                        onChange={(e) => setSimSubLd(Number(e.target.value))}
+                        onChange={(e) => handleSliderChange(setSimSubLd, Number(e.target.value))}
                         className="w-full accent-blue-600 cursor-pointer"
                       />
                     </div>
@@ -1281,7 +1305,7 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Swords className="w-4 h-4 text-blue-600" />
                     <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                      《明日商务谈判反驳话术卡 / 发函口径》
+                      《涉外商务谈判抗辩口径与发函要点》
                     </h3>
                   </div>
 
@@ -1390,11 +1414,11 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-rose-600" />
                     <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                      《红队抗辩推演 & 7天现场紧急取证清单》
+                      《对方核心抗辩预判与现场证据固化清单》
                     </h3>
                   </div>
                   <span className="text-[11px] font-mono text-slate-400">
-                    落实后可将抗辩敞口降至最低
+                    落实后可阻断时效失权并固化索赔权利
                   </span>
                 </div>
 
@@ -1457,292 +1481,188 @@ export const CaseAnalysisView: React.FC = () => {
       {/* ========================================================================= */}
       {facet === 'export' && (
         <div key="facet-export" className="space-y-6 animate-in fade-in duration-200">
-          {/* 顶部横幅：Critic V1~V12 司法防线门禁遥测条 */}
-          <div className="apple-bento-card rounded-[30px] p-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="font-bold text-slate-900 font-sans">Critic V1~V12 司法合规门禁</span>
+          {/* 顶部操作栏：简洁标题 + 拓扑图谱按钮 + 双 DOCX 导出操作按钮组 */}
+          <div className="apple-bento-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                <FileText className="w-4 h-4" />
               </div>
-              <span>·</span>
-              <span className="text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
-                11/11 项司法防线质检全通
-              </span>
-              <span>·</span>
-              <span className="text-blue-700 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200/60">
-                Grade A 官方权威法典 100% 覆盖
-              </span>
-              <span>·</span>
-              <span className="text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
-                伪造引证拦截数：0
-              </span>
-              <span>·</span>
-              <span className="text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
-                外挂工具箱证据凭证：{currentCase?.attached_artifacts?.length || 0} 篇
-              </span>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                  涉外法律意见书生成与预览
+                </h3>
+                <p className="text-xs text-slate-500">
+                  依据案卷事实要件与东盟现行法典自动生成公文级域外法查明意见书
+                </p>
+              </div>
             </div>
 
-            {/* 双 DOCX 导出操作按钮组 */}
-            <div className="flex items-center gap-2.5">
+            {/* 操作按钮组：图谱按钮与导出手册按钮并排一体化 */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowGraphModal(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 transition-all shadow-2xs active:scale-[0.98] cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>法源因果拓扑图谱</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => handleExportDocx('standard')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>导出最高法标准查明意见书 (.docx)</span>
+                <span>导出标准查明意见书 (.docx)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleExportDocx('handbook')}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 transition-all shadow-2xs active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200/90 transition-all shadow-2xs active:scale-[0.98] cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5 text-slate-500" />
-                <span>导出央企合规实务手册 (.docx)</span>
+                <span>导出企业合规实务手册 (.docx)</span>
               </button>
             </div>
           </div>
 
-          {/* 下半区 45% : 55% 布局：法源图谱 + 法律意见书高拟真预览纸张 */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* 左侧 (45% · 5列)：3-Layer 交互式法源拓扑图谱 */}
-            <div className="lg:col-span-5 apple-bento-card rounded-[30px] p-6 space-y-5">
-              <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-blue-600" />
-                  <span>3-Layer 事实-要件-法源穿透图谱</span>
-                </span>
-                <span className="text-[11px] font-mono text-slate-400">100% 溯源</span>
-              </div>
+          {/* 法律意见书高拟真预览纸张 (居中通栏展示，获得完整专业公文排版视距) */}
+          <div className="w-full max-w-[1040px] mx-auto bg-white rounded-[28px] p-8 sm:p-12 border border-slate-200 shadow-xl space-y-6 text-slate-800 relative overflow-hidden font-serif">
+            {/* 规范依据形式标 */}
+            <div className="absolute right-6 top-6 text-[10px] font-mono text-slate-400 pointer-events-none select-none flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/70 inline-block" />
+              <span>CASE-VERIFY: {currentCase?.case_id || 'C101'} · 最高法涉外法解释规范认证</span>
+            </div>
 
-              {/* 渲染图谱组件 */}
-              <div className="h-[440px] overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-50/50">
-                <InteractiveCitationGraph
-                  onSelectNorm={(normId) => {
-                    openRightDock('law_reader', normId);
-                  }}
-                />
-              </div>
+            {/* 快速章节定位锚点 */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 text-[11px] font-sans font-medium text-slate-500 border-b border-slate-100">
+              <span className="text-[10px] text-slate-400 font-mono uppercase">公文章节索引:</span>
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§1 查明定性结论</span>
+              <span>·</span>
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§2 事实要件涵摄</span>
+              <span>·</span>
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§3 挂载凭证附表 ({currentCase?.attached_artifacts?.length || 0})</span>
+            </div>
 
-              {/* 重点援引法条背书列表 */}
-              <div className="space-y-2 pt-2">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  在卷权威法典背书明细 (Statutes in Record)
-                </span>
-                {Object.values(currentCase?.evidence || {}).slice(0, 3).map((ev, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-white rounded-xl border border-slate-200/70 text-xs flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-slate-900">{ev.ref_id}</span>
-                      <span className="text-[10px] font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                        Grade A 现行法
-                      </span>
+            {/* 公文正式报头 */}
+            <div className="text-center space-y-2 pb-6 border-b-2 border-slate-900 font-sans">
+              <div className="text-xs font-mono tracking-widest text-slate-500 uppercase">
+                CONFIDENTIAL LEGAL ASCERTAINMENT OPINION
+              </div>
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                {caseMeta.title} · 域外法查明与法律适用评估意见书
+              </h2>
+              <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-mono text-slate-500 pt-1">
+                <span>案卷编号: {currentCase?.case_id || 'C101'}</span>
+                <span>·</span>
+                <span>评估基准日: {caseMeta.criticalDate}</span>
+                <span>·</span>
+                <span>准据法: {caseMeta.choiceOfLaw}</span>
+              </div>
+            </div>
+
+            {/* 章节一：首席定性结论与假定条件 */}
+            <div className="space-y-3 font-sans">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide border-l-3 border-slate-900 pl-2.5">
+                一、 涉外法查明核心定性结论与 3D 评估
+              </h3>
+              <table className="w-full text-xs border border-slate-200 text-left border-collapse">
+                <tbody>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <td className="p-2.5 font-bold w-1/3">
+                      {isPreInv ? '外资持牌准入合规度' : '实体索赔胜诉确定性'}
+                    </td>
+                    <td className="p-2.5 text-slate-800">
+                      {tacticalGuidance.qualitative_verdict?.legal_support_level} (
+                      {tacticalGuidance.qualitative_verdict?.confidence_band})
+                    </td>
+                  </tr>
+                  <tr className="border-b border-slate-200">
+                    <td className="p-2.5 font-bold">
+                      {isPreInv ? '属地强行法合规防线' : '程序失权驳回风险'}
+                    </td>
+                    <td className="p-2.5 text-slate-800">
+                      {tacticalGuidance.qualitative_verdict?.procedural_exposure}
+                    </td>
+                  </tr>
+                  <tr className="bg-slate-50">
+                    <td className="p-2.5 font-bold">
+                      {isPreInv ? '双边投资保护力 (BIT)' : '保函止付与反制预期'}
+                    </td>
+                    <td className="p-2.5 text-slate-800">
+                      {tacticalGuidance.qualitative_verdict?.counter_block_expectation}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* 章节二：要件涵摄与法典条文平行对照 */}
+            <div className="space-y-3 font-sans">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide border-l-3 border-slate-900 pl-2.5">
+                二、 争议焦点构成要件涵摄与法条对照
+              </h3>
+              <div className="space-y-2 text-xs">
+                {activeElements.map((el, idx) => (
+                  <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
+                    <div className="flex justify-between font-bold">
+                      <span>{el.name_zh}</span>
+                      <span className="font-mono text-blue-700">{el.ref_norm}</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openRightDock('law_reader', ev.eid)}
-                      className="text-[11px] text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
-                    >
-                      并排精读 ➔
-                    </button>
+                    <p className="text-slate-600 text-[11px] leading-relaxed">{el.match_note}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* 右侧 (55% · 7列)：高拟真公文级查明意见书预览器 */}
-            <div className="lg:col-span-7 bg-white rounded-[28px] p-8 sm:p-10 border border-slate-200 shadow-xl space-y-6 text-slate-800 relative overflow-hidden font-serif">
-              {/* 防伪水印 */}
-              <div className="absolute right-4 top-4 text-[10px] font-mono text-slate-300 pointer-events-none select-none">
-                SHA-256: 4F9B2A8C...E190 · 最高法院涉外解释二形式规范认证
-              </div>
-
-              {/* 快速章节定位锚点 */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 text-[11px] font-sans font-medium text-slate-500 border-b border-slate-100">
-                <span className="text-[10px] text-slate-400 font-mono uppercase">公文章节索引:</span>
-                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§1 查明定性结论</span>
-                <span>·</span>
-                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§2 事实要件涵摄</span>
-                <span>·</span>
-                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">§3 挂载凭证附表 ({currentCase?.attached_artifacts?.length || 0})</span>
-              </div>
-
-              {/* 公文正式报头 */}
-              <div className="text-center space-y-2 pb-6 border-b-2 border-slate-900 font-sans">
-                <div className="text-xs font-mono tracking-widest text-slate-500 uppercase">
-                  CONFIDENTIAL LEGAL ASCERTAINMENT OPINION
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                  {caseMeta.title} · 域外法查明与法律适用评估意见书
-                </h2>
-                <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-mono text-slate-500 pt-1">
-                  <span>案卷编号: {currentCase?.case_id || 'C101'}</span>
-                  <span>·</span>
-                  <span>评估基准日: {caseMeta.criticalDate}</span>
-                  <span>·</span>
-                  <span>准据法: {caseMeta.choiceOfLaw}</span>
-                </div>
-              </div>
-
-              {/* 章节一：首席定性结论与假定条件 */}
+            {/* 章节三：已挂载的外挂记录附表 */}
+            {currentCase?.attached_artifacts && currentCase.attached_artifacts.length > 0 && (
               <div className="space-y-3 font-sans">
                 <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide border-l-3 border-slate-900 pl-2.5">
-                  一、 涉外法查明核心定性结论与 3D 评估
+                  三、 专项工具箱已挂载凭证附表 (Attached Artifacts)
                 </h3>
-                <table className="w-full text-xs border border-slate-200 text-left border-collapse">
-                  <tbody>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <td className="p-2.5 font-bold w-1/3">实体法理支持度</td>
-                      <td className="p-2.5 text-slate-800">
-                        {tacticalGuidance.qualitative_verdict?.legal_support_level} (
-                        {tacticalGuidance.qualitative_verdict?.confidence_band})
-                      </td>
-                    </tr>
-                    <tr className="border-b border-slate-200">
-                      <td className="p-2.5 font-bold">程序抗辩敞口</td>
-                      <td className="p-2.5 text-slate-800">
-                        {tacticalGuidance.qualitative_verdict?.procedural_exposure}
-                      </td>
-                    </tr>
-                    <tr className="bg-slate-50">
-                      <td className="p-2.5 font-bold">反制阻断预期</td>
-                      <td className="p-2.5 text-slate-800">
-                        {tacticalGuidance.qualitative_verdict?.counter_block_expectation}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* 章节二：要件涵摄与法典条文平行对照 */}
-              <div className="space-y-3 font-sans">
-                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide border-l-3 border-slate-900 pl-2.5">
-                  二、 争议焦点构成要件涵摄与法条对照
-                </h3>
-                <div className="space-y-2 text-xs">
-                  {activeElements.map((el, idx) => (
-                    <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1">
-                      <div className="flex justify-between font-bold">
-                        <span>{el.name_zh}</span>
-                        <span className="font-mono text-blue-700">{el.ref_norm}</span>
+                <div className="space-y-2">
+                  {currentCase.attached_artifacts.map((art, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 group">
+                      <div className="flex justify-between items-center font-bold text-slate-900">
+                        <span>
+                          [{art.artifact_type === 'redline_scan' ? '合同红线' : art.artifact_type === 'statute_pin' ? '法典引用' : '专家会商'}] {art.title}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono text-slate-400">{art.created_at}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveArtifact(art.artifact_id || (art as any).id)}
+                            className="text-[10px] text-slate-400 hover:text-rose-600 px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="从案卷移除此挂载项"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-slate-600 text-[11px] leading-relaxed">{el.match_note}</p>
+                      <p className="text-slate-600 text-[11px]">{art.summary}</p>
+                      {art.redline_clause && (
+                        <div className="p-2 bg-emerald-50 rounded border border-emerald-100 font-mono text-[11px] text-emerald-900">
+                          示范修订：{art.redline_clause}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
+            )}
 
-              {/* 章节三：已挂载的外挂记录附表 */}
-              {currentCase?.attached_artifacts && currentCase.attached_artifacts.length > 0 && (
-                <div className="space-y-3 font-sans">
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide border-l-3 border-slate-900 pl-2.5">
-                    三、 专项工具箱已挂载凭证附表 (Attached Artifacts)
-                  </h3>
-                  <div className="space-y-2">
-                    {currentCase.attached_artifacts.map((art, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 group">
-                        <div className="flex justify-between items-center font-bold text-slate-900">
-                          <span>
-                            [{art.artifact_type === 'redline_scan' ? '合同红线' : art.artifact_type === 'statute_pin' ? '法典引用' : '专家会商'}] {art.title}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono text-slate-400">{art.created_at}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveArtifact(art.artifact_id || (art as any).id)}
-                              className="text-[10px] text-slate-400 hover:text-rose-600 px-1.5 py-0.5 rounded hover:bg-rose-50 transition-colors cursor-pointer"
-                              title="从案卷移除此挂载项"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-slate-600 text-[11px]">{art.summary}</p>
-                        {art.redline_clause && (
-                          <div className="p-2 bg-emerald-50 rounded border border-emerald-100 font-mono text-[11px] text-emerald-900">
-                            示范修订：{art.redline_clause}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 公文正式落款 */}
-              <div className="pt-6 border-t border-slate-200 text-xs font-sans flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 text-slate-500">
-                <div>
-                  <p>出具机构：OverseasLawAssist 域外法查明联合体专家组</p>
-                  <p>数据源认证：最高院法通网 · 东盟六国官方公报 · FIDIC 秘书处</p>
-                </div>
-                <div className="text-right font-mono text-[11px]">
-                  <span>电子公文认证指纹已上链存证</span>
-                </div>
+            {/* 公文正式落款 */}
+            <div className="pt-6 border-t border-slate-200 text-xs font-sans flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 text-slate-500">
+              <div>
+                <p>出具机构：OverseasLawAssist 域外法查明联合体专家组</p>
+                <p>法源依据：最高人民法院涉外法查明规范 · 东盟官方公报 · 国际工程与投资公约</p>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 阶段流转确认弹窗 */}
-      {showTransitionModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md antialiased"
-          onClick={() => setShowTransitionModal(false)}
-        >
-          <div
-            className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">
-                切换项目生命周期阶段 (Lifecycle Transition)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowTransitionModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              当前案件处于【{isPreInv ? '投前合规与准入审查' : '履约索赔与争议推演'}】模式。切换至【
-              {isPreInv ? '履约索赔与争议推演' : '投前合规与准入审查'}
-              】将自动继承在卷参数与证据底稿，并自适应展开对应的四切面工作台。
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700">流转说明与阶段目标备注：</label>
-              <textarea
-                value={transitionNote}
-                onChange={(e) => setTransitionNote(e.target.value)}
-                rows={3}
-                placeholder="例如：投资协议已完成签署，现正式进入现场施工履约阶段，启动 28 天索赔与 TKDN 门禁监控..."
-                className="w-full p-3 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowTransitionModal(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 rounded-xl cursor-pointer"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmTransition}
-                disabled={isTransitioning}
-                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                {isTransitioning ? '流转中...' : '确认流转阶段'}
-              </button>
+              <div className="text-right font-mono text-[11px]">
+                <span>意见书编号：{(currentCase?.case_id || 'C101')}-ASCERTAINMENT-REV2</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1761,11 +1681,20 @@ export const CaseAnalysisView: React.FC = () => {
           defenseScore: 86,
           defenseDetail: '致命抗辩已备阻碍原则反制',
           authorityScore: 96,
-          authorityDetail: 'Grade A 东盟官方现行法典',
+          authorityDetail: '东盟六国官方现行成文法典',
           complianceScore: 100,
-          complianceDetail: '11/11 项司法防线质检全通',
+          complianceDetail: '已通过涉外法查明规范校验',
         }}
         isPreInvestment={isPreInv}
+      />
+
+      {/* 法源因果拓扑穿透图谱全屏弹窗 */}
+      <CitationGraphFullscreenModal
+        isOpen={showGraphModal}
+        onClose={() => setShowGraphModal(false)}
+        onSelectNorm={(normId) => {
+          openRightDock('law_reader', normId);
+        }}
       />
     </div>
   );

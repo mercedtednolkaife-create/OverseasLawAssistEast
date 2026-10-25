@@ -8,13 +8,8 @@ import {
   Plus,
   Trash2,
   Search,
-  Clock,
   AlertCircle,
-  CheckCircle2,
-  PauseCircle,
-  ShieldCheck,
   ArrowRight,
-  FileText,
 } from 'lucide-react';
 
 export const CaseListView: React.FC = () => {
@@ -55,7 +50,7 @@ export const CaseListView: React.FC = () => {
     }
   };
 
-  const handleSelectCase = async (caseId: string, targetView: 'review' | 'analysis' = 'analysis') => {
+  const handleSelectCase = async (caseId: string, targetView: 'analysis' = 'analysis') => {
     if (currentCase?.status === 'running' && caseId !== currentCase.case_id) {
       showToast('当前案件正在执行协同研判，请稍候再切换', 'warning');
       return;
@@ -82,8 +77,7 @@ export const CaseListView: React.FC = () => {
             <span>推演中...</span>
           </span>
         );
-      case 'paused_cisg':
-      case 'paused_s3':
+            case 'paused_s3':
       case 'paused_s8':
         return (
           <span className="inline-flex items-center gap-1.5 text-amber-800 bg-amber-50/80 border border-amber-200/70 px-2.5 py-0.5 rounded-lg text-xs font-medium shadow-2xs">
@@ -214,8 +208,14 @@ export const CaseListView: React.FC = () => {
                       );
                     })()}
                     {item.lifecycle_stage && (
-                      <span className="text-[11px] bg-slate-100 text-slate-600 border border-slate-200/60 px-2 py-0.5 rounded-md font-medium">
-                        {item.lifecycle_stage === 'pre_investment' ? '投前合规' : '履约争议'}
+                      <span
+                        className={`text-[11px] px-2 py-0.5 rounded-md font-medium border ${
+                          item.lifecycle_stage === 'pre_investment'
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200/80'
+                            : 'bg-purple-50 text-purple-700 border-purple-200/80'
+                        }`}
+                      >
+                        {item.lifecycle_stage === 'pre_investment' ? '投前准入' : '履约争议'}
                       </span>
                     )}
                     {getStatusBadge(item.status)}
@@ -254,7 +254,7 @@ export const CaseListView: React.FC = () => {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleSelectCase(item.case_id, 'review');
+                      handleSelectCase(item.case_id, 'analysis');
                     }}
                     className="px-3.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs shadow-blue-500/25 cursor-pointer flex items-center gap-1.5 active:scale-[0.98]"
                   >

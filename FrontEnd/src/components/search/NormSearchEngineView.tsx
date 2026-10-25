@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
 import { NormOrCaseItem, SearchFilter } from '../../types/lawAgent';
-import { Search, ExternalLink, BookOpen, Paperclip, Check, ShieldCheck, Sparkles, Loader2, ArrowRight } from 'lucide-react';
+import {
+  Search,
+  ExternalLink,
+  BookOpen,
+  Paperclip,
+  Check,
+  ShieldCheck,
+  Loader2,
+} from 'lucide-react';
 
 export const NormSearchEngineView: React.FC = () => {
   const { currentCase, currentCaseId, openLawDrawer, openRightDock, showToast, refreshCurrentCase, searchDefaultKind, searchDefaultQuery } = useApp();
@@ -77,7 +85,7 @@ export const NormSearchEngineView: React.FC = () => {
       const res = await lawAgentApi.searchNormsAndCases(q, filters);
       const safeItems = Array.isArray(res) ? res : [];
       setItems(safeItems);
-      if (safeItems.length > 0 && !selectedItem) {
+      if (safeItems.length > 0 && (!selectedItem || !safeItems.some((i) => i.id === selectedItem.id))) {
         setSelectedItem(safeItems[0]);
       }
     } catch (err: any) {
@@ -105,7 +113,7 @@ export const NormSearchEngineView: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 pl-11.5">
-            直连东盟六国现行建设与投资法规、FIDIC 国际工程范本、双边投资协定 (BIT) 及央企合规法源，支持多维中英对照检索
+            覆盖东盟六国工程法典、FIDIC 范本与判例，支持多维中英对照检索
           </p>
         </div>
 
@@ -117,7 +125,7 @@ export const NormSearchEngineView: React.FC = () => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="输入法条如 'ID:SEMA_3_2023' 或 'FIDIC 20.1'，或输入中英关键词如 '工期顺延'、'背靠背'、'保函止付'、'TKDN'..."
+              placeholder="输入法律问题、法条编号或中英关键词..."
               className="w-full pl-10 pr-4 py-2.5 text-xs border border-slate-200/90 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-600/80 bg-slate-50/50 focus:bg-white transition-all text-slate-900 shadow-2xs"
             />
           </div>
@@ -319,7 +327,7 @@ export const NormSearchEngineView: React.FC = () => {
                     <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
                     <span className="font-semibold">【权威法源认证 · 现行有效】</span>
                     <span className="text-[11px] text-amber-700 font-mono hidden sm:inline">
-                      东道国官方公报版本 · 司法部法通网三语对齐 · Grade A 最高查明等级
+                      东道国官方公报版本 · 现行成文法典标准查明
                     </span>
                   </div>
                 </div>

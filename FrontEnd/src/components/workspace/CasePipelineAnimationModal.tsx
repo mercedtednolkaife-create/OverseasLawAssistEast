@@ -18,7 +18,6 @@ export interface PipelineCaseMeta {
   coverDiffAmount?: number;
   buyerCountry?: string;
   sellerCountry?: string;
-  cisgClause?: 'excluded' | 'unspecified';
   jurisdiction?: 'asean_id' | 'asean_vn' | 'asean_my' | 'asean_sg' | 'asean_th' | 'asean_ph' | string;
   stage?: string;
   isPreInvestment?: boolean;
@@ -216,6 +215,20 @@ export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProp
             >
               {isPaused ? <Play className="w-3.5 h-3.5 text-blue-600 fill-blue-600" /> : <Pause className="w-3.5 h-3.5 text-slate-600" />}
               <span>{isPaused ? '继续' : '暂停'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onComplete) {
+                  onComplete();
+                } else {
+                  onClose();
+                }
+              }}
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
+              title="直接进入案卷深度研判"
+            >
+              跳过动画直接进入 ➔
             </button>
             <button
               type="button"

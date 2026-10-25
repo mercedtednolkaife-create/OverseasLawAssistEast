@@ -68,6 +68,7 @@ class CaseMeta(BaseModel):
 
     # 东盟基建与投资并购核心字段
     lifecycle_stage: Optional[LifecycleStage] = LifecycleStage.EXECUTION_DISPUTE
+    stage: Optional[str] = None
     project_archetypes: List[ProjectArchetype] = Field(default_factory=list)
     parent_case_id: Optional[str] = None
     fidic_book_edition: Optional[str] = None # '1999_SILVER' | '1999_YELLOW' | '1999_RED' 等
@@ -77,6 +78,7 @@ class CaseMeta(BaseModel):
     dispute_resolution: Optional[str] = None # 'SIAC' | 'BANI' | 'AIAC' | 'ICC' | 'Court' 等
     engineering_params: Dict[str, Any] = Field(default_factory=dict) # 结构化工程参数: declared_tkdn_pct, delay_days, main_ld_cap_pct, sub_ld_cap_pct 等
     compared_jurisdictions: List[str] = Field(default_factory=list) # 多国投资准入比选国别列表，如 ['asean_id', 'asean_vn']
+    tactical_guidance: Optional[Dict[str, Any]] = None # 首席法务官战术引导、三维定性结论与谈判话术清单
 
     # 历史字段废弃兼容器
     cisg_excluded: Optional[bool] = None
@@ -352,6 +354,7 @@ class CaseSummary(BaseModel):
     snapshot_id: str
     issues_count: int
     lifecycle_stage: Optional[LifecycleStage] = LifecycleStage.EXECUTION_DISPUTE
+    stage: Optional[str] = None
     project_archetypes: List[ProjectArchetype] = Field(default_factory=list)
     jurisdiction: Optional[str] = None
     parent_case_id: Optional[str] = None

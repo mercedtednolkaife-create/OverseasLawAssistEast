@@ -12,15 +12,11 @@ import {
   Check,
   ShieldCheck,
   Send,
-  RotateCcw,
   Swords,
-  ChevronRight,
   Pin,
-  ExternalLink,
   AlertTriangle,
   FileCheck2,
-  BookmarkCheck,
-  Sparkles,
+  ArrowRight,
 } from 'lucide-react';
 
 interface UnifiedRightDockProps {
@@ -73,7 +69,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
 
   // Evidence resolving
   const evidenceMap = currentCase?.evidence || {};
-  const evidenceList: Evidence[] = Object.values(evidenceMap);
+  const evidenceList: Evidence[] = useMemo(() => Object.values(evidenceMap || {}), [evidenceMap]);
   const currentEid = selectedEvidenceEid || (evidenceList[0]?.eid ?? 'E1');
   const evidence: Evidence | undefined = evidenceMap[currentEid] || evidenceList[0];
 
@@ -92,8 +88,8 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
         artifact_type: 'statute_pin',
         title: `${evidence.ref_id} 重点法源`,
         jurisdiction: currentCase?.meta?.jurisdiction,
-        summary: currentCase?.translations?.[evidence.eid] || evidence.text_original.slice(0, 150),
-        redline_clause: evidence.text_original.slice(0, 300),
+        summary: currentCase?.translations?.[evidence.eid] || (evidence?.text_original || "").slice(0, 150),
+        redline_clause: (evidence?.text_original || "").slice(0, 300),
       });
       setAttachedSuccess(true);
       showToast('✓ 法条已成功挂载至当前案卷重点援引清单', 'success');
@@ -256,7 +252,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
             }`}
           >
             <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-            <span>法源精读</span>
+            <span>法条研读</span>
           </button>
           <button
             onClick={() => setRightDockMode('case_copilot')}
@@ -267,7 +263,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
             }`}
           >
             <Bot className="w-3.5 h-3.5 text-emerald-600" />
-            <span>案卷副驾</span>
+            <span>智能咨询</span>
           </button>
           <button
             onClick={() => setRightDockMode('country_playbook')}
@@ -278,14 +274,14 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
             }`}
           >
             <Compass className="w-3.5 h-3.5 text-amber-600" />
-            <span>属地排雷</span>
+            <span>合规指引</span>
           </button>
         </div>
 
         <button
           onClick={onClose || closeRightDock}
           className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
-          title="收起右侧副驾坞 (Cmd/Ctrl + B)"
+          title="收起法律辅助面板 (Cmd/Ctrl + B)"
         >
           <X className="w-4 h-4" />
         </button>
@@ -324,7 +320,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                       官方逐字原文 (Authentic Text)
                     </h4>
                     <button
-                      onClick={() => handleCopy(evidence.text_original)}
+                      onClick={() => handleCopy(evidence?.text_original || "")}
                       className="text-[11px] text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer font-medium"
                     >
                       {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
@@ -352,7 +348,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                     className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                       attachedSuccess
                         ? 'bg-emerald-600 text-white'
-                        : 'btn-space-titanium'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all'
                     }`}
                   >
                     {attachedSuccess ? (
@@ -370,8 +366,37 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                 </div>
               </>
             ) : (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                当前案卷暂无选中的法源材料，请点击主界面任意法条胶囊打开精读。
+              <div className="p-6 text-center space-y-4">
+                <div className="text-slate-500 text-xs leading-relaxed">
+                  当前案卷暂无选中的法源材料，可点击主画布任意法条胶囊打开精读，或快捷查阅东盟高频权威法源：
+                </div>
+                <div className="space-y-2 text-left">
+                  {[
+                    { eid: 'E1', title: 'FIDIC 银皮书第 20.1 款', sub: '28天索赔通知除斥期法定先决要件' },
+                    { eid: 'E2', title: '印尼最高法院通函 SEMA 3/2023', sub: '善意履约下纯英文合同效力认可准则' },
+                    { eid: 'E3', title: '马来西亚 CIPAA 2012 第 35 条', sub: '建筑工程背靠背付款条款法定绝对无效' },
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        if (evidenceList[idx]) {
+                          setSelectedEvidenceEid(evidenceList[idx].eid);
+                        } else {
+                          showToast(`已请求查阅【${preset.title}】，可切换至法典库进行跨法域全本比对`, 'info');
+                        }
+                      }}
+                      className="w-full p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200/80 hover:border-blue-300 text-left transition cursor-pointer group"
+                    >
+                      <div className="text-xs font-semibold text-slate-800 group-hover:text-blue-600 transition-colors">
+                        {preset.title}
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        {preset.sub}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -488,7 +513,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                 <button
                   onClick={() => handleSendMessage()}
                   disabled={sending || !inputText.trim()}
-                  className="p-2 btn-space-titanium rounded-xl text-white cursor-pointer disabled:opacity-50"
+                  className="p-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white cursor-pointer disabled:opacity-50 shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
@@ -568,9 +593,9 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                     facts: `针对${activePlaybook.country}最新监管要求：${activePlaybook.majorShift}，开展专项合规防范与合同条款审查。`,
                   });
                 }}
-                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold btn-space-titanium flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs shadow-blue-500/25 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <ArrowRight className="w-3.5 h-3.5 text-white" />
                 <span>针对该国别风险一键启动专案推演</span>
               </button>
             </div>

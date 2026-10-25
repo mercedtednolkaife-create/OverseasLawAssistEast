@@ -12,13 +12,10 @@ import { CommandPaletteModal } from './components/common/CommandPaletteModal';
 import { LawModal } from './components/common/LawModal';
 import { HomeLandingView } from './components/home/HomeLandingView';
 import { CaseListView } from './components/cases/CaseListView';
-import { ReportReviewView } from './components/review/ReportReviewView';
 import { CaseAnalysisView } from './components/analysis/CaseAnalysisView';
-import { VerificationDashboardView } from './components/dashboard/VerificationDashboardView';
 import { NormSearchEngineView } from './components/search/NormSearchEngineView';
 import { MaterialVerificationView } from './components/verification/MaterialVerificationView';
 import { ExpertConsultsView } from './components/consults/ExpertConsultsView';
-import { AgentWorkspaceView } from './components/workspace/AgentWorkspaceView';
 import { CasePipelineAnimationModal } from './components/workspace/CasePipelineAnimationModal';
 import { CaseEntryModal } from './components/cases/CaseEntryModal';
 import { ComplianceCenterView } from './components/compliance/ComplianceCenterView';
@@ -58,14 +55,8 @@ const MainLayout: React.FC = () => {
         return <CaseListView />;
       case 'entry':
         return <CaseEntryModal isOpen={true} onClose={() => setCurrentView('cases')} />;
-      case 'workspace':
-        return <AgentWorkspaceView />;
-      case 'review':
-        return <ReportReviewView />;
       case 'analysis':
         return <CaseAnalysisView />;
-      case 'dashboard':
-        return <VerificationDashboardView />;
       case 'search':
         return <NormSearchEngineView />;
       case 'verification':
@@ -89,12 +80,10 @@ const MainLayout: React.FC = () => {
 
       {/* 右侧主工作区 */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
-        {currentView !== 'home' && (
-          <TopBar
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          />
-        )}
+        <TopBar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
 
         {/* 工作区画布主体 (支持分栏与抽屉并排工作台) */}
         <div className="flex-1 flex min-w-0 overflow-hidden relative">
@@ -102,20 +91,20 @@ const MainLayout: React.FC = () => {
           <main
             ref={mainScrollRef}
             className={`flex-1 min-w-0 ${
-              currentView === 'workspace' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'
+              'overflow-y-auto'
             }`}
           >
             <div
               key={currentView}
               className={`apple-page-pane ${
-                currentView === 'workspace' ? 'flex-1 flex flex-col h-full min-h-0' : 'min-h-full'
+                'min-h-full'
               }`}
             >
               {renderCurrentView()}
             </div>
 
             {/* 底部法治合规备案与说明条 (极简克制) */}
-            {currentView !== 'workspace' && (
+            {(
               <footer className="border-t border-slate-200/80 bg-white/70 backdrop-blur-md py-4 px-6 text-xs text-slate-500 mt-12">
                 <div className="max-w-[1500px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
@@ -129,7 +118,7 @@ const MainLayout: React.FC = () => {
                     </span>
                   </div>
                   <div className="text-[11px] text-slate-400 font-mono">
-                    最高院《涉外民事关系法律适用法解释（二）》形式规范 · V8 客观中立假定推演防线
+                    最高院《涉外民事关系法律适用法解释（二）》规范 · 智能辅助决策
                   </div>
                 </div>
               </footer>
@@ -168,7 +157,6 @@ const MainLayout: React.FC = () => {
           sellerCountry: '东盟东道国项目业主',
           criticalDate: currentCase?.meta?.contract_date || '2024-03-15',
           jurisdiction: currentCase?.meta?.jurisdiction || 'asean_id',
-          cisgClause: 'excluded',
         }}
       />
 

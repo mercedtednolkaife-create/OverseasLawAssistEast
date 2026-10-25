@@ -114,10 +114,10 @@ def generate_case_docx(state: CaseState) -> BytesIO:
     v_table.autofit = False
     v_headers = [
         ("司法定性维度", "裁决心证与确定性指标 (严守V8防线，不作伪胜诉率预测)"),
-        ("实体法理支持度 / 准入可行性", q_verdict.get("legal_support_level", "强支持 (索赔要件完备)")),
+        ("实体索赔确定性 / 准入合规度", q_verdict.get("legal_support_level", "强支持 (索赔要件完备)")),
         ("裁判置信度区间 (Confidence Band)", q_verdict.get("confidence_band", "84% - 92%")),
-        ("程序抗辩敞口 / 属地合规就绪度", q_verdict.get("procedural_exposure", "程序瑕疵极低 / 28天时效已闭环")),
-        ("反制阻断预期 / BIT待遇保护", q_verdict.get("counter_block_expectation", "高确定性阻断业主失权抗辩"))
+        ("程序失权驳回风险 / 属地合规防线", q_verdict.get("procedural_exposure", "程序瑕疵极低 / 28天时效已闭环")),
+        ("保函止付与反制预期 / BIT条约保护", q_verdict.get("counter_block_expectation", "高确定性阻断业主失权抗辩"))
     ]
     for idx, (lbl, val) in enumerate(v_headers):
         row = v_table.rows[idx]
