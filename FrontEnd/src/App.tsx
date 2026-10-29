@@ -19,6 +19,7 @@ import { ExpertConsultsView } from './components/consults/ExpertConsultsView';
 import { CasePipelineAnimationModal } from './components/workspace/CasePipelineAnimationModal';
 import { CaseEntryModal } from './components/cases/CaseEntryModal';
 import { ComplianceCenterView } from './components/compliance/ComplianceCenterView';
+import { AseanVectorBackground } from './components/home/AseanVectorBackground';
 import { ShieldCheck, CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
@@ -35,6 +36,8 @@ const MainLayout: React.FC = () => {
     openPipelineAnimation,
     setCurrentView,
     currentCase,
+    currentCaseId,
+    switchingCaseId,
     sidebarCollapsed,
     setSidebarCollapsed,
     isCaseEntryModalOpen,
@@ -43,9 +46,10 @@ const MainLayout: React.FC = () => {
 
   const mainScrollRef = useRef<HTMLElement>(null);
 
+  // 当切换视图或切换具体案卷时，立即重置视口滚动条至顶部，杜绝视口错位
   useEffect(() => {
     mainScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-  }, [currentView]);
+  }, [currentView, currentCase?.case_id]);
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -90,15 +94,17 @@ const MainLayout: React.FC = () => {
           {/* 主视口工作流画布 */}
           <main
             ref={mainScrollRef}
-            className={`flex-1 min-w-0 ${
-              'overflow-y-auto'
-            }`}
+            className="flex-1 min-w-0 overflow-y-auto relative"
           >
+            {/* 非主页其它页面顶部：展示更精简优雅的东盟山海与日光射线矢量背景 */}
+            {currentView !== 'home' && (
+              <AseanVectorBackground variant="compact" />
+            )}
+
+            {/* 专案研判视图中以 currentCase?.case_id 或 currentCaseId 为联合 key，确保切案时触发优雅动效 */}
             <div
-              key={currentView}
-              className={`apple-page-pane ${
-                'min-h-full'
-              }`}
+              key={currentView === 'analysis' ? `analysis-${currentCase?.case_id || currentCaseId || 'init'}` : currentView}
+              className="apple-page-pane min-h-full relative z-10"
             >
               {renderCurrentView()}
             </div>

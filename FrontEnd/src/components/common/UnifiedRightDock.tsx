@@ -252,7 +252,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
             }`}
           >
             <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-            <span>法条研读</span>
+            <span>法条精读</span>
           </button>
           <button
             onClick={() => setRightDockMode('case_copilot')}
@@ -262,8 +262,8 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Bot className="w-3.5 h-3.5 text-emerald-600" />
-            <span>智能咨询</span>
+            <Bot className="w-3.5 h-3.5 text-blue-600" />
+            <span>AI 法律咨询</span>
           </button>
           <button
             onClick={() => setRightDockMode('country_playbook')}
@@ -273,8 +273,8 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Compass className="w-3.5 h-3.5 text-amber-600" />
-            <span>合规指引</span>
+            <Compass className="w-3.5 h-3.5 text-blue-600" />
+            <span>东盟合规指引</span>
           </button>
         </div>
 
@@ -411,28 +411,28 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
             <div className="shrink-0 space-y-2">
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
                   <span className="text-xs font-semibold text-slate-800">
-                    S1~S9 确定性状态图就绪
+                    法律推理引擎已就绪
                   </span>
                 </div>
                 <div className="apple-segmented-control text-[11px]">
                   <button
                     onClick={() => setCopilotMode('neutral')}
-                    className={`px-2 py-0.5 rounded cursor-pointer ${
-                      copilotMode === 'neutral' ? 'apple-segmented-item-active' : 'text-slate-500'
+                    className={`px-2.5 py-1 rounded-md cursor-pointer transition-colors ${
+                      copilotMode === 'neutral' ? 'apple-segmented-item-active text-slate-900 font-semibold' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
-                    中立研判
+                    中立分析
                   </button>
                   <button
                     onClick={() => setCopilotMode('red_teaming')}
-                    className={`px-2 py-0.5 rounded cursor-pointer flex items-center gap-1 ${
-                      copilotMode === 'red_teaming' ? 'apple-segmented-item-active text-rose-600' : 'text-slate-500'
+                    className={`px-2.5 py-1 rounded-md cursor-pointer flex items-center gap-1 transition-colors ${
+                      copilotMode === 'red_teaming' ? 'apple-segmented-item-active text-rose-700 font-semibold' : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     <Swords className="w-3 h-3 text-rose-500" />
-                    红队攻防
+                    模拟对方抗辩
                   </button>
                 </div>
               </div>
@@ -441,14 +441,14 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
               <div className="flex flex-wrap gap-1.5">
                 {[
                   '若业主主张28天索赔时效失权如何反制？',
-                  '印尼 SEMA 3/2023 如何驳回纯英文无效抗辩？',
-                  '测算设立新加坡 SPV 的 BIT 保护与税收优势',
-                  '主分包违约金倒挂如何封堵接口敞口？',
+                  '印尼 SEMA 3/2023 如何驳回纯英文合同无效抗辩？',
+                  '新加坡 BS Mount Sophia 独立保函止付裁定要件',
+                  '马来西亚分包背靠背拒付款项如何通过 CIPAA 维权？',
                 ].map((promptText, idx) => (
                   <button
                     key={idx}
                     onClick={() => handleSendMessage(promptText)}
-                    className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200/60 transition-colors text-left cursor-pointer"
+                    className="text-[11px] bg-slate-100/90 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200/60 transition-colors text-left cursor-pointer"
                   >
                     {promptText}
                   </button>
@@ -459,12 +459,16 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
             {/* 对话消息流 */}
             <div ref={chatScrollRef} className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-[200px]">
               {messages.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 text-xs space-y-2">
-                  <Bot className="w-8 h-8 mx-auto text-slate-300" />
-                  <p>当前案卷专属法务副驾已挂载上下文</p>
-                  <p className="text-[11px] text-slate-400">
-                    可随时就索赔失权抗辩、保函止付条件、属地强行法穿透发起实战推演。
-                  </p>
+                <div className="p-6 text-center space-y-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center mx-auto shadow-2xs">
+                    <Bot className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-slate-800 text-xs">AI 法律咨询助手已挂载</h5>
+                    <p className="text-[11px] text-slate-500 mt-1 max-w-[280px] mx-auto leading-relaxed">
+                      已集成东盟六国法典库与 FIDIC 合同规则。可针对工程索赔时效、保函止付条件与属地强行法提出咨询或展开抗辩推演。
+                    </p>
+                  </div>
                 </div>
               ) : (
                 messages.map((m, idx) => (
@@ -477,7 +481,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                     }`}
                   >
                     <div className="flex items-center justify-between text-[10px] opacity-75">
-                      <span>{m.role === 'user' ? '我方' : 'AI 研判副驾'}</span>
+                      <span>{m.role === 'user' ? '我方' : 'AI 研判建议'}</span>
                       <span>{m.timestamp}</span>
                     </div>
                     <div className="whitespace-pre-wrap">{m.content}</div>
@@ -505,10 +509,10 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                   placeholder={
                     copilotMode === 'red_teaming'
-                      ? '输入业主/对方可能发难的索赔抗辩...'
-                      : '就当前案卷提出法理推演指令...'
+                      ? '输入对方可能提出的法律抗辩点...'
+                      : '向 AI 助手输入法律实务咨询或推演要求...'
                   }
-                  className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50"
+                  className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 bg-slate-50 transition-all placeholder:text-slate-400"
                 />
                 <button
                   onClick={() => handleSendMessage()}

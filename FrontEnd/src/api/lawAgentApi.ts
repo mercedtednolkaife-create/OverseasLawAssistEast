@@ -160,6 +160,7 @@ export const lawAgentApi = {
         law: filters?.law,
         court: filters?.court,
         kind: filters?.kind,
+        layer: filters?.layer,
       },
     });
   },
@@ -308,6 +309,14 @@ export const lawAgentApi = {
         onMessage('node_start', JSON.parse(e.data));
       } catch {
         onMessage('node_start', e.data);
+      }
+    });
+
+    eventSource.addEventListener('node_complete', (e) => {
+      try {
+        onMessage('node_complete', JSON.parse(e.data));
+      } catch {
+        onMessage('node_complete', e.data);
       }
     });
 

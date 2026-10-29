@@ -18,6 +18,7 @@ from lawagent.store.snapshots import SnapshotManager
 from lawagent.store.chunker import build_and_save_chunks
 from lawagent.store.bm25 import BM25Engine
 from scripts.build_asean_kb import ASEAN_NORMS_DATA, ASEAN_RISK_COMMUNITIES, ASEAN_EDGES_DATA
+from scripts.kb_expansion_data import NEW_CASES_DATA, NEW_HOT_CASES_DATA
 
 
 # 东盟建设工程与国际仲裁权威真实判例库
@@ -129,6 +130,7 @@ ASEAN_PURE_CASES_DATA: List[Dict[str, Any]] = [
     }
 ]
 
+ASEAN_PURE_CASES_DATA.extend(NEW_CASES_DATA)
 
 def build_pure_asean_kb(snapshot_id: str = "20261021-asean-v2.2"):
     """执行 100% 纯净东盟知识库重构"""
@@ -268,6 +270,7 @@ def build_pure_asean_kb(snapshot_id: str = "20261021-asean-v2.2"):
         ("TREATY:CN_ID_BIT_1992:Art4", "CASE:TH_SAC:HopewellConcession:2022", 1),
         ("VN:Law_135_2025:Art86.2", "CASE:VN_SPC:ArbitrationEnforcement:2021", 1),
     ]
+    asean_hot_cases.extend(NEW_HOT_CASES_DATA)
     for n_id, c_id, rk in asean_hot_cases:
         cur.execute("INSERT OR REPLACE INTO hot_norm_cases(norm_id, case_id, rank) VALUES(?, ?, ?)", (n_id, c_id, rk))
     print(f"-> 成功建立 {len(asean_hot_cases)} 条重点工程法条与司法裁判先例权威映射 (hot_norm_cases)")
@@ -305,8 +308,8 @@ def build_pure_asean_kb(snapshot_id: str = "20261021-asean-v2.2"):
                 "", edge["confidence"], edge["reviewed"], snapshot_id
             )
         )
-        src_node = f"NORM:{edge['src']}" if not edge['src'].startswith("NORM:") else edge['src']
-        dst_node = f"NORM:{edge['dst']}" if not edge['dst'].startswith("NORM:") else edge['dst']
+        src_node = edge['src'] if edge['src'].startswith(("NORM:", "CASE:", "CPT:")) else f"NORM:{edge['src']}"
+        dst_node = edge['dst'] if edge['dst'].startswith(("NORM:", "CASE:", "CPT:")) else f"NORM:{edge['dst']}"
         cur.execute(
             """INSERT INTO edges_top(src, dst, rel, source, reviewed, rk)
                VALUES(?, ?, ?, ?, ?, 1)""",

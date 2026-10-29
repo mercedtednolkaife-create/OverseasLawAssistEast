@@ -27,11 +27,59 @@ from lawagent.flow.nodes import (
 )
 
 
+# 工作流所有有效计算节点
+WORKFLOW_NODES = [
+    "s1_extract",
+    "s2_precheck",
+    "s3_decompose",
+    "researcher",
+    "matcher",
+    "red_team_strategist",
+    "translator",
+    "drafter",
+    "critic",
+    "s8_review",
+    "s9_export",
+]
+
+
+def route_start(state: CaseState) -> str:
+    """工作流入口智能条件路由：
+    - 消除建案阶段 S1(抽取) 与 S2(预检) 在后台异步启动时的二次冗余重复执行；
+    - 若当前节点为 s2_precheck（建案时已完成 S1 抽取与 S2 预检），直接流转至 s3_decompose；
+    - 若当前节点指定了后续恢复节点（如人工闸门确认后设置为 researcher 或 s9_export），直接跳转至指定节点继续推演；
+    - 缺省或全新案件从 s1_extract 启动。
+    """
+    curr = getattr(state, "current_node", None) or ""
+    if curr == "s2_precheck":
+        return "s3_decompose"
+    if curr == "s1_extract" and (state.facts or state.claims):
+        return "s2_precheck"
+    if curr in WORKFLOW_NODES and curr != "s1_extract":
+        return curr
+    return "s1_extract"
+
+
 def route_after_s3(state: CaseState) -> str:
     """S3 拆解后的条件路由：若全流程模式下需用户确认争点，则暂停"""
     if state.status == "paused_s3":
         return END
     return "researcher"
+
+
+def route_after_critic(state: CaseState) -> str:
+    """Critic 后的自愈反思路由：
+    - 若 Critic 门禁检测到 V2 (幻觉引用)、V7 (事实脱锚) 或 V8 (禁用预测词) 不通过，且自愈轮次未超限 (retry < 1)，
+      打回 drafter 节点触发自愈重写；
+    - 否则流转至 s8_review。
+    """
+    has_critical_failure = any(
+        c.code in ("V2", "V7", "V8") and c.status == "fail"
+        for c in (state.checks or [])
+    )
+    if has_critical_failure and state.retry.get("critic", 0) == 1:
+        return "drafter"
+    return "s8_review"
 
 
 def route_after_s8(state: CaseState) -> str:
@@ -59,7 +107,11 @@ def build_law_graph(checkpointer: Optional[Any] = None):
     builder.add_node("s9_export", s9_export_node)
 
     # 2. 编排边与条件转移
-    builder.add_edge(START, "s1_extract")
+    builder.add_conditional_edges(
+        START,
+        route_start,
+        {n: n for n in WORKFLOW_NODES}
+    )
     builder.add_edge("s1_extract", "s2_precheck")
     builder.add_edge("s2_precheck", "s3_decompose")
 
@@ -74,7 +126,11 @@ def build_law_graph(checkpointer: Optional[Any] = None):
     builder.add_edge("red_team_strategist", "translator")
     builder.add_edge("translator", "drafter")
     builder.add_edge("drafter", "critic")
-    builder.add_edge("critic", "s8_review")
+    builder.add_conditional_edges(
+        "critic",
+        route_after_critic,
+        {"drafter": "drafter", "s8_review": "s8_review"}
+    )
 
     builder.add_conditional_edges(
         "s8_review",

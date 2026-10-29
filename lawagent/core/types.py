@@ -4,7 +4,7 @@
 
 from enum import Enum
 from typing import List, Dict, Tuple, Optional, Literal, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 UserRole = Literal["public", "judicial", "practitioner"]
@@ -122,10 +122,22 @@ class Material(BaseModel):
 
 class Issue(BaseModel):
     issue_id: str
-    kind: Literal["fact", "law"]         # 事实争点或法律争点
+    kind: Literal["fact", "law", "procedural"] = "law"         # 事实争点、实体法律争点或程序/时效/管辖争点
     text_zh: str
     claim_ids: List[str] = Field(default_factory=list)
     element_ids: List[str] = Field(default_factory=list)
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def normalize_kind(cls, v: Any) -> str:
+        if not isinstance(v, str):
+            return "law"
+        v_low = v.lower().strip()
+        if "fact" in v_low:
+            return "fact"
+        if "proc" in v_low or "jurisdiction" in v_low:
+            return "procedural"
+        return "law"
 
 
 class LegalQuestion(BaseModel):
@@ -143,6 +155,7 @@ class Evidence(BaseModel):
     eid: str                             # 'E1'
     kind: Literal["norm", "case"]
     role: Literal["law", "similar"] = "law"
+    layer: Optional[Literal["L1", "L2"]] = "L1"
     ref_id: str                          # 如 'ID:SEMA_3_2023' 或 'FIDIC:Silver_1999:Clause_8.4'
     text_original: str = ""              # 官方规范或判例原文片段 (不超过 1500 字)
     text_de: str = ""                    # 兼容性镜像：自动同步自 text_original

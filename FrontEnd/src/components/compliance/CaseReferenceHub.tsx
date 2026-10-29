@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
+import { DEFAULT_REFERENCE_CASES } from './complianceDefaultData';
 import {
   ArrowRight,
   Copy,
@@ -50,9 +51,9 @@ interface Case5DItem {
 
 export const CaseReferenceHub: React.FC = () => {
   const { openCaseEntryModal, openCaseEntryWithPrefill, showToast, openRightDock, setPrefillIntakeParams } = useApp();
-  const [cases, setCases] = useState<Case5DItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [selectedCase, setSelectedCase] = useState<Case5DItem | null>(null);
+  const [cases, setCases] = useState<Case5DItem[]>(DEFAULT_REFERENCE_CASES as unknown as Case5DItem[]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [selectedCase, setSelectedCase] = useState<Case5DItem | null>((DEFAULT_REFERENCE_CASES[0] as unknown as Case5DItem) || null);
   const [filterJur, setFilterJur] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -62,15 +63,15 @@ export const CaseReferenceHub: React.FC = () => {
       .getReferenceCases()
       .then((data) => {
         if (mounted && Array.isArray(data) && data.length > 0) {
-          setCases(data as Case5DItem[]);
-          setSelectedCase(data[0] as Case5DItem);
+          const list = data as Case5DItem[];
+          setCases(list);
+          if (!selectedCase || !list.some((c) => c.id === selectedCase.id)) {
+            setSelectedCase(list[0]);
+          }
         }
       })
       .catch((err) => {
-        console.error('Failed to load reference cases:', err);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
+        console.warn('Reference cases background fetch failed, using fallback:', err);
       });
     return () => {
       mounted = false;
@@ -92,7 +93,7 @@ export const CaseReferenceHub: React.FC = () => {
   const handleOpenPlaybook = (item: Case5DItem) => {
     setSelectedCase(item);
     openRightDock('country_playbook');
-    showToast(`已在右侧副驾坞展开【${item.countryName}】属地排雷与 5D 复盘手册`, 'info');
+    showToast(`已在右侧辅助面板展开【${item.countryName}】合规指引与实务复盘手册`, 'info');
   };
 
   const handleSimulateCase = (item: Case5DItem) => {
@@ -117,18 +118,18 @@ export const CaseReferenceHub: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 顶部标题与筛选 */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-zinc-200/80 shadow-xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 apple-bento-card p-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-600" />
-            <h2 className="text-base font-bold text-zinc-900">
-              中资出海基建典型参考案例库 (5D Case Review Cards)
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs shadow-blue-500/40" />
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+              中资出海基建典型实务案例库
             </h2>
           </div>
-          <p className="text-xs text-zinc-500 mt-1">
-            独创五维合规复盘卡：交易架构 ➔ 暴雷根因 ➔ 核心法源 ➔ 示范反制条款 ➔ 一键沙盘推演
+          <p className="text-xs text-slate-500 mt-1">
+            覆盖投前、招投标、施工履约至争议解决：包含交易架构、风险根因、核心法源、示范条款与沙盘推演
           </p>
         </div>
 
@@ -136,27 +137,27 @@ export const CaseReferenceHub: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
           <button
             onClick={() => setFilterJur('all')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-medium transition-all cursor-pointer ${
               filterJur === 'all'
-                ? 'bg-zinc-900 text-white shadow-xs'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'
+                ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/25 font-semibold'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
             }`}
           >
-            全部标杆案
+            全部案例
           </button>
           {[
             { id: 'asean_id', name: '印尼' },
             { id: 'asean_vn', name: '越南' },
-            { id: 'asean_my', name: '大马/新' },
+            { id: 'asean_my', name: '马来西亚' },
             { id: 'asean_ph', name: '菲律宾' },
           ].map((item) => (
             <button
               key={item.id}
               onClick={() => setFilterJur(item.id)}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl font-medium transition-all cursor-pointer ${
                 filterJur === item.id
-                  ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'
+                  ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/25 font-semibold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
               }`}
             >
               {item.name}
@@ -165,9 +166,9 @@ export const CaseReferenceHub: React.FC = () => {
         </div>
       </div>
 
-      {/* 案例列表与 5D 复盘卡展示区 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 左侧：4大标杆案例选择卡 (4 cols) */}
+      {/* 案例列表与复盘卡展示区 */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* 左侧：标杆案例选择卡 (4 cols) */}
         <div className="lg:col-span-4 space-y-3">
           {filteredCases.map((item) => {
             const isSelected = selectedCase?.id === item.id;
@@ -175,30 +176,30 @@ export const CaseReferenceHub: React.FC = () => {
               <div
                 key={item.id}
                 onClick={() => setSelectedCase(item)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-white border-blue-600 ring-1 ring-blue-600 shadow-sm'
-                    : 'bg-white border-zinc-200/80 hover:border-zinc-300 hover:shadow-xs'
+                    ? 'bg-blue-50/50 border-blue-600 ring-1 ring-blue-600/30 shadow-xs'
+                    : 'apple-bento-card hover:border-slate-300'
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-base">{item.countryFlag}</span>
-                    <span className="text-xs font-bold text-zinc-900">{item.countryName}</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 font-semibold">
+                    <span className="text-xs font-bold text-slate-900">{item.countryName}</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
                       {item.code}
                     </span>
                   </div>
-                  <span className="text-[11px] text-zinc-400 font-medium">
+                  <span className="text-[11px] text-slate-400 font-medium">
                     {item.stage}
                   </span>
                 </div>
 
-                <h3 className="text-xs font-bold text-zinc-800 line-clamp-2 leading-relaxed mb-2">
+                <h3 className="text-xs font-bold text-slate-800 line-clamp-2 leading-relaxed mb-2">
                   {item.title}
                 </h3>
 
-                <p className="text-[11px] text-zinc-500 line-clamp-2 leading-normal">
+                <p className="text-[11px] text-slate-500 line-clamp-2 leading-normal">
                   {item.summary}
                 </p>
 
@@ -206,7 +207,7 @@ export const CaseReferenceHub: React.FC = () => {
                   {item.archetypes.map((arch) => (
                     <span
                       key={arch}
-                      className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-50 border border-zinc-200/60 text-zinc-600 font-mono"
+                      className="text-[10px] px-2 py-0.5 rounded-full bg-slate-50 border border-slate-200/80 text-slate-600 font-mono"
                     >
                       {arch}
                     </span>
@@ -222,7 +223,7 @@ export const CaseReferenceHub: React.FC = () => {
                     }}
                     className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
                   >
-                    <span>右侧副驾 5D 复盘</span>
+                    <span>合规指引精读</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
                   <button
@@ -243,23 +244,23 @@ export const CaseReferenceHub: React.FC = () => {
         </div>
 
         {/* 右侧：五维合规复盘卡详情 (8 cols) */}
-        {loading ? (
-          <div className="lg:col-span-8 bg-white rounded-2xl border border-zinc-200/80 p-12 shadow-xs flex flex-col items-center justify-center space-y-3 min-h-[400px]">
+        {loading && !selectedCase ? (
+          <div className="lg:col-span-8 apple-bento-card p-12 flex flex-col items-center justify-center space-y-3 min-h-[380px]">
             <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-            <p className="text-xs text-zinc-500 font-medium">正在从东盟工程合规案库加载权威 5D 标杆案卷...</p>
+            <p className="text-xs text-slate-500 font-medium">正在载入案例复盘数据...</p>
           </div>
         ) : selectedCase ? (
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-zinc-200/80 p-6 shadow-xs space-y-6">
+        <div className="lg:col-span-8 apple-bento-card p-6 space-y-6">
           {/* 复盘卡头 */}
-          <div className="border-b border-zinc-100 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="border-b border-slate-100 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-lg">{selectedCase.countryFlag}</span>
-                <h3 className="text-sm font-bold text-zinc-900">
+                <h3 className="text-sm font-bold text-slate-900">
                   {selectedCase.code} · {selectedCase.title}
                 </h3>
               </div>
-              <p className="text-xs text-zinc-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 适用法域：{selectedCase.countryName} ({selectedCase.jurisdiction}) · 阶段：{selectedCase.stage}
               </p>
             </div>
@@ -270,14 +271,14 @@ export const CaseReferenceHub: React.FC = () => {
                 className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Layers className="w-3.5 h-3.5 text-blue-600" />
-                <span>副驾精读</span>
+                <span>国别指引</span>
               </button>
               <button
                 onClick={() => handleSimulateCase(selectedCase)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all"
               >
-                <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
-                <span>以此案为蓝本沙盘推演</span>
+                <Play className="w-3.5 h-3.5 fill-current text-white" />
+                <span>以此案例立项研判</span>
               </button>
             </div>
           </div>
@@ -285,44 +286,44 @@ export const CaseReferenceHub: React.FC = () => {
           {/* 维度 1: 交易架构与案情还原 */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-              <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-                维度 1【交易架构与案情还原】
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              <h4 className="text-xs font-bold text-slate-900 tracking-wider">
+                维度 1 · 交易架构与案情还原
               </h4>
             </div>
-            <div className="p-4 rounded-xl bg-zinc-50/70 border border-zinc-200/60 space-y-3">
-              <p className="text-xs text-zinc-700 leading-relaxed font-medium">
+            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/70 space-y-3">
+              <p className="text-xs text-slate-700 leading-relaxed font-medium">
                 {selectedCase.dimension1_structure.dealSummary}
               </p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                 {selectedCase.dimension1_structure.parties.map((p, idx) => (
-                  <div key={idx} className="p-2.5 rounded-lg bg-white border border-zinc-200/60">
-                    <span className="text-[10px] text-zinc-400 block font-medium">{p.role}</span>
-                    <span className="text-xs font-bold text-zinc-800 line-clamp-2 mt-0.5">{p.name}</span>
+                  <div key={idx} className="p-2.5 rounded-lg bg-white border border-slate-200/80">
+                    <span className="text-[10px] text-slate-400 block font-medium">{p.role}</span>
+                    <span className="text-xs font-bold text-slate-800 line-clamp-2 mt-0.5">{p.name}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* 维度 2: 暴雷根因诊断 (Root Cause) */}
+          {/* 维度 2: 暴雷根因诊断 */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-                维度 2【暴雷根因诊断 (Root Cause)】
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+              <h4 className="text-xs font-bold text-slate-900 tracking-wider">
+                维度 2 · 争议根因与合同缺陷诊断
               </h4>
             </div>
-            <div className="p-4 rounded-xl bg-red-50/30 border border-red-200/60 space-y-2">
-              <div className="text-xs font-bold text-red-900">
+            <div className="p-4 rounded-xl bg-rose-50/40 border border-rose-200/70 space-y-2">
+              <div className="text-xs font-bold text-rose-900">
                 核心业务漏洞：{selectedCase.dimension2_rootCause.coreDiagnosis}
               </div>
-              <div className="text-xs text-zinc-600">
+              <div className="text-xs text-slate-600">
                 合同条款缺陷：{selectedCase.dimension2_rootCause.contractPitfall}
               </div>
               <div className="mt-2 space-y-1">
                 {selectedCase.dimension2_rootCause.triggerFactors.map((f, idx) => (
-                  <div key={idx} className="text-xs text-zinc-700 flex items-start gap-1.5">
+                  <div key={idx} className="text-xs text-slate-700 flex items-start gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                     <span>{f}</span>
                   </div>
@@ -335,21 +336,21 @@ export const CaseReferenceHub: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-              <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-                维度 3【核心裁判规则与法源锚点】
+              <h4 className="text-xs font-bold text-slate-900 tracking-wider">
+                维度 3 · 裁判规则与法源依据
               </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {selectedCase.dimension3_legalAnchors.map((anchor, idx) => (
-                <div key={idx} className="p-3 rounded-xl bg-zinc-50 border border-zinc-200/70 space-y-1.5">
-                  <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                <div key={idx} className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1.5">
+                  <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/60">
                     {anchor.normId}
                   </span>
-                  <div className="text-xs font-bold text-zinc-900 mt-1">{anchor.nameZh}</div>
-                  <p className="text-[11px] text-zinc-500 line-clamp-2 italic">
+                  <div className="text-xs font-bold text-slate-900 mt-1">{anchor.nameZh}</div>
+                  <p className="text-[11px] text-slate-500 line-clamp-2 italic">
                     "{anchor.statuteSnippet}"
                   </p>
-                  <p className="text-[11px] text-zinc-700 font-medium">
+                  <p className="text-[11px] text-slate-700 font-medium">
                     {anchor.keyRule}
                   </p>
                 </div>
@@ -361,18 +362,18 @@ export const CaseReferenceHub: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-              <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
-                维度 4【央国企合规启示与示范反制条款 (Model Counter-Clause)】
+              <h4 className="text-xs font-bold text-slate-900 tracking-wider">
+                维度 4 · 合规防范建议与示范条款
               </h4>
             </div>
             <div className="space-y-3">
               {selectedCase.dimension4_modelClauses.map((clause, idx) => (
-                <div key={idx} className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2">
+                <div key={idx} className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-zinc-900">{clause.title}</span>
+                    <span className="text-xs font-bold text-slate-900">{clause.title}</span>
                     <button
                       onClick={() => handleCopyClause(clause.enClause, `${selectedCase.id}-${idx}`)}
-                      className="px-2 py-1 rounded text-[11px] bg-white border border-zinc-200 hover:bg-zinc-100 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+                      className="px-2.5 py-1 rounded-lg text-[11px] bg-white border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1 cursor-pointer font-medium text-slate-700"
                     >
                       {copiedId === `${selectedCase.id}-${idx}` ? (
                         <>
@@ -381,16 +382,16 @@ export const CaseReferenceHub: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3 h-3 text-zinc-500" />
-                          <span>复制英文条文</span>
+                          <Copy className="w-3 h-3 text-slate-500" />
+                          <span>复制英文条款</span>
                         </>
                       )}
                     </button>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-white border border-zinc-200/60 font-mono text-[11px] text-zinc-700 leading-relaxed select-all">
+                  <div className="p-3 rounded-lg bg-white border border-slate-200/80 font-mono text-[11px] text-slate-700 leading-relaxed select-all">
                     {clause.enClause}
                   </div>
-                  <p className="text-xs text-zinc-600 font-medium leading-relaxed">
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
                     【实务要旨】{clause.zhExplanation}
                   </p>
                 </div>

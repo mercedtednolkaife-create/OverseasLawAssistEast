@@ -1,12 +1,23 @@
 """本体图扩展存储模块 (GraphStore)
 对齐技术方案第 4.6 节：
-- 使用 SQLite edges_top 物化表与递归 CTE 进行受限图遍历 (1~2 跳，扇出上限受控)
-- 查询关联判例 (APPLIES) 与关联法条 (CITES / DEFINES)
-- 抽象 GraphStore 协议，后续可无缝切换到内存图或图数据库
+- 使用 SQLite edges_top 物化表与递归 CTE 进行双向受限图遍历 (1~2 跳，扇出上限受控)
+- 查询关联判例 (APPLIES / applied_in) 与关联法条 (conflicts_with / overrides / interprets)
+- 抽象 GraphStore 协议，支持法源冲突检测与层级扩展
 """
 
 import sqlite3
 from typing import List, Dict, Any, Optional, Protocol, runtime_checkable
+
+DEFAULT_GRAPH_RELS = [
+    "conflicts_with",
+    "overrides",
+    "interprets",
+    "applied_in",
+    "triggers_preservation",
+    "CITES",
+    "APPLIES",
+    "DEFINES"
+]
 
 
 @runtime_checkable
@@ -15,7 +26,7 @@ class GraphStore(Protocol):
     def neighbors(
         self,
         node_id: str,
-        rels: List[str],
+        rels: Optional[List[str]] = None,
         direction: str = "out",
         limit: int = 20
     ) -> List[Dict[str, Any]]: ...
@@ -48,28 +59,36 @@ class SQLiteGraphStore:
     def neighbors(
         self,
         node_id: str,
-        rels: List[str],
+        rels: Optional[List[str]] = None,
         direction: str = "out",
         limit: int = 20
     ) -> List[Dict[str, Any]]:
-        """获取直连邻居节点"""
-        clean_id = node_id if (node_id.startswith("NORM:") or node_id.startswith("CASE:") or node_id.startswith("CPT:")) else f"NORM:{node_id}"
+        """获取直连邻居节点 (支持 out / in / both)"""
+        clean_id = node_id if node_id.startswith(("NORM:", "CASE:", "CPT:")) else f"NORM:{node_id}"
         conn = self._get_conn()
         cur = conn.cursor()
 
-        placeholders = ",".join("?" for _ in rels) if rels else "'CITES','APPLIES','DEFINES'"
-        query_rels = rels if rels else []
+        query_rels = rels if rels else DEFAULT_GRAPH_RELS
+        placeholders = ",".join("?" for _ in query_rels)
 
         if direction == "out":
             sql = f"""SELECT dst as node, rel, source FROM edges_top
-                      WHERE src = ? {f"AND rel IN ({placeholders})" if rels else ""}
+                      WHERE src = ? AND rel IN ({placeholders})
                       ORDER BY rk ASC LIMIT ?"""
             cur.execute(sql, [clean_id, *query_rels, limit])
-        else:
+        elif direction == "in":
             sql = f"""SELECT src as node, rel, source FROM edges_top
-                      WHERE dst = ? {f"AND rel IN ({placeholders})" if rels else ""}
+                      WHERE dst = ? AND rel IN ({placeholders})
                       ORDER BY rk ASC LIMIT ?"""
             cur.execute(sql, [clean_id, *query_rels, limit])
+        else:  # both
+            sql = f"""SELECT dst as node, rel, source FROM edges_top
+                      WHERE src = ? AND rel IN ({placeholders})
+                      UNION ALL
+                      SELECT src as node, rel, source FROM edges_top
+                      WHERE dst = ? AND rel IN ({placeholders})
+                      LIMIT ?"""
+            cur.execute(sql, [clean_id, *query_rels, clean_id, *query_rels, limit])
 
         return [dict(r) for r in cur.fetchall()]
 
@@ -80,36 +99,38 @@ class SQLiteGraphStore:
         rels: Optional[List[str]] = None,
         limit: int = 60
     ) -> List[Dict[str, Any]]:
-        """执行 1~2 跳递归 CTE 图扩展 (严格控制扇出与最大条数)"""
+        """执行 1~2 跳双向递归 CTE 图扩展 (严格控制扇出与最大条数)"""
         if not start_ids:
             return []
 
-        clean_starts = [
-            sid if (sid.startswith("NORM:") or sid.startswith("CASE:") or sid.startswith("CPT:")) else f"NORM:{sid}"
-            for sid in start_ids
-        ]
+        clean_starts = set()
+        for sid in start_ids:
+            clean_starts.add(sid)
+            if not sid.startswith(("NORM:", "CASE:", "CPT:")):
+                clean_starts.add(f"NORM:{sid}")
+        clean_starts_list = list(clean_starts)
 
-        allowed_rels = rels or ["CITES", "DEFINES"]
+        allowed_rels = rels or DEFAULT_GRAPH_RELS
         rel_clause = ",".join(f"'{r}'" for r in allowed_rels)
 
         conn = self._get_conn()
         cur = conn.cursor()
 
         # 构建起始节点 UNION 查询
-        start_unions = " UNION ALL ".join(f"SELECT '{s}' AS node, 0 AS depth" for s in clean_starts)
+        start_unions = " UNION ALL ".join(f"SELECT '{s}' AS node, 0 AS depth" for s in clean_starts_list)
 
         sql = f"""
         WITH RECURSIVE walk(node, depth) AS (
             {start_unions}
             UNION
-            SELECT e.dst, w.depth + 1
+            SELECT CASE WHEN e.src = w.node THEN e.dst ELSE e.src END, w.depth + 1
             FROM walk w
-            JOIN edges_top e ON e.src = w.node
+            JOIN edges_top e ON (e.src = w.node OR e.dst = w.node)
             WHERE w.depth < ? AND e.rel IN ({rel_clause})
         )
         SELECT node, MIN(depth) AS depth
         FROM walk
-        WHERE node NOT IN ({','.join(f"'{s}'" for s in clean_starts)})
+        WHERE node NOT IN ({','.join(f"'{s}'" for s in clean_starts_list)})
         GROUP BY node
         ORDER BY depth ASC
         LIMIT ?;

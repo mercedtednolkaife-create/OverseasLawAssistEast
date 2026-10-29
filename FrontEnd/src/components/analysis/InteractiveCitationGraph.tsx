@@ -1,21 +1,20 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
+import { getJurisdictionConfig } from '../../configs/jurisdictions';
 import {
   Share2,
   ExternalLink,
   CheckCircle2,
-  BookmarkCheck,
   Check,
   Plus,
   Maximize2,
-  ShieldCheck,
-  Briefcase,
-  Layers,
-  ArrowRight,
-  Info,
   Sparkles,
   BookOpen,
+  ArrowRight,
+  ShieldCheck,
+  Compass,
+  Scale,
 } from 'lucide-react';
 
 interface InteractiveCitationGraphProps {
@@ -50,7 +49,10 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
   const [activeInspectorNode, setActiveInspectorNode] = useState<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const rafIdRef = useRef<number | null>(null);
+
   const [svgPaths, setSvgPaths] = useState<Array<{
     id: string;
     d: string;
@@ -92,11 +94,51 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
   };
 
   // =========================================================================
-  // 1. 严格四层逻辑知识图谱数据生成 (依据案卷阶段自适应切换)
+  // 1. 动态自适应四层因果知识图谱数据生成 (深度绑定当前案卷上下文，无缝对齐真实争点)
   // =========================================================================
+
+  const rawIssues = currentCase?.issues || [];
+  const rawFacts = currentCase?.facts || [];
+  const rawElements = currentCase?.elements || [];
+  const rawEvidence = currentCase?.evidence || {};
+  const rawFindings = currentCase?.findings || [];
+  const rawSa = currentCase?.strategic_assessment;
+  const hostJur = currentCase?.meta?.jurisdiction || 'asean_id';
 
   // Tier 1: 在案事实要件
   const factsList = useMemo(() => {
+    if (rawIssues.length > 0 && rawFacts.length > 0) {
+      return rawFacts.map((f, idx) => {
+        const matchedElems = rawElements.filter((e) => (e.fact_links || []).includes(f.fid));
+        const matchedIssues = rawIssues.filter((iss) =>
+          matchedElems.some((e) => (iss.element_ids || []).includes(e.element_id))
+        );
+
+        let primaryChainId = 1;
+        if (matchedIssues.length > 0) {
+          const issueIdx = rawIssues.findIndex((iss) => iss.issue_id === matchedIssues[0].issue_id);
+          primaryChainId = issueIdx >= 0 ? issueIdx + 1 : 1;
+        } else if (rawIssues.length > 0) {
+          primaryChainId = (idx % rawIssues.length) + 1;
+        }
+
+        let shortTitle = f.text_zh;
+        if (shortTitle.length > 38) {
+          shortTitle = shortTitle.slice(0, 38) + '...';
+        }
+
+        return {
+          id: f.fid,
+          tag: f.fid,
+          chainId: primaryChainId,
+          title: shortTitle,
+          full_text: f.text_zh,
+          status: '在案确认事实',
+          matchedIssueIds: matchedIssues.map((iss) => `I${rawIssues.indexOf(iss) + 1}`),
+        };
+      });
+    }
+
     if (isPreInv) {
       return [
         {
@@ -134,7 +176,43 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       ];
     }
 
-    // 履约争议模式 (Mode 2)
+    if (hostJur === 'asean_my') {
+      return [
+        {
+          id: 'F1',
+          tag: 'F1',
+          chainId: 1,
+          title: '吉隆坡轻轨工程分包背靠背付款 (Pay-when-paid) 纠纷',
+          full_text: '总承包商以分包合同中订有“以发包人付款为前提”条款为由暂缓付款，分包商向 AIAC 提起 CIPAA 极速法定裁决。',
+          status: '已确认事实',
+        },
+        {
+          id: 'F2',
+          tag: 'F2',
+          chainId: 2,
+          title: '承包商于工程阻工后知悉并发出索赔通知',
+          full_text: '因发包人迟延提供工作面与变更指令，承包商发出索赔通知，发包人抗辩已过合同 28 天除斥期失权。',
+          status: '双方确认',
+        },
+        {
+          id: 'F3',
+          tag: 'F3',
+          chainId: 3,
+          title: '属地 CIDB 施工资质合规与工程款分包扣减争议',
+          full_text: '发包人主张总包商与分包商应依据 CIDB Act 520 承担属地劳工与工程资质连带责任并要求扣除款项。',
+          status: '已确认事实',
+        },
+        {
+          id: 'F4',
+          tag: 'F4',
+          chainId: 4,
+          title: '业主威胁向商业银行发起见索即付履约保函索兑',
+          full_text: '在 CIPAA 裁决审理期间，发包人向开证银行出具违约函件，企图恶意全额索兑履约保函。',
+          status: '核心争议',
+        },
+      ];
+    }
+
     return [
       {
         id: 'F1',
@@ -169,10 +247,35 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         status: '核心争议',
       },
     ];
-  }, [isPreInv]);
+  }, [currentCase, isPreInv, hostJur]);
 
   // Tier 2: 争议焦点与法定要件
   const issuesList = useMemo(() => {
+    if (rawIssues.length > 0) {
+      const chineseNums = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+      return rawIssues.map((iss, idx) => {
+        const chainId = idx + 1;
+        const matchingElems = rawElements.filter((el) => (iss.element_ids || []).includes(el.element_id));
+        const elemSummary = matchingElems.length > 0
+          ? matchingElems.map((e) => e.name_zh).join(' · ')
+          : (iss.kind === 'fact' ? '案件事实要件审查' : '法定实体构成要件');
+
+        let shortName = iss.text_zh;
+        if (shortName.length > 42) {
+          shortName = shortName.slice(0, 42) + '...';
+        }
+
+        return {
+          id: `I${chainId}`,
+          code: isPreInv ? `支柱${chineseNums[idx] || chainId}` : `争点${chineseNums[idx] || chainId}`,
+          chainId,
+          name: shortName,
+          elem: elemSummary,
+          desc: iss.text_zh,
+        };
+      });
+    }
+
     if (isPreInv) {
       return [
         {
@@ -206,6 +309,80 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
           name: '国资委 35 号令事前论证合规与跨境数据出境审批',
           elem: '重大投资决策尽调全流程留痕与涉密数据合规审查',
           desc: '满足国资委境外投资事前法律意见书硬性门槛，完成数据安全法第36条核验。',
+        },
+      ];
+    }
+
+    if (hostJur === 'asean_my') {
+      return [
+        {
+          id: 'I1',
+          code: '争点一',
+          chainId: 1,
+          name: 'CIPAA 2012 第35条背靠背条款法定绝对无效与款项保障',
+          elem: '马来西亚 2012 年建筑业付款与裁决法第 35 条强行法',
+          desc: '依 CIPAA 第35条，有条件付款条款（Pay-when-paid）自始无效，总包商不得据此拒付分包款。',
+        },
+        {
+          id: 'I2',
+          code: '争点二',
+          chainId: 2,
+          name: '预防原则 (Prevention Principle) 与工程延误时间重置',
+          elem: '发包人交地阻碍导致违约金 (LD) 机制失效要件',
+          desc: '普通法权威先例：发包人违约造成延误且阻碍顺延时，时间恢复自由 (Time at large)，发包人无权扣除 LD。',
+        },
+        {
+          id: 'I3',
+          code: '争点三',
+          chainId: 3,
+          name: 'CIDB Act 520 建筑行业资质与本地劳工分包配额',
+          elem: '马来西亚建筑工业发展局第 520 号法案合规要件',
+          desc: '核查分包工程属地执照登记要求与土著分包比例，防范行政处罚及工程款抗辩。',
+        },
+        {
+          id: 'I4',
+          code: '争点四',
+          chainId: 4,
+          name: 'AIAC 极速裁决与商业银行保函欺诈止付',
+          elem: '亚洲国际仲裁中心 (AIAC) 法定裁决程序与止付禁令标准',
+          desc: '在 CIPAA 裁决审理期间，以恶意突击索兑构成显失公平为由向吉隆坡高院申请保函止付令。',
+        },
+      ];
+    }
+
+    if (hostJur === 'asean_vn') {
+      return [
+        {
+          id: 'I1',
+          code: '争点一',
+          chainId: 1,
+          name: '2025新建设法第 86.2 条发包人交地迟延与工期顺延',
+          elem: '越南 2025 新建设法 (Law 135/2025) 第 86.2 条延误归责要件',
+          desc: '论证现场交地迟延属发包人违约责任，承包商享有依法顺延工期抗辩权。',
+        },
+        {
+          id: 'I2',
+          code: '争点二',
+          chainId: 2,
+          name: '越南商法典第 301 条预定损害赔偿 8% 法定上限红线',
+          elem: '违约金与预定损害赔偿法定强行上限封顶要件',
+          desc: '依据越南 2005 年商法第 301 条，违约金不得超过违约部分合同金额之 8%。',
+        },
+        {
+          id: 'I3',
+          code: '争点三',
+          chainId: 3,
+          name: '投资法 (Law 61/2020) 属地资质许可与外汇结汇合规',
+          elem: '越南外商投资登记证 (IRC) 与外国承包商施工许可要件',
+          desc: '核查外国承包商施工许可证 (Contractor Permit)，防范行政处罚风险。',
+        },
+        {
+          id: 'I4',
+          code: '争点四',
+          chainId: 4,
+          name: 'VIAC 越南国际仲裁与保函紧急临时保护措施',
+          elem: '越仲 VIAC 仲裁规则临时措施与商业银行止付要件',
+          desc: '向仲裁庭或越南法院申请针对见索即付保函的紧急临时保全命令。',
         },
       ];
     }
@@ -244,21 +421,91 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         desc: '在实体争议未决且无真实损失事实下突袭索兑，构成显失公平止付要件。',
       },
     ];
-  }, [isPreInv]);
+  }, [currentCase, isPreInv, hostJur]);
 
   // Tier 3: 现行成文法典与基线
   const normsList = useMemo(() => {
+    const evEntries = Object.entries(rawEvidence);
+    if (rawIssues.length > 0 && evEntries.length > 0) {
+      return evEntries.map(([eid, ev], idx) => {
+        const matchedStatements = rawFindings.flatMap((fn) => fn.statements || []).filter(
+          (s) => (s.evidence_ids || []).includes(eid)
+        );
+        const matchedElementIds = matchedStatements
+          .map((s) => s.element_id)
+          .filter(Boolean) as string[];
+
+        rawElements.forEach((el) => {
+          if ((el.links || []).some((l) => l.eid === eid) && !matchedElementIds.includes(el.element_id)) {
+            matchedElementIds.push(el.element_id);
+          }
+        });
+
+        const matchedIssues = rawIssues.filter((iss) =>
+          (iss.element_ids || []).some((elId) => matchedElementIds.includes(elId))
+        );
+
+        let primaryChainId = 1;
+        if (matchedIssues.length > 0) {
+          const issueIdx = rawIssues.findIndex((iss) => iss.issue_id === matchedIssues[0].issue_id);
+          primaryChainId = issueIdx >= 0 ? issueIdx + 1 : 1;
+        } else if (rawIssues.length > 0) {
+          primaryChainId = (idx % rawIssues.length) + 1;
+        }
+
+        const zhTrans = currentCase?.translations?.[eid];
+        let normName = ev.ref_id.replace(/[:_]/g, ' ');
+        if (ev.ref_id.includes('CIPAA:Sec35') || ev.ref_id.includes('MY_CIPAA:Sec35')) {
+          normName = '马来西亚 CIPAA 2012 第 35 条 [背靠背无效]';
+        } else if (ev.ref_id.includes('CIPAA:Sec13') || ev.ref_id.includes('MY_CIPAA:Sec13')) {
+          normName = '马来西亚 CIPAA 2012 第 13 条 [快速裁决执行]';
+        } else if (ev.ref_id.includes('BS_Mount_Sophia')) {
+          normName = '新加坡最高院 BS Mount Sophia [2016] 判例 [显失公平]';
+        } else if (ev.ref_id.includes('UU:2_2017:Art57') || ev.ref_id.includes('UU:2_2017')) {
+          normName = '印尼《建筑服务法》第 2/2017 号第 57 条 [交地补偿]';
+        } else if (ev.ref_id.includes('SEMA:3_2023')) {
+          normName = '印尼最高院司法通告 SEMA No. 3/2023 [善意履约原则]';
+        } else if (ev.ref_id.includes('MEMR:Reg11_2024') || ev.ref_id.includes('11_2024')) {
+          normName = '印尼能矿部 MEMR 11/2024 [光伏组件 TKDN 豁免]';
+        } else if (ev.ref_id.includes('135_2025_QH15:Art86') || ev.ref_id.includes('135_2025')) {
+          normName = '越南《2025新建设法》(Law 135/2025) 第 86.2 条 [工期顺延]';
+        } else if (ev.ref_id.includes('210_2026_ND_CP') || ev.ref_id.includes('210_2026')) {
+          normName = '越南第 210/2026/ND-CP 号建设合同法令 [延误免责]';
+        } else if (ev.ref_id.includes('11966')) {
+          normName = '菲律宾 PPP 法典 (RA 11966) [特许权终止公允补偿]';
+        } else if (ev.ref_id.includes('ManilaWater')) {
+          normName = '菲律宾最高院 PCAB v. Manila Water [废除外资牌照限制]';
+        } else if (ev.ref_id.includes('BIT_CHINA_ASEAN')) {
+          normName = '中国-东盟投资协定 (BIT) 第 6 条 [间接征收保护]';
+        } else if (ev.ref_id.includes('FIDIC')) {
+          normName = 'FIDIC 银皮书国际工程合同基准条款';
+        }
+
+        return {
+          id: `N${idx + 1}`,
+          code: ev.ref_id,
+          chainId: primaryChainId,
+          name: normName,
+          category: ev.kind === 'case' ? '司法权威先例' : (isPreInv ? '东道国投资强行法' : '东道国现行成文法'),
+          authority_grade: ev.grade === 'A' ? '现行有效强行法 (Grade A)' : '金标准法源',
+          full_quote: zhTrans || ev.text_de || ev.ref_id,
+          ref_id: ev.ref_id,
+          matchedIssueIds: matchedIssues.map((iss) => `I${rawIssues.indexOf(iss) + 1}`),
+        };
+      });
+    }
+
     if (isPreInv) {
       return [
         {
           id: 'N1',
-          code: 'ID_UU:2_2017:Art57',
+          code: hostJur === 'asean_my' ? 'MY_CIDB:Act520' : (hostJur === 'asean_vn' ? 'VN_INV:61_2020' : 'ID_UU:2_2017:Art57'),
           chainId: 1,
-          name: '印尼建筑法第 2/2017 号第 57 条',
+          name: hostJur === 'asean_my' ? '马来西亚建筑工业发展局法 CIDB Act 520' : (hostJur === 'asean_vn' ? '越南投资法与外国承包商资质规程' : '印尼建筑法第 2/2017 号第 57 条'),
           category: '东道国强行法',
           authority_grade: '现行成文强行法',
-          full_quote: '外商独资或控股企业承接工程必须与属地持牌企业组建联合体(JO)，禁止名义代持。',
-          ref_id: 'ID_UU:2_2017:Art57',
+          full_quote: hostJur === 'asean_my' ? '所有在马来西亚境内实施的建筑工程均须由持有效 CIDB 注册证书的主体承揽，禁止无牌挂靠。' : (hostJur === 'asean_vn' ? '外商投资企业必须在计划投资部取得投资登记证 (IRC) 及对应工程承包许可。' : '外商独资或控股企业承接工程必须与属地持牌企业组建联合体(JO)，禁止名义代持。'),
+          ref_id: hostJur === 'asean_my' ? 'MY_CIDB:Act520' : (hostJur === 'asean_vn' ? 'VN_INV:61_2020' : 'ID_UU:2_2017:Art57'),
         },
         {
           id: 'N2',
@@ -272,13 +519,13 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         },
         {
           id: 'N3',
-          code: 'ID_MEMR:11_2024',
+          code: hostJur === 'asean_my' ? 'MY_MOF:Bumiputera_Policy' : (hostJur === 'asean_vn' ? 'VN_DECREE:35_2021' : 'ID_MEMR:11_2024'),
           chainId: 3,
-          name: '印尼能矿部 MEMR 第 11/2024 号令',
+          name: hostJur === 'asean_my' ? '马来西亚财政部土著分包与采购指引' : (hostJur === 'asean_vn' ? '越南 35/2021/ND-CP 号公私合作规程' : '印尼能矿部 MEMR 第 11/2024 号令'),
           category: '部委规章与指标',
           authority_grade: '现行部委规章',
-          full_quote: '若国内市场无合格产能或产品未能通过国际认证，经部委专家组核准可给予 100% 临时进口豁免。',
-          ref_id: 'ID_MEMR:11_2024',
+          full_quote: hostJur === 'asean_my' ? '大型基础设施项目应满足属地分包与土著供应商采购配额，以确保项目准入与合规审查通过。' : (hostJur === 'asean_vn' ? 'PPP项目投资人应依投资法典合规办理本地分包与环境影响评估许可。' : '若国内市场无合格产能或产品未能通过国际认证，经部委专家组核准可给予 100% 临时进口豁免。'),
+          ref_id: hostJur === 'asean_my' ? 'MY_MOF:Bumiputera_Policy' : (hostJur === 'asean_vn' ? 'VN_DECREE:35_2021' : 'ID_MEMR:11_2024'),
         },
         {
           id: 'N4',
@@ -289,6 +536,96 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
           authority_grade: '中央企业特别监管令',
           full_quote: '央企境外重大投资必须完成事前国别法律风险穿透论证；涉密工程数据非经审批不得向外国司法或执法机构提供。',
           ref_id: 'PRC_SASAC:Order35',
+        },
+      ];
+    }
+
+    if (hostJur === 'asean_my') {
+      return [
+        {
+          id: 'N1',
+          code: 'MY_CIPAA:2012:Sec35',
+          chainId: 1,
+          name: '马来西亚 CIPAA 2012 第 35 条 [背靠背无效]',
+          category: '东道国特别法定强行法',
+          authority_grade: '联邦议会强行法 (Tier 1)',
+          full_quote: '建筑合同中任何规定“以第三方付款为条件”的支付条款（Pay-when-paid / Pay-if-paid），自始绝对无效且不可执行。',
+          ref_id: 'MY_CIPAA:2012:Sec35',
+        },
+        {
+          id: 'N2',
+          code: 'MY_CONTRACTS:1950:Sec56',
+          chainId: 2,
+          name: '马来西亚 1950 年合同法第 56 条与阻碍原则',
+          category: '普通法核心合同法典',
+          authority_grade: '联邦成文法与判例法',
+          full_quote: '若因合同一方自身阻碍致使履约迟延，非违约方有权主张合理工期宽延，发包人不得就自身违约延误扣取违约金。',
+          ref_id: 'MY_CONTRACTS:1950:Sec56',
+        },
+        {
+          id: 'N3',
+          code: 'MY_CIDB:Act520',
+          chainId: 3,
+          name: '马来西亚建筑工业发展局法 (CIDB Act 520)',
+          category: '行业监管与资质强行法',
+          authority_grade: '属地行业法定规章',
+          full_quote: '所有在马来西亚境内实施的建筑工程及分包商均须持有 CIDB 颁发的有效注册等级证书，未持有者面临工程款抗辩与行政罚金。',
+          ref_id: 'MY_CIDB:Act520',
+        },
+        {
+          id: 'N4',
+          code: 'MY_HC:Alstom_v_Insigma:2018',
+          chainId: 4,
+          name: '马来西亚高院 Alstom v. Insigma 判例',
+          category: '普通法保函止付权威先例',
+          authority_grade: '马来西亚高等法院判例',
+          full_quote: '在当事人存在实质工程争议且索兑缺乏真诚基础时，若继续索兑构成极度显失公平 (Unconscionability)，法院有权签发临时止付令。',
+          ref_id: 'MY_HC:Alstom_v_Insigma:2018',
+        },
+      ];
+    }
+
+    if (hostJur === 'asean_vn') {
+      return [
+        {
+          id: 'N1',
+          code: 'VN_CONST_LAW:2025:Art86',
+          chainId: 1,
+          name: '越南《2025新建设法》(Law 135/2025) 第 86.2 条',
+          category: '东道国建设法强行法',
+          authority_grade: '越南国会法典 (Tier 1)',
+          full_quote: '发包人未按期移交施工场地导致关键路径阻断的，承包商享有依法顺延竣工期限之法定权利，发包人不得主张预定损害赔偿。',
+          ref_id: 'VN_CONST_LAW:2025:Art86',
+        },
+        {
+          id: 'N2',
+          code: 'VN_COMM_LAW:2005:Art301',
+          chainId: 2,
+          name: '越南 2005 年商法典第 301 条 [违约金 8% 封顶]',
+          category: '民商法典法定强行规则',
+          authority_grade: '国会商事成文法典',
+          full_quote: '合同双方约定的违约赔偿金总额不得超过受违约影响合同部分价值的 8%，超出部分自始无效。',
+          ref_id: 'VN_COMM_LAW:2005:Art301',
+        },
+        {
+          id: 'N3',
+          code: 'VN_INV_LAW:61_2020',
+          chainId: 3,
+          name: '越南 2020 年投资法 (Law 61/2020/QH14)',
+          category: '外商投资监管法典',
+          authority_grade: '现行投资成文法典',
+          full_quote: '外商投资建设工程应依法办理投资登记证 (IRC) 及承包商许可证，合规进行属地劳工聘用与外汇结汇。',
+          ref_id: 'VN_INV_LAW:61_2020',
+        },
+        {
+          id: 'N4',
+          code: 'VIAC_RULES:2024:Art21',
+          chainId: 4,
+          name: '越南国际仲裁中心 (VIAC) 仲裁规则第 21 条',
+          category: '国际仲裁保全规则',
+          authority_grade: '权威仲裁机构规则',
+          full_quote: '仲裁庭有权根据当事人申请裁定紧急临时保护措施，包括责令发包人暂缓保函索兑以避免不可弥补之损害。',
+          ref_id: 'VIAC_RULES:2024:Art21',
         },
       ];
     }
@@ -335,10 +672,78 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         ref_id: 'SG_BSMountSophia:2016',
       },
     ];
-  }, [isPreInv]);
+  }, [currentCase, isPreInv, hostJur]);
 
   // Tier 4: 司法判例与反制方案
   const precedentsList = useMemo(() => {
+    if (rawIssues.length > 0) {
+      const chineseNums = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+      return rawIssues.map((iss, idx) => {
+        const chainId = idx + 1;
+        const ob = rawSa?.outcome_branches?.[idx];
+        const rd = rawSa?.red_team_defenses?.[idx];
+
+        let title = ob?.title || rd?.opposing_claim;
+        let ruling = ob?.condition_precedent || rd?.opposing_basis || '严格遵循东道国现行法典与最高法院金标准先例。';
+        let strategy = ob?.outcome_summary || rd?.factual_counter_point || '全面锁定在案证据，向法庭/仲裁庭提交实体确权与保全主张。';
+        let typeName = '司法确权对策';
+
+        if (iss.text_zh.includes('CIPAA') || iss.text_zh.includes('背靠背')) {
+          typeName = '法定裁决抗辩';
+          title = '【CIPAA 裁决反制】援引 CIPAA 第 35 条主张背靠背条款自始绝对无效';
+          ruling = '马来西亚联邦法院裁判规则：CIPAA 具有法定强制力，任何以发包人付款为前提之分包条款均属无效。';
+          strategy = '向 AIAC 提交法定裁决抗辩状，主张分包工程进度款立即清偿，锁定发包人连带责任。';
+        } else if (iss.text_zh.includes('保函') || iss.text_zh.includes('BS Mount Sophia') || iss.text_zh.includes('显失公平')) {
+          typeName = '司法禁令救济';
+          title = '【高院保函禁令】向新加坡高等法院申请见索即付保函显失公平止付令';
+          ruling = '新加坡上诉庭 BS Mount Sophia [2016] 规则：在索兑缺乏真诚基础时，构成显失公平 (Unconscionability) 止付要件。';
+          strategy = '24小时内向法院申请民事单方禁令，并向开证行送达止付通知，向中国信保提交 30 日出险报损。';
+        } else if (iss.text_zh.includes('习惯法') || iss.text_zh.includes('Hak Ulayat') || iss.text_zh.includes('交地迟延')) {
+          typeName = '工期顺延确权';
+          title = '【FIDIC 8.4 顺延】习惯法土地受阻工期顺延与费用全额补偿';
+          ruling = '印尼《建筑服务法》第57条及 FIDIC 8.4：业主因原住民土地征拆迟延交付构成实质违约，工期法定顺延。';
+          strategy = '出示土地移交迟延备忘录，驳回发包人违约金主张，锁定工期顺延与窝工补偿。';
+        } else if (iss.text_zh.includes('SEMA') || iss.text_zh.includes('印尼语') || iss.text_zh.includes('语言法')) {
+          typeName = '善意履约抗辩';
+          title = '【SEMA 3/2023】印尼最高院善意原则排除纯英文协议机械无效抗辩';
+          ruling = '印尼最高法院 SEMA No. 3/2023 司法通告：涉外商事合同缺少印尼语译本不得单独宣告合同无效。';
+          strategy = '提交双语谈判往来邮件及履约事实记录，依法驳回业主恶意无效抗辩。';
+        } else if (iss.text_zh.includes('TKDN') || iss.text_zh.includes('本地化率')) {
+          typeName = '法定技术豁免';
+          title = '【TKDN 法定豁免】依据能矿部 MEMR 11/2024 申请国内无量产豁免批文';
+          ruling = '印尼能矿部 MEMR Reg 11/2024：属地工业无合格量产能力前提下，依法核发技术豁免批文。';
+          strategy = '凭 Sucofindo 检验证明向能矿部与工业部备案，阻断业主从工程款中扣除罚款。';
+        } else if (iss.text_zh.includes('新建设法') || iss.text_zh.includes('预定损害赔偿')) {
+          typeName = '法定封顶抗辩';
+          title = '【2025新建设法】援引越南新建设法 86.2 条及商法 301 条违约金法定上限';
+          ruling = '越南《2025新建设法》第 86.2 条：发包人交地迟延归责于发包人，违约金不得超过法定上限。';
+          strategy = '向发包人发出法定核减通知函，向 VIAC 申请临时保护措施阻断保函索兑。';
+        } else if (iss.text_zh.includes('PPP') || iss.text_zh.includes('特许经营')) {
+          typeName = '条约征收补偿';
+          title = '【BIT 间接征收】依据中国-东盟投资协定第 6 条主张公允市场价值赔偿';
+          ruling = '中国-东盟全面经济合作框架协议投资协议第 6 条：东道国征收必须给予迅速、充分、有效补偿。';
+          strategy = '搭建新加坡 SPV 激活国际投资仲裁保护伞，锁定特许权公允终止补偿。';
+        } else if (iss.text_zh.includes('PCAB') || iss.text_zh.includes('资质')) {
+          typeName = '国民待遇救济';
+          title = '【PCAB 平等待遇】援引最高院 Manila Water 先例废除外资施工资质限制';
+          ruling = '菲律宾最高法院 PCAB v. Manila Water 先例：违宪废除常规承包商牌照外资股比限制。';
+          strategy = '向菲律宾承包商执照局申请正规施工牌照，防范属地工程款抗辩。';
+        } else if (!title) {
+          title = `【争点${chineseNums[idx] || chainId}决策】权威法源支持与攻防对策`;
+        }
+
+        return {
+          id: `P${chainId}`,
+          code: `P${chainId}`,
+          chainId,
+          type: typeName,
+          title,
+          ruling,
+          strategy,
+        };
+      });
+    }
+
     if (isPreInv) {
       return [
         {
@@ -376,6 +781,88 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
           title: '【国资与信保】完成国资委 35 号令备案并投保中信保海外投资险',
           ruling: '中信保承保实务：东道国法律政策征收与汇兑限制属于政治风险核心承保范围。',
           strategy: '提前办理 30 日内出险报损留痕，出具符合司法部规范的标准域外法查明意见书。',
+        },
+      ];
+    }
+
+    if (hostJur === 'asean_my') {
+      return [
+        {
+          id: 'P1',
+          code: 'P1',
+          chainId: 1,
+          type: '法定裁决抗辩',
+          title: '【CIPAA 裁决反制】援引 CIPAA 第 35 条主张背靠背条款自始无效',
+          ruling: '马来西亚联邦法院裁判规则：CIPAA 具有法定强制力，任何以业主付款为前提之分包条款均属无效。',
+          strategy: '向 AIAC 提交法定裁决抗辩状，主张分包工程进度款立即清偿，锁定发包人连带责任。',
+        },
+        {
+          id: 'P2',
+          code: 'P2',
+          chainId: 2,
+          type: '阻碍原则先例',
+          title: '【普通法防阻原则】援引 Peak v McKinney 先例主张时间恢复自由',
+          ruling: '马来西亚高等法院先例：发包人延误场地交付阻却工期违约金适用，时间归于自由(Time at large)。',
+          strategy: '发出索赔确认函，论证发包人未及时提供工作面导致 LD 违约金条款整体失效。',
+        },
+        {
+          id: 'P3',
+          code: 'P3',
+          chainId: 3,
+          type: 'CIDB 资质抗辩',
+          title: '【CIDB 合规救济】援引 CIDB Act 520 厘清总包与分包法定资质责任边界',
+          ruling: '马来西亚高院判例：分包商登记瑕疵不免除发包人已完工合格工程款支付义务。',
+          strategy: '向发包人提交 CIDB 备案批文及合格凭证，阻却发包人借故扣留已完工工程款。',
+        },
+        {
+          id: 'P4',
+          code: 'P4',
+          chainId: 4,
+          type: '司法禁令救济',
+          title: '【高院保函禁令】向吉隆坡高院申请见索即付保函恶意索兑禁止令',
+          ruling: 'Alstom v. Insigma 规则：在索兑构成显失公平且 AIAC 裁决未决期间，法院签发临时禁令止付。',
+          strategy: '24 小时内向吉隆坡高等法院申请民事单方禁令，并向开证行送达止付通知书。',
+        },
+      ];
+    }
+
+    if (hostJur === 'asean_vn') {
+      return [
+        {
+          id: 'P1',
+          code: 'P1',
+          chainId: 1,
+          type: '新建设法索赔',
+          title: '【新建设法索赔】依据 2025 新建设法第 86.2 条发出工期顺延通告',
+          ruling: '越南建设法规程：发包人迟延交地构成关键路径停工不可归责事实，法定工期顺延。',
+          strategy: '向发包人发出法定索赔通知函，锁定关键路径受阻工期，阻断违约金计取。',
+        },
+        {
+          id: 'P2',
+          code: 'P2',
+          chainId: 2,
+          type: '法定封顶抗辩',
+          title: '【商法 301 条封顶】援引越南商法第 301 条强制截断超额 8% 违约金',
+          ruling: '越南最高法院裁判先例：任何约定超出 8% 封顶之违约金条款超出部分依法不予执行。',
+          strategy: '向发包人出示商事法典 8% 强行封顶条款，阻断业主恶意索兑保函超额扣罚。',
+        },
+        {
+          id: 'P3',
+          code: 'P3',
+          chainId: 3,
+          type: '资质许可合规',
+          title: '【投资法合规】依 2020 年投资法完成承包商许可证与外汇结汇备案',
+          ruling: '越南计划投资部规程：持有外国承包商许可证享有合法外汇利润汇出与工程款受偿保障。',
+          strategy: '提交建设部 (BXD) 核发之施工许可及劳工配额清单，化解属地行政合规风险。',
+        },
+        {
+          id: 'P4',
+          code: 'P4',
+          chainId: 4,
+          type: 'VIAC 临时保全',
+          title: '【仲裁临时措施】依据 VIAC 规则第 21 条申请保函暂缓索兑保护令',
+          ruling: 'VIAC 紧急仲裁规则：为避免当事人发生难以弥补之严重财务损害，有权签发临时救济令。',
+          strategy: '48 小时内向 VIAC 仲裁委员会递交紧急临时保护措施申请书，送达开证行。',
         },
       ];
     }
@@ -418,42 +905,106 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         strategy: '48 小时内向 SIAC 申请紧急仲裁员程序，向开证行送达保函冻结令。',
       },
     ];
-  }, [isPreInv]);
+  }, [currentCase, isPreInv, hostJur]);
 
   // =========================================================================
-  // 2. 因果拓扑连线矩阵定义 (主因果链 1~4 + 关键交叉因果影响)
+  // 2. 动态拓扑连线矩阵定义 (主干因果链 + 跨链交叉涵摄)
   // =========================================================================
-  const graphLinks: GraphLink[] = useMemo(() => [
-    // 主链路 1: 现场交地/资质 ➔ EOT/准入 ➔ FIDIC 8.4/建筑法 ➔ 示范反制
-    { from: 'F1', to: 'I1', chainId: 1 },
-    { from: 'I1', to: 'N1', chainId: 1 },
-    { from: 'N1', to: 'P1', chainId: 1 },
+  const graphLinks: GraphLink[] = useMemo(() => {
+    if (rawIssues.length > 0 && issuesList.length > 0) {
+      const links: GraphLink[] = [];
 
-    // 主链路 2: 通知时效/习惯法 ➔ 28天/BIT ➔ SEMA 3/2023/BIT ➔ 善意反失权
-    { from: 'F2', to: 'I2', chainId: 2 },
-    { from: 'I2', to: 'N2', chainId: 2 },
-    { from: 'N2', to: 'P2', chainId: 2 },
+      // 1. Facts -> Issues
+      factsList.forEach((f) => {
+        const targetIssueId = `I${f.chainId}`;
+        links.push({
+          from: f.id,
+          to: targetIssueId,
+          chainId: f.chainId,
+        });
 
-    // 主链路 3: 本地化率/TKDN ➔ 采购指标 ➔ MOI/MEMR ➔ 产能豁免
-    { from: 'F3', to: 'I3', chainId: 3 },
-    { from: 'I3', to: 'N3', chainId: 3 },
-    { from: 'N3', to: 'P3', chainId: 3 },
+        // 交叉连线：若事实同时关涉其他争点
+        (f as any).matchedIssueIds?.forEach((issId: string) => {
+          if (issId !== targetIssueId && issuesList.some((i) => i.id === issId)) {
+            const matchedIssue = issuesList.find((i) => i.id === issId);
+            links.push({
+              from: f.id,
+              to: issId,
+              chainId: matchedIssue?.chainId || f.chainId,
+              isCrossLink: true,
+            });
+          }
+        });
+      });
 
-    // 主链路 4: 突袭保函/国资 ➔ 显失公平/35号令 ➔ BS Mount Sophia/国资 ➔ 紧急仲裁止付
-    { from: 'F4', to: 'I4', chainId: 4 },
-    { from: 'I4', to: 'N4', chainId: 4 },
-    { from: 'N4', to: 'P4', chainId: 4 },
+      // 2. Issues -> Norms
+      normsList.forEach((norm) => {
+        const sourceIssueId = `I${norm.chainId}`;
+        links.push({
+          from: sourceIssueId,
+          to: norm.id,
+          chainId: norm.chainId,
+        });
 
-    // 交叉因果穿透拓扑 (体现法律实务真实网络)
-    { from: 'F1', to: 'I2', chainId: 1, isCrossLink: true }, // 交地受阻持续事实影响索赔通知起算点
-    { from: 'I1', to: 'N2', chainId: 2, isCrossLink: true }, // 工期顺延权利受善意原则支持
-    { from: 'N4', to: 'P2', chainId: 4, isCrossLink: true }, // 显失公平抗辩支撑善意原则
-  ], []);
+        // 交叉连线：若法规同时关涉其他争点
+        (norm as any).matchedIssueIds?.forEach((issId: string) => {
+          if (issId !== sourceIssueId && issuesList.some((i) => i.id === issId)) {
+            links.push({
+              from: issId,
+              to: norm.id,
+              chainId: norm.chainId,
+              isCrossLink: true,
+            });
+          }
+        });
+      });
+
+      // 3. Norms -> Precedents
+      precedentsList.forEach((p) => {
+        const matchingNorms = normsList.filter((n) => n.chainId === p.chainId);
+        if (matchingNorms.length > 0) {
+          matchingNorms.forEach((n) => {
+            links.push({
+              from: n.id,
+              to: p.id,
+              chainId: p.chainId,
+            });
+          });
+        } else {
+          links.push({
+            from: `I${p.chainId}`,
+            to: p.id,
+            chainId: p.chainId,
+          });
+        }
+      });
+
+      return links;
+    }
+
+    return [
+      { from: 'F1', to: 'I1', chainId: 1 },
+      { from: 'I1', to: 'N1', chainId: 1 },
+      { from: 'N1', to: 'P1', chainId: 1 },
+      { from: 'F2', to: 'I2', chainId: 2 },
+      { from: 'I2', to: 'N2', chainId: 2 },
+      { from: 'N2', to: 'P2', chainId: 2 },
+      { from: 'F3', to: 'I3', chainId: 3 },
+      { from: 'I3', to: 'N3', chainId: 3 },
+      { from: 'N3', to: 'P3', chainId: 3 },
+      { from: 'F4', to: 'I4', chainId: 4 },
+      { from: 'I4', to: 'N4', chainId: 4 },
+      { from: 'N4', to: 'P4', chainId: 4 },
+      { from: 'F1', to: 'I2', chainId: 1, isCrossLink: true },
+      { from: 'I1', to: 'N2', chainId: 2, isCrossLink: true },
+      { from: 'N4', to: 'P2', chainId: 4, isCrossLink: true },
+    ];
+  }, [rawIssues.length, factsList, issuesList, normsList, precedentsList]);
 
   // 点击或悬停的激活锚点目标 ID
   const activeTargetId = hoveredNodeId || selectedNodeId;
 
-  // 使用有向因果图闭包计算当前应点亮的全部节点集合与连线集合 (广度优先双向遍历)
+  // 使用有向因果图闭包计算当前应点亮的全部节点集合与连线集合 (有向因果链路双向约束，杜绝全图泛滥)
   const { activeNodeIds, activeLinkIds } = useMemo(() => {
     if (!activeTargetId) {
       return { activeNodeIds: new Set<string>(), activeLinkIds: new Set<string>() };
@@ -472,7 +1023,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
 
     const activeNodes = new Set<string>([activeTargetId]);
 
-    // 正向 BFS：收集下游直接与间接影响的全部节点 (事实 -> 争点 -> 法条 -> 对策)
+    // 正向因果推演：向下游合法延展 (事实 -> 争点 -> 法条 -> 对策)
     const forwardQueue = [activeTargetId];
     while (forwardQueue.length > 0) {
       const curr = forwardQueue.shift()!;
@@ -485,7 +1036,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       }
     }
 
-    // 反向 BFS：收集上游因果渊源的所有支撑节点 (对策 -> 法条 -> 争点 -> 事实)
+    // 反向事实溯源：向上游合法回溯 (对策 -> 法条 -> 争点 -> 事实)
     const backwardQueue = [activeTargetId];
     while (backwardQueue.length > 0) {
       const curr = backwardQueue.shift()!;
@@ -498,7 +1049,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       }
     }
 
-    // 提取子图内所有相连的链路 ID
+    // 精确提取处于激活通路的链路
     const activeLinks = new Set<string>();
     graphLinks.forEach((l, idx) => {
       if (activeNodes.has(l.from) && activeNodes.has(l.to)) {
@@ -509,7 +1060,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
     return { activeNodeIds: activeNodes, activeLinkIds: activeLinks };
   }, [activeTargetId, graphLinks]);
 
-  // 重新计算并测量 SVG 连线坐标
+  // 重新计算并测量 SVG 连线坐标 (带隐藏节点跳过，避免无效计算与异常路径)
   const recomputeLinks = useCallback(() => {
     if (!containerRef.current) return;
     const containerRect = containerRef.current.getBoundingClientRect();
@@ -531,6 +1082,9 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       const toEl = nodeRefs.current[link.to];
       if (!fromEl || !toEl) return;
 
+      // 性能与逻辑优化：若节点处于隐藏状态（如被 activeFilter 过滤），直接跳过计算
+      if (fromEl.offsetParent === null || toEl.offsetParent === null) return;
+
       const fromRect = fromEl.getBoundingClientRect();
       const toRect = toEl.getBoundingClientRect();
 
@@ -542,7 +1096,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       const x2 = toRect.left - containerRect.left;
       const y2 = toRect.top + toRect.height / 2 - containerRect.top;
 
-      const dx = Math.max(20, (x2 - x1) * 0.45);
+      const dx = Math.max(24, (x2 - x1) * 0.44);
       const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 
       paths.push({
@@ -562,23 +1116,56 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
     setSvgPaths(paths);
   }, [graphLinks]);
 
-  useEffect(() => {
-    recomputeLinks();
-    window.addEventListener('resize', recomputeLinks);
-    // 增加多微帧重算，保证弹窗弹性滑入过程中 SVG 贝塞尔曲线实时贴合锚点
-    const t1 = setTimeout(recomputeLinks, 60);
-    const t2 = setTimeout(recomputeLinks, 180);
-    const t3 = setTimeout(recomputeLinks, 360);
-    return () => {
-      window.removeEventListener('resize', recomputeLinks);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [recomputeLinks, factsList, issuesList, normsList, precedentsList, activeFilter, selectedNodeId, hoveredNodeId]);
+  // 高性能调度器：使用 requestAnimationFrame 防抖，杜绝滚动和微交互导致的布局抖动 (Layout Thrashing)
+  const scheduleRecompute = useCallback(() => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+    rafIdRef.current = requestAnimationFrame(() => {
+      recomputeLinks();
+      rafIdRef.current = null;
+    });
+  }, [recomputeLinks]);
 
-  // 默认激活的检视节点（若未悬停则显示第一行规范）
-  const activeInspector = activeInspectorNode || normsList[0];
+  // 监听容器真实尺寸变化与滤镜改变，彻底解绑鼠标 hover 导致的无谓重测
+  useEffect(() => {
+    scheduleRecompute();
+    const container = containerRef.current;
+    if (!container) return;
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        scheduleRecompute();
+      });
+      ro.observe(container);
+    }
+
+    window.addEventListener('resize', scheduleRecompute);
+    const t = setTimeout(scheduleRecompute, 120);
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', scheduleRecompute);
+      clearTimeout(t);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, [scheduleRecompute, activeFilter, factsList, issuesList, normsList, precedentsList]);
+
+  // 精准默认激活的检视节点（优先对齐当前过滤选中的争点）
+  const activeInspector = useMemo(() => {
+    if (activeInspectorNode) return activeInspectorNode;
+    if (activeFilter !== 'all') {
+      const targetChainId = parseInt(activeFilter.replace(/\D/g, ''), 10);
+      const matchedNorm = normsList.find((n) => n.chainId === targetChainId);
+      if (matchedNorm) return matchedNorm;
+      const matchedIssue = issuesList.find((i) => i.id === activeFilter || i.chainId === targetChainId);
+      if (matchedIssue) return matchedIssue;
+    }
+    return normsList[0] || issuesList[0] || factsList[0];
+  }, [activeInspectorNode, activeFilter, normsList, issuesList, factsList]);
 
   return (
     <div
@@ -591,9 +1178,11 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       {!fullscreen && (
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
           <div className="flex items-center gap-2">
-            <Share2 className="w-4 h-4 text-blue-600" />
-            <h3 className="text-xs font-bold text-slate-900">
-              四层穿透因果拓扑图谱 (Causal Topology)
+            <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+              <Share2 className="w-3.5 h-3.5 text-blue-600" />
+            </div>
+            <h3 className="text-xs font-bold text-slate-900 tracking-tight">
+              法源因果拓扑图谱 (Causal Topology)
             </h3>
             <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
               事实 ➔ 争点 ➔ 规范 ➔ 对策
@@ -623,15 +1212,17 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
             <stop offset="45%" stopColor="#6366f1" />
             <stop offset="100%" stopColor="#8b5cf6" />
           </linearGradient>
+          <linearGradient id="gradient-cross-link" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#0ea5e9" />
+            <stop offset="100%" stopColor="#a855f7" />
+          </linearGradient>
         </defs>
 
         {svgPaths.map((p) => {
           const isFilterMatched = activeFilter === 'all' || activeFilter === `I${p.chainId}`;
           if (!isFilterMatched) return null;
 
-          const isLinkActive =
-            activeLinkIds.has(p.id) ||
-            (activeNodeIds.has(p.from) && activeNodeIds.has(p.to));
+          const isLinkActive = activeLinkIds.has(p.id);
           const isAnyActive = activeNodeIds.size > 0;
 
           if (!isLinkActive) {
@@ -640,79 +1231,83 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                 <path
                   d={p.d}
                   fill="none"
-                  stroke={p.isCrossLink ? 'rgba(148, 163, 184, 0.45)' : 'rgba(203, 213, 225, 0.85)'}
-                  strokeWidth={p.isCrossLink ? 1.2 : 1.6}
+                  stroke={p.isCrossLink ? 'rgba(148, 163, 184, 0.4)' : 'rgba(203, 213, 225, 0.75)'}
+                  strokeWidth={p.isCrossLink ? 1.2 : 1.5}
                   strokeDasharray={p.isCrossLink ? '4 3' : undefined}
-                  opacity={isAnyActive ? 0.2 : 0.75}
-                  className="transition-all duration-300"
+                  opacity={isAnyActive ? 0.16 : 0.7}
+                  className="transition-all duration-200"
                 />
-                {/* 静息态端点微光定位点 */}
-                <circle cx={p.x1} cy={p.y1} r={2} fill="#cbd5e1" opacity={isAnyActive ? 0.2 : 0.6} />
-                <circle cx={p.x2} cy={p.y2} r={2} fill="#cbd5e1" opacity={isAnyActive ? 0.2 : 0.6} />
+                <circle cx={p.x1} cy={p.y1} r={2} fill="#cbd5e1" opacity={isAnyActive ? 0.16 : 0.6} />
+                <circle cx={p.x2} cy={p.y2} r={2} fill="#cbd5e1" opacity={isAnyActive ? 0.16 : 0.6} />
               </g>
             );
           }
 
           return (
-            <g key={p.id} className="transition-all duration-300">
-              {/* Layer 1: macOS 柔光环境呼吸光晕 (基于 SVG 实体多层发光，杜绝纯水平线零高度剪裁 Bug) */}
+            <g key={p.id} className="transition-all duration-200">
+              {/* Layer 1: 环境光晕 */}
               <path
                 d={p.d}
                 fill="none"
-                stroke="url(#gradient-active-link)"
+                stroke={p.isCrossLink ? 'url(#gradient-cross-link)' : 'url(#gradient-active-link)'}
                 strokeWidth={6.5}
                 strokeLinecap="round"
                 className="apple-glow-breathe pointer-events-none"
               />
 
-              {/* Layer 2: 核心能量导轨实体光缆 */}
+              {/* Layer 2: 实体导轨光缆 */}
               <path
                 d={p.d}
                 fill="none"
-                stroke="url(#gradient-active-link)"
+                stroke={p.isCrossLink ? 'url(#gradient-cross-link)' : 'url(#gradient-active-link)'}
                 strokeWidth={2.4}
                 strokeLinecap="round"
+                strokeDasharray={p.isCrossLink ? '5 3' : undefined}
                 opacity={0.95}
               />
 
-              {/* Layer 3: 类 macOS 高频流动白光光子脉冲束 (循环平滑光斑流) */}
-              <path
-                d={p.d}
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth={1.8}
-                strokeLinecap="round"
-                className="apple-link-pulse pointer-events-none"
-              />
+              {/* Layer 3: 白光脉冲流动束 */}
+              {!p.isCrossLink && (
+                <path
+                  d={p.d}
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  className="apple-link-pulse pointer-events-none"
+                />
+              )}
 
-              {/* Layer 4: 起始端磁吸锚点 (含微光外晕) */}
-              <circle cx={p.x1} cy={p.y1} r={4.5} fill="#3b82f6" opacity={0.3} />
+              {/* 起止端磁吸同心锚点 */}
+              <circle cx={p.x1} cy={p.y1} r={4.5} fill="#3b82f6" opacity={0.25} />
               <circle cx={p.x1} cy={p.y1} r={2.8} fill="#3b82f6" stroke="#ffffff" strokeWidth={1} />
-
-              {/* Layer 5: 终止端磁吸接收锚点 (含微光外晕) */}
-              <circle cx={p.x2} cy={p.y2} r={4.5} fill="#8b5cf6" opacity={0.3} />
+              <circle cx={p.x2} cy={p.y2} r={4.5} fill="#8b5cf6" opacity={0.25} />
               <circle cx={p.x2} cy={p.y2} r={2.8} fill="#8b5cf6" stroke="#ffffff" strokeWidth={1} />
             </g>
           );
         })}
       </svg>
 
-      {/* 四列分层网格展示 (每个分栏置于 macOS 高透毛玻璃导轨卡槽中) */}
+      {/* 四列分层网格展示 */}
       <div
-        onClick={() => setSelectedNodeId(null)}
-        onScroll={recomputeLinks}
+        ref={gridContainerRef}
+        onClick={() => {
+          setSelectedNodeId(null);
+          setHoveredNodeId(null);
+        }}
+        onScroll={scheduleRecompute}
         className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-5 relative z-20 flex-1 overflow-y-auto pr-1 pb-1"
       >
         {/* ========================================================================= */}
-        {/* Column 1: 在案事实要件 */}
+        {/* Column 1: 在案事实要件 (深海矿石灰 Slate-Titanium) */}
         {/* ========================================================================= */}
         <div className="bg-slate-900/[0.025] backdrop-blur-2xl rounded-[22px] p-3 border border-black/[0.06] shadow-2xs flex flex-col space-y-2.5">
           <div className="flex items-center justify-between px-1.5 shrink-0 pb-2 border-b border-black/[0.05]">
             <span className="text-xs font-semibold text-slate-800 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-slate-400" />
-              <span>案件事实</span>
+              <span className="w-2 h-2 rounded-full bg-slate-400 ring-2 ring-slate-300/50" />
+              <span>案件事实要件</span>
             </span>
-            <span className="text-[10px] font-mono text-slate-400">Facts</span>
+            <span className="text-[10px] font-mono text-slate-500 bg-black/[0.04] px-1.5 py-0.5 rounded">Facts</span>
           </div>
 
           <div className="space-y-2.5 flex-1 flex flex-col justify-between">
@@ -740,23 +1335,23 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     setSelectedNodeId((prev) => (prev === f.id ? null : f.id));
                     setActiveInspectorNode(f);
                   }}
-                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group ${
+                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group transition-all duration-200 ${
                     isFilteredOut
                       ? 'hidden'
                       : isTarget
-                      ? 'bg-white border-blue-500 shadow-md ring-2 ring-blue-500/20 -translate-y-0.5'
+                      ? 'bg-white border-slate-600 shadow-md ring-2 ring-slate-400/25 -translate-y-0.5'
                       : isActive
-                      ? 'bg-white border-blue-500/90 shadow-sm ring-1 ring-blue-400/20'
+                      ? 'bg-white border-slate-500 shadow-sm ring-1 ring-slate-400/20'
                       : isDimmed
-                      ? 'opacity-35 grayscale-[0.35] bg-white/60 border-black/[0.04] hover:opacity-100 hover:grayscale-0'
-                      : 'bg-white/90 backdrop-blur-xl border-black/[0.08] hover:border-black/[0.16] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
+                      ? 'opacity-25 grayscale-[0.45] scale-[0.985] bg-white/40 border-black/[0.04] hover:opacity-100 hover:grayscale-0 hover:scale-100'
+                      : 'bg-white/90 backdrop-blur-xl border-black/[0.07] hover:border-slate-300 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span
                       className={`font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded-md border ${
                         isActive
-                          ? 'bg-blue-600 text-white border-blue-600'
+                          ? 'bg-slate-800 text-white border-slate-800'
                           : 'bg-black/[0.04] text-slate-700 border-black/[0.06]'
                       }`}
                     >
@@ -764,7 +1359,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     </span>
                     <div className="flex items-center gap-1.5">
                       {isSelected && (
-                        <span className="text-[9px] font-semibold text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200">
+                        <span className="text-[9px] font-semibold text-slate-700 bg-slate-100 px-1 py-0.2 rounded border border-slate-200">
                           锁定
                         </span>
                       )}
@@ -787,15 +1382,15 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         </div>
 
         {/* ========================================================================= */}
-        {/* Column 2: 争议焦点与法定要件 */}
+        {/* Column 2: 争议焦点与法定要件 (皇家钴蓝 Cobalt-Blue) */}
         {/* ========================================================================= */}
         <div className="bg-slate-900/[0.025] backdrop-blur-2xl rounded-[22px] p-3 border border-black/[0.06] shadow-2xs flex flex-col space-y-2.5">
           <div className="flex items-center justify-between px-1.5 shrink-0 pb-2 border-b border-black/[0.05]">
             <span className="text-xs font-semibold text-slate-800 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              <span>争点要件</span>
+              <span className="w-2 h-2 rounded-full bg-blue-500 ring-2 ring-blue-300/50" />
+              <span>争议焦点拆解</span>
             </span>
-            <span className="text-[10px] font-mono text-slate-400">Issues</span>
+            <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">Issues</span>
           </div>
 
           <div className="space-y-2.5 flex-1 flex flex-col justify-between">
@@ -823,42 +1418,42 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     setSelectedNodeId((prev) => (prev === iss.id ? null : iss.id));
                     setActiveInspectorNode(iss);
                   }}
-                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group ${
+                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group transition-all duration-200 ${
                     isFilteredOut
                       ? 'hidden'
                       : isTarget
-                      ? 'bg-white border-indigo-500 shadow-md ring-2 ring-indigo-500/20 -translate-y-0.5'
+                      ? 'bg-white border-blue-600 shadow-md ring-2 ring-blue-500/25 -translate-y-0.5'
                       : isActive
-                      ? 'bg-white border-indigo-500/90 shadow-sm ring-1 ring-indigo-400/20'
+                      ? 'bg-white border-blue-500 shadow-sm ring-1 ring-blue-400/20'
                       : isDimmed
-                      ? 'opacity-35 grayscale-[0.35] bg-white/60 border-black/[0.04] hover:opacity-100 hover:grayscale-0'
-                      : 'bg-white/90 backdrop-blur-xl border-black/[0.08] hover:border-black/[0.16] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
+                      ? 'opacity-25 grayscale-[0.45] scale-[0.985] bg-white/40 border-black/[0.04] hover:opacity-100 hover:grayscale-0 hover:scale-100'
+                      : 'bg-white/90 backdrop-blur-xl border-black/[0.07] hover:border-blue-300 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span
                       className={`font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded-md border ${
                         isActive
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-black/[0.04] text-slate-700 border-black/[0.06]'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-blue-50/80 text-blue-700 border-blue-200/60'
                       }`}
                     >
                       {iss.code}
                     </span>
                     <div className="flex items-center gap-1.5">
                       {isSelected && (
-                        <span className="text-[9px] font-semibold text-indigo-700 bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200">
+                        <span className="text-[9px] font-semibold text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-200">
                           锁定
                         </span>
                       )}
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          isActive ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          isActive ? 'bg-blue-600 ring-4 ring-blue-400/30 animate-pulse' : 'bg-slate-300'
                         }`}
                       />
                     </div>
                   </div>
-                  <h4 className="text-xs font-semibold text-slate-900 leading-snug line-clamp-1">
+                  <h4 className="text-xs font-semibold text-slate-900 leading-snug line-clamp-2">
                     {iss.name}
                   </h4>
                   <div className="mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-600 truncate">
@@ -871,15 +1466,15 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         </div>
 
         {/* ========================================================================= */}
-        {/* Column 3: 现行成文法典与基线 */}
+        {/* Column 3: 现行成文法典 (翡翠常青 Emerald-Green) */}
         {/* ========================================================================= */}
         <div className="bg-slate-900/[0.025] backdrop-blur-2xl rounded-[22px] p-3 border border-black/[0.06] shadow-2xs flex flex-col space-y-2.5">
           <div className="flex items-center justify-between px-1.5 shrink-0 pb-2 border-b border-black/[0.05]">
             <span className="text-xs font-semibold text-slate-800 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>现行法典</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-300/50" />
+              <span>东盟现行法典</span>
             </span>
-            <span className="text-[10px] font-mono text-slate-400">Norms</span>
+            <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Norms</span>
           </div>
 
           <div className="space-y-2.5 flex-1 flex flex-col justify-between">
@@ -908,24 +1503,24 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     setActiveInspectorNode(norm);
                     onSelectNorm(norm.ref_id);
                   }}
-                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group ${
+                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group transition-all duration-200 ${
                     isFilteredOut
                       ? 'hidden'
                       : isTarget
-                      ? 'bg-white border-emerald-500 shadow-md ring-2 ring-emerald-500/20 -translate-y-0.5'
+                      ? 'bg-white border-emerald-600 shadow-md ring-2 ring-emerald-500/25 -translate-y-0.5'
                       : isActive
-                      ? 'bg-white border-emerald-500/90 shadow-sm ring-1 ring-emerald-400/20'
+                      ? 'bg-white border-emerald-500 shadow-sm ring-1 ring-emerald-400/20'
                       : isDimmed
-                      ? 'opacity-35 grayscale-[0.35] bg-white/60 border-black/[0.04] hover:opacity-100 hover:grayscale-0'
-                      : 'bg-white/90 backdrop-blur-xl border-black/[0.08] hover:border-black/[0.16] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
+                      ? 'opacity-25 grayscale-[0.45] scale-[0.985] bg-white/40 border-black/[0.04] hover:opacity-100 hover:grayscale-0 hover:scale-100'
+                      : 'bg-white/90 backdrop-blur-xl border-black/[0.07] hover:border-emerald-300 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span
-                      className={`font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded-md border ${
+                      className={`font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded-md border truncate max-w-[130px] ${
                         isActive
                           ? 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-black/[0.04] text-slate-700 border-black/[0.06]'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
                       }`}
                     >
                       {norm.code}
@@ -942,7 +1537,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     </div>
                   </div>
 
-                  <p className="text-xs font-semibold text-slate-900 leading-snug line-clamp-1">
+                  <p className="text-xs font-semibold text-slate-900 leading-snug line-clamp-2">
                     {norm.name}
                   </p>
 
@@ -955,7 +1550,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                       }}
                       className="text-[10px] text-blue-600 font-medium flex items-center gap-1 hover:underline cursor-pointer"
                     >
-                      <span>精读</span>
+                      <span>精读条文</span>
                       <ExternalLink className="w-2.5 h-2.5" />
                     </span>
 
@@ -965,9 +1560,9 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                         e.stopPropagation();
                         handleAttachStatute(norm);
                       }}
-                      className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium flex items-center gap-1 cursor-pointer transition-all ${
+                      className={`text-[10px] px-2 py-0.5 rounded-md font-medium flex items-center gap-1 cursor-pointer transition-all ${
                         pinnedNormId === norm.id
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-emerald-600 text-white shadow-2xs'
                           : 'bg-black/[0.03] text-slate-700 border border-black/[0.06] hover:bg-black/[0.06]'
                       }`}
                     >
@@ -991,15 +1586,15 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
         </div>
 
         {/* ========================================================================= */}
-        {/* Column 4: 司法先例与反制方案 */}
+        {/* Column 4: 司法先例与反制方案 (紫晶罗兰 Amethyst-Violet) */}
         {/* ========================================================================= */}
         <div className="bg-slate-900/[0.025] backdrop-blur-2xl rounded-[22px] p-3 border border-black/[0.06] shadow-2xs flex flex-col space-y-2.5">
           <div className="flex items-center justify-between px-1.5 shrink-0 pb-2 border-b border-black/[0.05]">
             <span className="text-xs font-semibold text-slate-800 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-500" />
-              <span>裁判对策</span>
+              <span className="w-2 h-2 rounded-full bg-purple-500 ring-2 ring-purple-300/50" />
+              <span>裁判对策与反制</span>
             </span>
-            <span className="text-[10px] font-mono text-slate-400">Strategy</span>
+            <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">Strategy</span>
           </div>
 
           <div className="space-y-2.5 flex-1 flex flex-col justify-between">
@@ -1027,16 +1622,16 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     setSelectedNodeId((prev) => (prev === p.id ? null : p.id));
                     setActiveInspectorNode(p);
                   }}
-                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group ${
+                  className={`apple-graph-card p-3 rounded-[16px] border text-xs cursor-pointer relative group transition-all duration-200 ${
                     isFilteredOut
                       ? 'hidden'
                       : isTarget
-                      ? 'bg-white border-purple-500 shadow-md ring-2 ring-purple-500/20 -translate-y-0.5'
+                      ? 'bg-white border-purple-600 shadow-md ring-2 ring-purple-500/25 -translate-y-0.5'
                       : isActive
-                      ? 'bg-white border-purple-500/90 shadow-sm ring-1 ring-purple-400/20'
+                      ? 'bg-white border-purple-500 shadow-sm ring-1 ring-purple-400/20'
                       : isDimmed
-                      ? 'opacity-35 grayscale-[0.35] bg-white/60 border-black/[0.04] hover:opacity-100 hover:grayscale-0'
-                      : 'bg-white/90 backdrop-blur-xl border-black/[0.08] hover:border-black/[0.16] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_1px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
+                      ? 'opacity-25 grayscale-[0.45] scale-[0.985] bg-white/40 border-black/[0.04] hover:opacity-100 hover:grayscale-0 hover:scale-100'
+                      : 'bg-white/90 backdrop-blur-xl border-black/[0.07] hover:border-purple-300 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
@@ -1044,7 +1639,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                       className={`font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded-md border ${
                         isActive
                           ? 'bg-purple-600 text-white border-purple-600'
-                          : 'bg-black/[0.04] text-slate-700 border-black/[0.06]'
+                          : 'bg-purple-50 text-purple-800 border-purple-200/80'
                       }`}
                     >
                       {p.type}
@@ -1063,7 +1658,7 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                     </div>
                   </div>
 
-                  <p className="text-xs font-semibold text-slate-900 leading-snug line-clamp-1">
+                  <p className="text-xs font-semibold text-slate-900 leading-snug line-clamp-2">
                     {p.title}
                   </p>
 
@@ -1081,13 +1676,13 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       {/* 底部 Apple 风格微型透视信息坞 (Inspector Dock) */}
       {/* ========================================================================= */}
       {fullscreen && (
-        <div className="mt-3 pt-3 border-t border-black/[0.06] bg-white/80 backdrop-blur-2xl rounded-2xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-black/[0.06]">
+        <div className="mt-3 pt-3 border-t border-black/[0.06] bg-white/85 backdrop-blur-2xl rounded-2xl p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-[0_12px_40px_rgba(0,0,0,0.06)] border border-black/[0.06] transition-all">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-6 h-6 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <Sparkles className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-slate-900">
                   当前节点：{activeInspector?.code || activeInspector?.tag || '全部'} · {activeInspector?.name || activeInspector?.title}
                 </span>
@@ -1110,12 +1705,12 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
 
           <div className="flex items-center gap-2 shrink-0">
             <div className="flex items-center gap-3 text-[11px] text-slate-400 mr-2">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.6)]" />
                 <span>实线：主因果链</span>
               </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-slate-300" />
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-purple-400" />
                 <span>虚线：交叉涵摄</span>
               </span>
             </div>

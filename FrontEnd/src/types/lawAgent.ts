@@ -84,7 +84,7 @@ export interface Material {
 
 export interface Issue {
   issue_id: string;
-  kind: 'fact' | 'law'; // 事实争点或法律争点
+  kind: 'fact' | 'law' | 'procedural'; // 事实争点、实体法律争点或程序/管辖争点
   text_zh: string;
   claim_ids: string[];
   element_ids: string[];
@@ -298,6 +298,7 @@ export interface SearchFilter {
   court?: string; // SG_HC | SG_CA | PH_SC | ID_MA | MY_FC | SIAC | ICC
   date_from?: string;
   kind?: 'all' | 'norm' | 'case';
+  layer?: 'AUTO' | 'L1' | 'L2' | 'ALL';
 }
 
 export interface NormOrCaseItem {
@@ -315,6 +316,14 @@ export interface NormOrCaseItem {
   stand?: string;
   has_pending_amend?: boolean;
   source_url: string;
+  layer?: 'L1' | 'L2' | string;
+  text_original?: string;
+  text_en?: string;
+  text_zh?: string;
+  language_mode?: string;
+  translation_source?: string;
+  fidic_tier?: string;
+  fidic_edition?: string;
   structure?: Array<{
     absatz: string;
     text: string;

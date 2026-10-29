@@ -47,8 +47,8 @@ export const ComplianceCenterView: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      {/* 顶部决策看板 Header Banner (Apple HIG x Fluent 2 视觉令牌) */}
-      <div className="acrylic-card p-6 sm:p-7 shadow-xs relative overflow-hidden">
+      {/* 顶部决策看板 Header Banner */}
+      <div className="apple-bento-card p-6 sm:p-7 relative overflow-hidden">
         <div className="relative z-10 max-w-4xl space-y-3">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
@@ -91,7 +91,7 @@ export const ComplianceCenterView: React.FC = () => {
       </div>
 
       {/* 四大核心模块切换 Tab */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-slate-200/50 p-1 rounded-2xl">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-slate-200/60 p-1.5 rounded-2xl">
         {tabs.map((tab) => {
           const isSelected = activeTab === tab.id;
           const IconComp = tab.icon;
@@ -101,19 +101,21 @@ export const ComplianceCenterView: React.FC = () => {
               onClick={() => setActiveTab(tab.id as ComplianceTab)}
               className={`p-3 rounded-xl text-left transition-all cursor-pointer flex items-center gap-3 ${
                 isSelected
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-blue-500/20'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
               <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                  isSelected ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600'
+                className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all ${
+                  isSelected ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/30' : 'bg-slate-200 text-slate-600'
                 }`}
               >
                 <IconComp className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <div className="text-xs font-bold truncate">{tab.label}</div>
+                <div className={`text-xs font-bold truncate ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
+                  {tab.label}
+                </div>
                 <div className="text-[11px] text-slate-400 truncate mt-0.5">{tab.sub}</div>
               </div>
             </button>

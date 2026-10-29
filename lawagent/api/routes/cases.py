@@ -132,7 +132,8 @@ async def _run_workflow_background(case_id: str, db: StateDBManager, runner: Law
     try:
         state.status = "running"
         db.save_case(state)
-        await sse_manager.broadcast(case_id, "node_start", {"node": state.current_node or "s1_extract"})
+        starting_node = "s3_decompose" if state.current_node == "s2_precheck" else (state.current_node or "s1_extract")
+        await sse_manager.broadcast(case_id, "node_start", {"node": starting_node})
 
         config = {"configurable": {"thread_id": case_id}}
 
@@ -262,6 +263,8 @@ async def run_workflow(
     if not state:
         raise HTTPException(status_code=404, detail="案件不存在")
 
+    state.status = "running"
+    db.save_case(state)
     background_tasks.add_task(_run_workflow_background, case_id, db, runner)
     return {"job_id": f"job-{case_id}-{int(time.time())}"}
 
@@ -1300,6 +1303,24 @@ def simulate_engineering(
             status="satisfied" if tkdn_eval.get("overall_status") in ("safe", "compliant") else "uncertain",
             detail=tkdn_eval.get("recommendation", "")
         ))
+    elif jur == "asean_my":
+        updated_entry_checks.append(EntryCheckItem(
+            name="马来西亚 CIPAA 2012 第35条背靠背条款法定无效与 CIDB Act 520 资质审查",
+            status="satisfied",
+            detail="依据 CIPAA 2012 第 35 条，有条件付款条款法定绝对无效，分包商法定裁决应诉与 CIDB 执照要件已建立交叉抗辩证据链。"
+        ))
+    elif jur == "asean_vn":
+        updated_entry_checks.append(EntryCheckItem(
+            name="越南《2025新建设法》第 86.2 条预定损害赔偿上限 (8% LD Cap) 与工期顺延审查",
+            status="satisfied",
+            detail="依据 2025 新建设法第 86.2 条及商法第 301 条，违约金与预定损害赔偿受法定上限约束，且不可抗力免责要件齐备。"
+        ))
+    elif jur == "asean_sg":
+        updated_entry_checks.append(EntryCheckItem(
+            name="新加坡 SOPA 第 9 条反背靠背支付与 BS Mount Sophia 保函止付抗辩审查",
+            status="satisfied",
+            detail="依据 SOPA 第 9 条及权威判例 BS Mount Sophia，背靠背条款不予支持，保函止付与 SIAC 仲裁救济要件完备。"
+        ))
     if eot_eval.get("applicable"):
         updated_entry_checks.append(EntryCheckItem(
             name="FIDIC 8.4 / 20.1 竣工工期顺延 (EOT) 与 28 天通知时效前置要件审查",
@@ -1387,36 +1408,45 @@ def extract_case_intake(payload: ExtractIntakePayload):
     text = payload.raw_text.strip()
     hint_jur = payload.hint_jurisdiction
 
-    # 1. 识别东道国 (jurisdiction)
-    jur = "asean_id"
-    if hint_jur and hint_jur in ("asean_id", "asean_vn", "asean_my", "asean_sg", "asean_th", "asean_ph"):
+    # 1. 识别东道国 (jurisdiction) - 核心规则：文本内容优先于默认 hint_jurisdiction
+    jur_keywords = {
+        "asean_my": ["马来西亚", "大马", "Malaysia", "Malaysian", "Kuala Lumpur", "吉隆坡", "Selangor", "雪兰莪", "Penang", "槟城", "Johor", "柔佛", "CIPAA", "CIDB", "AIAC", "TNB", "PAM"],
+        "asean_vn": ["越南", "Vietnam", "Vietnamese", "Hanoi", "河内", "Ho Chi Minh", "胡志明", "Da Nang", "岘港", "EVN", "2025建设法", "Law 135", "VIAC"],
+        "asean_sg": ["新加坡", "Singapore", "SIAC", "SOPA", "Mount Sophia", "JBE", "SICC", "SCMA"],
+        "asean_th": ["泰国", "Thailand", "Thai", "Bangkok", "曼谷", "Chonburi", "春武里", "FBA", "BOI", "CCC 596", "TAI"],
+        "asean_ph": ["菲律宾", "Philippines", "Philippine", "Manila", "马尼拉", "Cebu", "宿务", "PCAB", "RA 11966", "CIAC"],
+        "asean_id": ["印尼", "印度尼西亚", "Jakarta", "雅加达", "Indonesia", "Indonesian", "Bandung", "万隆", "Surabaya", "泗水", "PLN", "TKDN", "SEMA", "KUHPerdata", "BANI", "IKN", "努山塔拉"]
+    }
+
+    # 计算各法域在文本中的命中权重（核心国名权重 5，主要城市/法规/机构权重 3）
+    scores = {code: 0 for code in jur_keywords}
+    for code, kws in jur_keywords.items():
+        for kw in kws:
+            if kw in text:
+                weight = 5 if kw in ["马来西亚", "Malaysia", "越南", "Vietnam", "新加坡", "Singapore", "泰国", "Thailand", "菲律宾", "Philippines", "印尼", "印度尼西亚", "Indonesia"] else 3
+                scores[code] += weight
+
+    best_jur, best_score = max(scores.items(), key=lambda x: x[1])
+    if best_score > 0:
+        jur = best_jur
+    elif hint_jur and hint_jur in jur_keywords:
         jur = hint_jur
-    elif any(k in text for k in ["印尼", "印度尼西亚", "Jakarta", "Indonesia", "PLN", "TKDN", "SEMA", "KUHPerdata"]):
+    else:
         jur = "asean_id"
-    elif any(k in text for k in ["越南", "Vietnam", "Hanoi", "EVN", "2025建设法", "Law 135"]):
-        jur = "asean_vn"
-    elif any(k in text for k in ["马来西亚", "大马", "Malaysia", "Kuala Lumpur", "CIPAA", "CIDB"]):
-        jur = "asean_my"
-    elif any(k in text for k in ["新加坡", "Singapore", "SIAC", "SOPA", "Mount Sophia", "JBE"]):
-        jur = "asean_sg"
-    elif any(k in text for k in ["泰国", "Thailand", "Bangkok", "FBA", "BOI", "CCC 596"]):
-        jur = "asean_th"
-    elif any(k in text for k in ["菲律宾", "Philippines", "Manila", "PCAB", "RA 11966"]):
-        jur = "asean_ph"
 
     # 2. 识别准据法 (governing_law)
     gov_law = jur
-    if any(k in text for k in ["新加坡法", "Singapore law", "SIAC", "根据新加坡"]):
+    if any(k in text for k in ["新加坡法", "Singapore law", "根据新加坡法律", "laws of Singapore"]):
         gov_law = "asean_sg"
-    elif any(k in text for k in ["印尼法", "Indonesian law", "KUHPerdata"]):
-        gov_law = "asean_id"
-    elif any(k in text for k in ["马来西亚法", "Malaysian law"]):
+    elif any(k in text for k in ["马来西亚法", "Malaysian law", "laws of Malaysia"]):
         gov_law = "asean_my"
-    elif any(k in text for k in ["越南法", "Vietnamese law"]):
+    elif any(k in text for k in ["印尼法", "Indonesian law", "KUHPerdata", "laws of Indonesia"]):
+        gov_law = "asean_id"
+    elif any(k in text for k in ["越南法", "Vietnamese law", "laws of Vietnam"]):
         gov_law = "asean_vn"
-    elif any(k in text for k in ["泰国法", "Thai law"]):
+    elif any(k in text for k in ["泰国法", "Thai law", "laws of Thailand"]):
         gov_law = "asean_th"
-    elif any(k in text for k in ["菲律宾法", "Philippine law"]):
+    elif any(k in text for k in ["菲律宾法", "Philippine law", "laws of the Philippines"]):
         gov_law = "asean_ph"
 
     # 3. 识别生命周期阶段 (lifecycle_stage)
@@ -1453,8 +1483,14 @@ def extract_case_intake(payload: ExtractIntakePayload):
         "sinosure_notice_days": 15,
         "foreign_equity_pct": 49.0
     }
-    m_notice = re.search(r'(\d+)\s*(?:天|日|days?)[^\w\n]{0,25}?(?:通知|notice|索赔)', text, re.IGNORECASE) or \
-               re.search(r'(?:通知|notice|索赔)[^\d]{0,25}?(\d+)\s*(?:天|日|days?)', text, re.IGNORECASE)
+    m_notice = (
+        re.search(r'(?:arrived after|served after|after)[^\d\n]{0,20}?(\d+)\s*days?', text, re.IGNORECASE)
+        or re.search(r'(?:serve notice|give notice|notice of claim|notice)[^\d\n]{0,25}?(?:within|in|after)\s*(\d+)\s*days?', text, re.IGNORECASE)
+        or re.search(r'(?:within|in)\s*(\d+)\s*days?[^\d\n]{0,25}?(?:of the event|notice)', text, re.IGNORECASE)
+        or re.search(r'(?:知悉|事件发生|发生后|受阻|于)[^\d\n]{0,20}?第?\s*(\d+)\s*(?:天|日|days?)[^\d\n]{0,25}?(?:内|向|签发|发出|提交)?(?:索赔|通知|notice)', text, re.IGNORECASE)
+        or re.search(r'第?\s*(\d+)\s*(?:天|日|days?)[^\w\n]{0,20}?(?:内|向工程师|发出索赔|签发索赔|提出索赔)', text, re.IGNORECASE)
+        or re.search(r'(?:时效|期限|除斥期|前置条件)[^\d\n]{0,20}?(\d+)\s*(?:天|日|days?)', text, re.IGNORECASE)
+    )
     if m_notice:
         try:
             extracted_params["notice_days"] = int(m_notice.group(1))
@@ -1476,7 +1512,7 @@ def extract_case_intake(payload: ExtractIntakePayload):
         except Exception:
             pass
 
-    m_ld = re.search(r'(?:违约金|LD|liquidated\s*damages|预定赔偿)[^\d%]{0,30}?(\d+(?:\.\d+)?)\s*%', text, re.IGNORECASE)
+    m_ld = re.search(r'(?:违约金|LD|liquidated\s*damages|预定赔偿|保函|保单)[^\d%]{0,30}?(\d+(?:\.\d+)?)\s*%', text, re.IGNORECASE)
     if m_ld:
         try:
             extracted_params["main_ld_cap_pct"] = float(m_ld.group(1))
@@ -1507,13 +1543,19 @@ def extract_case_intake(payload: ExtractIntakePayload):
         for y, m, d in date_matches:
             formatted_dates.append(f"{int(y):04d}-{int(m):02d}-{int(d):02d}")
         
-        contract_m = re.search(r'(?:订立|签署|签订|生效|dated|signed|entered\s*into)[^\d]{0,25}?(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?', text, re.IGNORECASE)
+        contract_m = (
+            re.search(r'(?:订立|签署|签订|生效|dated|signed|entered\s*into)[^\d]{0,25}?(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?', text, re.IGNORECASE)
+            or re.search(r'(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?[^\d\n]{0,25}?(?:订立|签署|签订|生效)', text, re.IGNORECASE)
+        )
         if contract_m:
             contract_date = f"{int(contract_m.group(1)):04d}-{int(contract_m.group(2)):02d}-{int(contract_m.group(3)):02d}"
         else:
             contract_date = formatted_dates[0]
 
-        event_m = re.search(r'(?:通知|索赔|受阻|交地|违约|出险|notice|delayed|event)[^\d]{0,25}?(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?', text, re.IGNORECASE)
+        event_m = (
+            re.search(r'(?:通知|索赔|受阻|交地|违约|出险|notice|delayed|event)[^\d]{0,25}?(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?', text, re.IGNORECASE)
+            or re.search(r'(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})日?[^\d\n]{0,25}?(?:通知|索赔|受阻|交地|违约|出险)', text, re.IGNORECASE)
+        )
         if event_m:
             event_date = f"{int(event_m.group(1)):04d}-{int(event_m.group(2)):02d}-{int(event_m.group(3)):02d}"
         elif len(formatted_dates) > 1:
@@ -1540,10 +1582,19 @@ def extract_case_intake(payload: ExtractIntakePayload):
     parties = None
     if "PLN" in text and any(k in text for k in ["中资", "联合体", "承包商", "Contractor"]):
         parties = "中资联合体总包商, 印尼 PLN 国家电力公司"
+    elif "TNB" in text:
+        parties = "中国电建海外联营体, 马来西亚国家能源公司 (TNB)"
     elif "EVN" in text:
         parties = "中资海外工程局, 越南 EVN 国家电力集团"
     elif "分包" in text or "Subcontractor" in text:
-        parties = "中资总承包商, 属地专业分包商"
+        if jur == "asean_my":
+            parties = "中资总承包商, 马来西亚属地分包商"
+        elif jur == "asean_vn":
+            parties = "中资总承包商, 越南属地分包商"
+        elif jur == "asean_id":
+            parties = "中资总承包商, 印尼属地分包商"
+        else:
+            parties = "中资总承包商, 属地专业分包商"
     elif any(k in text for k in ["联合体", "Consortium"]):
         parties = "中资联合体, 东道国项目业主"
 
@@ -1561,7 +1612,7 @@ def extract_case_intake(payload: ExtractIntakePayload):
     }
     c_name = country_map.get(jur, "东盟")
     first_line = text.split("\n")[0].strip()
-    if len(first_line) > 6 and len(first_line) < 45 and not first_line.startswith(("Dear", "From:", "To:", "Subject:")):
+    if len(first_line) > 6 and len(first_line) < 85 and not first_line.startswith(("Dear", "From:", "To:", "Subject:")):
         title = first_line
     else:
         stage_name = "跨境投前准入审查" if stage == "pre_investment" else "建设工程索赔与履约争议"

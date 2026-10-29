@@ -234,23 +234,43 @@ class SecuritySentinel:
             if jur == "asean_id":
                 host_laws.append("ID_MEMR:Reg11_2024")
                 host_laws.append("ID_UU:2_2017:Art57")
+            elif jur == "asean_my":
+                host_laws.append("MY_CIDB:Act520")
+            elif jur == "asean_vn":
+                host_laws.append("VN_INV_LAW:61_2020")
+
+            alert_title = (
+                "设备本地化率 (TKDN) 达标偏差与行政罚金/拒付保函风险"
+                if jur == "asean_id"
+                else (
+                    "属地分包与土著采购配额 (Bumiputera/CIDB) 达标偏差风险"
+                    if jur == "asean_my"
+                    else "东道国属地化采购与工程分包合规风险"
+                )
+            )
 
             alerts.append(SecurityAlertItem(
                 risk_level=SecurityRiskLevel.CAUTION,
                 category="resource_nationalism_tkdn",
-                title_zh="设备本地化率 (TKDN) 达标偏差与行政罚金/拒付保函风险",
+                title_zh=alert_title,
                 fact_anchor_ids=fact_anchors,
                 host_law_basis=host_laws,
                 prc_or_treaty_basis=[],
-                sinosure_preservation_guide="若因 TKDN 本地化率未达标被业主扣留款项或罚款，属于商业履约纠纷，信保通常要求先完成工程争议裁决。",
+                sinosure_preservation_guide="若因本地化率或分包配额未达标被业主扣留款项或罚款，属于商业履约纠纷，信保通常要求先完成工程争议裁决。",
                 mandatory_human_checklist=[
-                    "核验主要电力机电设备（如逆变器、变压器、电缆）是否取得东道国工业部官方 TKDN 认证证书；",
-                    "审查总包合同中 TKDN 责任是由总包商包死还是业主负责协助申报；",
+                    "核验主要电力机电设备是否取得东道国官方合规认证证书；",
+                    "审查总包合同中属地化责任是由总包商包死还是业主负责协助申报；",
                     "核查本地采购差价与进口设备关税免税证明文件。"
                 ],
                 mitigation_actions=[
-                    "援引印尼能矿部 MEMR Reg 11/2024 最新例外豁免条款，对本土无法生产的精密设备申请进口配额豁免；",
-                    "在 EPC 分包协议中严格将 TKDN 达标指标以‘背靠背+独立担保’方式传导给属地供货商；",
+                    "援引印尼能矿部 MEMR Reg 11/2024 最新例外豁免条款，对本土无法生产的精密设备申请进口配额豁免；"
+                    if jur == "asean_id"
+                    else (
+                        "严格遵循 CIDB Act 520 审核属地分包商资质，完成马来西亚财政部土著采购配额合规备案；"
+                        if jur == "asean_my"
+                        else "向东道国投资主管部委核验属地采购与劳工配额合规性；"
+                    ),
+                    "在 EPC 分包协议中严格将合规达标指标以‘背靠背+独立担保’方式传导给属地供货商；",
                     "保留由于东道国本地产能不足导致的不可归责豁免举证证据链。"
                 ]
             ))
@@ -375,13 +395,13 @@ def evaluate_eot_delay_claim(
     elements = [
         {
             "name": "延误事件归责于业主风险 (FIDIC 17.3 / 8.4)",
-            "status": "satisfied" if "交地" in facts_text or "Hak Ulayat" in facts_text else "partial",
-            "detail": f"原住民习惯法土地征拆迟延属业主移交现场义务范畴（已核验延误影响约 {delay_days or 180} 天）"
+            "status": "satisfied" if "交地" in facts_text or "Hak Ulayat" in facts_text or "工作面" in facts_text or "征拆" in facts_text else "partial",
+            "detail": f"场地交付迟延属业主移交现场义务范畴（已核验延误影响约 {delay_days or 180} 天）"
         },
         {
             "name": "承包商 28 天索赔通知前置程序 (FIDIC 20.1)",
             "status": "satisfied" if has_notice else "disputed",
-            "detail": f"索赔通知核验：{'已在28天前置期内送达' if has_notice else '可能逾越28天除斥期，需重点援引印尼 SEMA 3/2023 善意履约反失权抗辩'}"
+            "detail": f"索赔通知核验：{'已在28天前置期内送达' if has_notice else ('已逾越28天除斥期，需重点援引马来西亚普通法 Prevention Principle 与 Contracts Act 1950 排除失权抗辩' if jurisdiction == 'asean_my' else ('已逾越28天除斥期，需重点援引越南民法典善意原则与新建设法第 86.2 条合理损失界定排除失权抗辩' if jurisdiction == 'asean_vn' else ('已逾越28天除斥期，需重点援引新加坡普通法 Prevention Principle 排除失权抗辩' if jurisdiction == 'asean_sg' else '可能逾越28天除斥期，需重点援引印尼 SEMA 3/2023 善意履约反失权抗辩')))}"
         },
         {
             "name": "关键线路关键路径延误影响 (Critical Path Impact)",
@@ -736,8 +756,29 @@ def build_tactical_guidance(
             "script_en": "Contractor has duly submitted the formal Notice of Claim within the strict 28-day requirement under Sub-Clause 20.1. All conditions precedent are satisfied. Engineer is requested to issue determinations within 42 days pursuant to Sub-Clause 3.5."
         })
 
-    # 2.2 本地化率 TKDN 话术
-    if tkdn_pct < 40.0:
+    # 2.2 东道国特别法抗辩话术 (依国别分流)
+    if jurisdiction == "asean_my":
+        scripts.append({
+            "scenario_title": "马来西亚 CIPAA 2012 法定裁决与背靠背无效条款抗辩",
+            "legal_basis": "Malaysia CIPAA 2012 Section 35 & AIAC 仲裁规程",
+            "script_zh": "针对分包商所提起的 CIPAA 快速法定裁决，我方提出严正抗辩：虽 CIPAA 第 35 条规定背靠背付款条款法定无效，但主合同争议正处于关键路径交地延误审理阶段，且发包人拖欠工程款系因发包人不可归责于我方之自身违约所致。我方正依法提请 AIAC 证据交叉质证与款项抵销，阻断恶意全额索兑。",
+            "script_en": "Pursuant to Section 35 of CIPAA 2012, while conditional payment terms face statutory invalidity, the Contractor maintains substantive cross-claims for delay compensation. We are lodging emergency submissions before AIAC to stay enforcement and safeguard against unmerited execution."
+        })
+    elif jurisdiction == "asean_vn":
+        scripts.append({
+            "scenario_title": "越南《2025新建设法》第 86.2 条预定损害赔偿 (LD) 封顶抗辩",
+            "legal_basis": "Vietnam Construction Law 2025 Art 86.2 & Commercial Law Art 301",
+            "script_zh": "依据越南《2025新建设法》第 86.2 条及《商法》第 301 条，违约金与预定损害赔偿须以实际合理损失为基准，法定封顶为 8%。发包人擅自扣减缺乏法定依据，我方保留提起越仲 (VIAC) 反诉及司法核减权利。",
+            "script_en": "Pursuant to Article 86.2 of Vietnam Construction Law 2025 and Commercial Law Article 301, liquidated damages must reflect actual losses and cannot exceed statutory limits."
+        })
+    elif jurisdiction == "asean_sg":
+        scripts.append({
+            "scenario_title": "新加坡 SOPA 第 9 条反背靠背支付与 BS Mount Sophia 保函止付抗辩",
+            "legal_basis": "Singapore SOPA Sec 9 & BS Mount Sophia [2016] SGCA 57",
+            "script_zh": "依据新加坡 SOPA 第 9 条及 BS Mount Sophia 权威判例，有条件付款条款不可执行，且在发包人自身迟延导致关键路径受阻的情形下突击索兑保函构成极度显失公平（Unconscionability），我方将提请高院止付令并启动 SIAC 仲裁。",
+            "script_en": "Pursuant to Singapore SOPA Section 9 and BS Mount Sophia [2016] SGCA 57, conditional payment provisions are unenforceable, and any call upon performance security in bad faith constitutes unconscionability subject to injunctive relief."
+        })
+    elif tkdn_pct < 40.0:
         scripts.append({
             "scenario_title": "印尼能矿部 MEMR 11/2024 本地化率特许豁免抗辩口径",
             "legal_basis": "Indonesia MEMR Reg 11/2024 & UU No. 2/2017 Art. 57",
@@ -777,7 +818,7 @@ def build_tactical_guidance(
             "script_en": f"With main LD cap at {main_ld}% and subcontract LD cap at {sub_ld}%, Contractor shall enforce direct contractual breach indemnity and interim certified back-charges to close interface exposure."
         })
 
-    # 3. 7日内紧急发函与取证清单 (Urgent Actions)
+    # 3. 7日内紧急发函与取证清单 (Urgent Actions - 自适应国别)
     urgent_actions = [
         {
             "action_type": "发函",
@@ -810,8 +851,44 @@ def build_tactical_guidance(
                 "附具双方争议往来函件及属地大律师合法合规备忘录",
                 "签署代位求偿权配合追偿承诺书"
             ]
-        },
-        {
+        }
+    ]
+
+    if jurisdiction == "asean_my":
+        urgent_actions.append({
+            "action_type": "法定裁决应对",
+            "deadline_tag": "10日内",
+            "document_template_title": "《依据 CIPAA 2012 第 10 条提交之工程款争议实质答辩书》",
+            "key_points": [
+                "调取工程师签证之工期延误阻却与反向扣款抵销证据清单",
+                "依据 CIDB Act 520 审查分包商施工资质与执照有效性",
+                "向 AIAC 亚洲国际仲裁中心正式提交抗辩书及管辖权异议申请"
+            ]
+        })
+    elif jurisdiction == "asean_vn":
+        urgent_actions.append({
+            "action_type": "违约金核减申请",
+            "deadline_tag": "14日内",
+            "document_template_title": "《依据 2025 新建设法提请违约金司法调减抗辩要旨》",
+            "key_points": [
+                "提交不可抗力证明与实际合理损失对比测算表",
+                "援引商法 301 条主张 8% 法定上限封顶",
+                "向越南国际仲裁中心 (VIAC) 申请证据保全"
+            ]
+        })
+    elif jurisdiction == "asean_sg":
+        urgent_actions.append({
+            "action_type": "保函紧急止付申请",
+            "deadline_tag": "48小时内",
+            "document_template_title": "《向新加坡高院/SIAC紧急仲裁员提请保函临时止付令申请书》",
+            "key_points": [
+                "依据 BS Mount Sophia 规则整理发包人缺乏善意基础之证据",
+                "向开证商业银行送达争议正式通告函",
+                "申请 SIAC 紧急仲裁员程序冻结保函兑付"
+            ]
+        })
+    else:
+        urgent_actions.append({
             "action_type": "行政审批",
             "deadline_tag": "30日内",
             "document_template_title": "《东道国能矿部/工业部本地化率 (TKDN) 特许豁免申请报告》",
@@ -820,8 +897,7 @@ def build_tactical_guidance(
                 "进口核心设备 ASME / IEC 国际质量认证测试报告",
                 "联营体中方技术转移培训与属地劳工提升方案"
             ]
-        }
-    ]
+        })
 
     return {
         "qualitative_verdict": qualitative_verdict,

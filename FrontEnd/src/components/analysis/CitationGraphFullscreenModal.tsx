@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext';
 import {
@@ -20,6 +20,36 @@ export const CitationGraphFullscreenModal: React.FC<CitationGraphFullscreenModal
 }) => {
   const { currentCase } = useApp();
   const [selectedIssueFilter, setSelectedIssueFilter] = useState<string>('all');
+
+  const isPreInv = currentCase?.meta?.lifecycle_stage === 'pre_investment';
+  const jur = currentCase?.meta?.jurisdiction || 'asean_id';
+
+  // 动态依据当前案卷真实存在的 issues 生成过滤 Tab，与案卷数据严格对齐
+  const issueTabs = useMemo(() => {
+    const rawIssues = currentCase?.issues || [];
+    const chineseNums = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+    if (rawIssues.length === 0) {
+      return [
+        { id: 'all', label: '全部' },
+        { id: 'I1', label: isPreInv ? '支柱一' : '争点一' },
+        { id: 'I2', label: isPreInv ? '支柱二' : '争点二' },
+      ];
+    }
+    return [
+      { id: 'all', label: '全部' },
+      ...rawIssues.map((iss, idx) => ({
+        id: iss.issue_id || `I${idx + 1}`,
+        label: isPreInv ? `支柱${chineseNums[idx] || idx + 1}` : `争点${chineseNums[idx] || idx + 1}`,
+      })),
+    ];
+  }, [currentCase?.issues, isPreInv]);
+
+  // 当切换案件时，若原先选中的 filter 已不在当前案卷有效 Tab 中，自动重置为 'all'
+  useEffect(() => {
+    if (selectedIssueFilter !== 'all' && !issueTabs.some((t) => t.id === selectedIssueFilter)) {
+      setSelectedIssueFilter('all');
+    }
+  }, [issueTabs, selectedIssueFilter]);
 
   // ESC 快捷键退出与背景滚动锁定
   useEffect(() => {
@@ -43,9 +73,6 @@ export const CitationGraphFullscreenModal: React.FC<CitationGraphFullscreenModal
 
   if (!isOpen || !currentCase) return null;
 
-  const isPreInv = currentCase.meta?.lifecycle_stage === 'pre_investment';
-  const jur = currentCase.meta?.jurisdiction || 'asean_id';
-
   const countryLabels: Record<string, { flag: string; name: string }> = {
     asean_id: { flag: '🇮🇩', name: '印度尼西亚' },
     asean_vn: { flag: '🇻🇳', name: '越南' },
@@ -67,7 +94,7 @@ export const CitationGraphFullscreenModal: React.FC<CitationGraphFullscreenModal
         className="w-full h-full max-h-[96vh] max-w-[1780px] bg-white/95 backdrop-blur-3xl rounded-[24px] sm:rounded-[28px] shadow-[0_32px_96px_rgba(0,0,0,0.32)] border border-black/[0.08] flex flex-col overflow-hidden apple-modal-card"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 顶部导航控制条：原生 Web Apple 极简毛玻璃横条 (彻底去除不符合网页逻辑的桌面三色圆点) */}
+        {/* 顶部导航控制条：原生 Web Apple 极简毛玻璃横条 */}
         <div className="px-5 sm:px-7 py-3 border-b border-black/[0.06] bg-white/75 backdrop-blur-2xl flex flex-wrap items-center justify-between gap-3 shrink-0">
           {/* 左侧：专业图谱标识 + 案件元数据与国别徽标 */}
           <div className="flex items-center gap-3">
@@ -92,7 +119,7 @@ export const CitationGraphFullscreenModal: React.FC<CitationGraphFullscreenModal
             </div>
           </div>
 
-          {/* 中间：4 层因果穿透引导面包屑 (克制色点 + 细连字符) */}
+          {/* 中间：4 层因果穿透引导面包屑 */}
           <div className="hidden xl:flex items-center gap-2 px-3.5 py-1 bg-black/[0.03] backdrop-blur-md rounded-full text-xs font-medium text-slate-600 border border-black/[0.04]">
             <span className="flex items-center gap-1.5 text-slate-800 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
@@ -115,24 +142,23 @@ export const CitationGraphFullscreenModal: React.FC<CitationGraphFullscreenModal
             </span>
           </div>
 
-          {/* 右侧：Apple 分段选择器 + 原生关闭按钮 */}
+          {/* 右侧：依据当前案卷自适应动态渲染的 Apple 分段选择器 + 原生关闭按钮 */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center p-0.5 bg-black/[0.04] backdrop-blur-md rounded-xl text-xs border border-black/[0.04]">
-              {[
-                { id: 'all', label: '全部' },
-                { id: 'I1', label: '争点一' },
-                { id: 'I2', label: '争点二' },
-                { id: 'I3', label: '争点三' },
-                { id: 'I4', label: '争点四' },
-              ].map((tab) => (
+            <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50/70 border border-blue-200/60 text-[11px] font-mono font-medium text-blue-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              <span>共 {issueTabs.length - 1} 个因果支柱</span>
+            </span>
+
+            <div className="flex items-center p-0.5 bg-black/[0.04] backdrop-blur-md rounded-xl text-xs border border-black/[0.05] shadow-2xs">
+              {issueTabs.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setSelectedIssueFilter(tab.id)}
-                  className={`px-3 py-1 rounded-lg text-xs transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-lg text-xs transition-all duration-200 cursor-pointer ${
                     selectedIssueFilter === tab.id
-                      ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 font-medium'
+                      ? 'bg-white text-slate-900 shadow-sm font-semibold scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 font-medium hover:bg-black/[0.02]'
                   }`}
                 >
                   {tab.label}

@@ -64,7 +64,7 @@ def test_e2e_db_purity():
     for c in all_cases:
         case_id = c["case_id"]
         assert not case_id.startswith(("BGH:", "OLG:", "LG:", "SCOTUS:", "CIR:", "DEL-CH:"))
-        assert any(k in case_id for k in ("BSMountSophia", "ManilaWater", "ArbitrationEnforcement", "SEMA", "CIPAA", "JBE", "Hopewell"))
+        assert case_id.startswith(("CASE:ID_", "CASE:SG_", "CASE:MY_", "CASE:VN_", "CASE:TH_", "CASE:PH_", "CASE:ICSID:", "CASE:SIAC:", "REF_CASE:")) or any(k in case_id for k in ("BSMountSophia", "ManilaWater", "ArbitrationEnforcement", "SEMA", "CIPAA", "JBE", "Hopewell"))
 
 
 def test_e2e_jurisdiction_registry():

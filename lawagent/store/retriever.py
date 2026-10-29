@@ -15,6 +15,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 import os
 import csv
+import sqlite3
 from lawagent.core.types import Evidence
 from lawagent.store.snapshots import SnapshotManager
 from lawagent.store.bm25 import BM25Engine
@@ -57,6 +58,7 @@ class HybridRetriever:
         self.snapshot_mgr = snapshot_mgr or SnapshotManager()
         self.snapshot_id = snapshot_id or self.snapshot_mgr.get_current_snapshot_id()
         index_dir = os.path.join(self.snapshot_mgr.base_dir, self.snapshot_id, "index")
+        index_l2_dir = os.path.join(self.snapshot_mgr.base_dir, self.snapshot_id, "index_l2")
 
         if bm25_engine is None:
             self.bm25 = BM25Engine(index_dir=index_dir)
@@ -72,6 +74,24 @@ class HybridRetriever:
                 self.vec = None
         else:
             self.vec = vec_engine
+
+        # L2 广覆盖参考库双引擎 (BM25 + FAISS Dense Vector)
+        self.bm25_l2: Optional[BM25Engine] = None
+        self.vec_l2: Optional[DenseVectorEngine] = None
+        if os.path.exists(index_l2_dir):
+            try:
+                b_l2 = BM25Engine(index_dir=index_l2_dir)
+                if b_l2.load():
+                    self.bm25_l2 = b_l2
+            except Exception:
+                self.bm25_l2 = None
+
+            try:
+                v_l2 = DenseVectorEngine(index_dir=index_l2_dir)
+                if v_l2.load():
+                    self.vec_l2 = v_l2
+            except Exception:
+                self.vec_l2 = None
 
         if graph_store is None:
             self.graph = SQLiteGraphStore(self.snapshot_mgr.get_connection(self.snapshot_id))
@@ -148,9 +168,14 @@ class HybridRetriever:
         kind_filter: Optional[str] = None,
         expand_graph: bool = True,
         snapshot_id: Optional[str] = None,
-        must_norms: Optional[List[str]] = None
+        must_norms: Optional[List[str]] = None,
+        layer: str = "AUTO"
     ) -> List[Evidence]:
-        """端到端混合检索主流程"""
+        """端到端双层混合检索主流程 (支持 L1 高优先级与 L2 广覆盖参考层级联)"""
+        # 若显式请求仅检索 L2 广覆盖参考层
+        if layer == "L2":
+            return self.search_l2(query, top_k=top_k, law_filter=law_filter, kind_filter=kind_filter, snapshot_id=snapshot_id)
+
         evidences: List[Evidence] = []
         seen_refs = set()
         exact_chunks: List[str] = []
@@ -238,9 +263,12 @@ class HybridRetriever:
         expanded_q = self.expand_query(query)
         bm25_res = self.bm25.search(expanded_q, top_k=50, kind_filter=kind_filter, law_filter=law_filter)
         vec_res = []
+        l1_top_vec_score = 0.0
         if self.vec is not None:
             try:
                 vec_res = self.vec.search(query, top_k=50)
+                if vec_res:
+                    l1_top_vec_score = float(vec_res[0][1])
             except Exception:
                 vec_res = []
 
@@ -254,7 +282,7 @@ class HybridRetriever:
         fused = rrf_fusion(rank_lists, k=60)[:30]
 
         # ---------------------------------------------------------
-        # 4. 图扩展 (APPLIES 关联判例与 CITES 关联法条)
+        # 4. 图扩展 (APPLIES 关联判例与 conflicts_with / overrides / interprets 关联法源)
         # ---------------------------------------------------------
         candidate_cids = [cid for cid, _ in fused]
         if expand_graph and self.graph:
@@ -269,6 +297,25 @@ class HybridRetriever:
                     case_cid = f"CHUNK:CASE:{hcase}:0"
                     if case_cid not in candidate_cids:
                         candidate_cids.append(case_cid)
+
+            # 真正动态图扩展：通过 graph.expand 发现冲突法条、上位法与适用先例
+            if top_norm_ids:
+                try:
+                    expanded_nodes = self.graph.expand(
+                        top_norm_ids,
+                        max_hops=1,
+                        limit=5
+                    )
+                    for item in expanded_nodes:
+                        raw_node = item.get("node", "").replace("NORM:", "").replace("CASE:", "").strip()
+                        norm_cid = f"CHUNK:NORM:{raw_node}:0"
+                        case_cid = f"CHUNK:CASE:{raw_node}:0"
+                        if norm_cid in self.bm25.chunk_metadata and norm_cid not in candidate_cids:
+                            candidate_cids.append(norm_cid)
+                        elif case_cid in self.bm25.chunk_metadata and case_cid not in candidate_cids:
+                            candidate_cids.append(case_cid)
+                except Exception:
+                    pass
 
         # ---------------------------------------------------------
         # 5. 重排打分 (取 top 8)
@@ -288,7 +335,9 @@ class HybridRetriever:
                     "rrf_score": next((s for c, s in fused if c == cid), 0.015)
                 })
 
-        reranked = self.reranker.rerank(query, candidates_data, top_k=top_k)
+        # 候选重排取充足数量以保障去重后填满 top_k 条不同法条/裁判
+        rerank_pool_size = max(top_k * 3, 16)
+        reranked = self.reranker.rerank(query, candidates_data, top_k=rerank_pool_size)
 
         # ---------------------------------------------------------
         # 6. 构造 Evidence 对象
@@ -342,7 +391,200 @@ class HybridRetriever:
             if len(evidences) >= top_k:
                 break
 
-        return evidences[:top_k]
+        # ---------------------------------------------------------
+        # 7. 双层架构级联补齐 (Cascade to L2 Reference KB)
+        # ---------------------------------------------------------
+        if layer in ("AUTO", "ALL"):
+            if layer == "ALL":
+                l2_evs = self.search_l2(
+                    query=query,
+                    top_k=min(top_k, 5),
+                    law_filter=law_filter,
+                    kind_filter=kind_filter,
+                    snapshot_id=snapshot_id
+                )
+                for l2_ev in l2_evs:
+                    if l2_ev.ref_id not in seen_refs:
+                        seen_refs.add(l2_ev.ref_id)
+                        evidences.append(l2_ev)
+            elif layer == "AUTO":
+                needed = top_k - len(evidences)
+                l2_probe_score = 0.0
+                if self.vec_l2 is not None:
+                    try:
+                        probe_res = self.vec_l2.search(query, top_k=1)
+                        if probe_res:
+                            l2_probe_score = float(probe_res[0][1])
+                    except Exception:
+                        pass
+
+                should_cascade = (
+                    (needed > 0)
+                    or (l2_probe_score >= 0.70 and l2_probe_score > l1_top_vec_score)
+                    or (l1_top_vec_score < 0.65 and l2_probe_score >= 0.60)
+                )
+                if should_cascade:
+                    fetch_k = max(needed, 2)
+                    l2_evs = self.search_l2(
+                        query=query,
+                        top_k=fetch_k,
+                        law_filter=law_filter,
+                        kind_filter=kind_filter,
+                        snapshot_id=snapshot_id
+                    )
+                    valid_l2 = [ev for ev in l2_evs if ev.ref_id not in seen_refs]
+                    if valid_l2:
+                        if needed > 0:
+                            evidences.extend(valid_l2[:needed])
+                        else:
+                            # L1 虽填满 top_k，但 L2 相关性显著更优；保留 L1 前部最强项，将尾部替换为 L2 最优前 1~2 项
+                            num_replace = min(len(valid_l2), 2)
+                            evidences = evidences[:top_k - num_replace] + valid_l2[:num_replace]
+
+        return evidences[:top_k] if layer != "ALL" else evidences
+
+    def search_l2(
+        self,
+        query: str,
+        top_k: int = 5,
+        law_filter: Optional[str] = None,
+        kind_filter: Optional[str] = None,
+        snapshot_id: Optional[str] = None,
+        expand_graph: bool = True
+    ) -> List[Evidence]:
+        """对第二层广覆盖参考知识库 (L2 Reference KB) 执行 BM25 + FAISS 稠密向量双通道混合检索 + 轻量级 GraphRAG 拓扑扩展"""
+        if self.bm25_l2 is None and self.vec_l2 is None:
+            return []
+
+        evidences: List[Evidence] = []
+        seen_refs = set()
+
+        expanded_q = self.expand_query(query)
+        bm25_res = []
+        if self.bm25_l2 is not None:
+            try:
+                bm25_res = self.bm25_l2.search(expanded_q, top_k=30, kind_filter=kind_filter, law_filter=law_filter)
+            except Exception:
+                bm25_res = []
+
+        vec_res = []
+        if self.vec_l2 is not None:
+            try:
+                vec_res = self.vec_l2.search(query, top_k=30)
+            except Exception:
+                vec_res = []
+
+        rank_lists = []
+        if bm25_res:
+            rank_lists.append(bm25_res)
+        if vec_res:
+            rank_lists.append(vec_res)
+
+        if not rank_lists:
+            return []
+
+        fused = rrf_fusion(rank_lists, k=60)[:30]
+        conn = self.snapshot_mgr.get_connection(snapshot_id)
+        if not conn:
+            return []
+
+        candidate_cids = [cid for cid, _ in fused]
+
+        # ---------------------------------------------------------
+        # L2 轻量级 GraphRAG 拓扑扩展: 沿 reference_edges 发现跨法域条约、关联规程与裁判
+        # ---------------------------------------------------------
+        if expand_graph:
+            top_ref_ids = []
+            cur = conn.cursor()
+            for cid in candidate_cids[:5]:
+                cur.execute("SELECT ref_id FROM reference_chunks WHERE chunk_id = ?", (cid,))
+                r = cur.fetchone()
+                if r:
+                    top_ref_ids.append(r["ref_id"] if isinstance(r, sqlite3.Row) else r[0])
+
+            if top_ref_ids:
+                try:
+                    placeholders = ",".join("?" for _ in top_ref_ids)
+                    cur.execute(
+                        f"""SELECT dst AS node FROM reference_edges WHERE src IN ({placeholders})
+                            UNION
+                            SELECT src AS node FROM reference_edges WHERE dst IN ({placeholders})
+                            LIMIT 8""",
+                        [*top_ref_ids, *top_ref_ids]
+                    )
+                    linked_nodes = [row[0] for row in cur.fetchall()]
+                    for node in linked_nodes:
+                        norm_cid = f"CHUNK:REF_NORM:{node}:0"
+                        case_cid = f"CHUNK:REF_CASE:{node}:0"
+                        if norm_cid not in candidate_cids:
+                            cur.execute("SELECT 1 FROM reference_chunks WHERE chunk_id = ?", (norm_cid,))
+                            if cur.fetchone():
+                                candidate_cids.append(norm_cid)
+                        elif case_cid not in candidate_cids:
+                            cur.execute("SELECT 1 FROM reference_chunks WHERE chunk_id = ?", (case_cid,))
+                            if cur.fetchone():
+                                candidate_cids.append(case_cid)
+                except Exception:
+                    pass
+
+        cur = conn.cursor()
+        for cid in candidate_cids:
+            cur.execute("SELECT chunk_id, kind, ref_id, text FROM reference_chunks WHERE chunk_id = ?", (cid,))
+            row = cur.fetchone()
+            if not row:
+                continue
+
+            ref_id = row["ref_id"]
+            if ref_id in seen_refs:
+                continue
+            seen_refs.add(ref_id)
+
+            kind = row["kind"]
+            if kind == "reference_norm":
+                norm = self.snapshot_mgr.norm_lookup(ref_id, snapshot_id=snapshot_id)
+                if norm:
+                    ev = Evidence(
+                        eid=f"E_L2_{len(evidences) + 1}",
+                        kind="norm",
+                        role="law",
+                        layer="L2",
+                        ref_id=norm["norm_id"],
+                        text_de=(norm.get("text_zh") or norm.get("text_en") or row["text"])[:1500],
+                        text_original=norm.get("text_original"),
+                        text_en=norm.get("text_en"),
+                        text_zh=norm.get("text_zh"),
+                        language_mode=norm.get("language_mode", "bilingual"),
+                        translation_source=norm.get("translation_source", "MOJ_FATONG_2026"),
+                        source_url=norm.get("source_url", "https://www.fatong.gov.cn"),
+                        stand=norm.get("stand"),
+                        fetched_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        grade="B"
+                    )
+                    evidences.append(ev)
+            elif kind == "reference_case":
+                case_data = self.snapshot_mgr.case_lookup(ref_id, snapshot_id=snapshot_id)
+                if case_data:
+                    ev = Evidence(
+                        eid=f"E_L2_{len(evidences) + 1}",
+                        kind="case",
+                        role="law",
+                        layer="L2",
+                        ref_id=case_data["case_id"],
+                        text_de=row["text"][:1500],
+                        text_original=case_data.get("gruende"),
+                        text_en=case_data.get("tenor"),
+                        text_zh=case_data.get("leitsatz"),
+                        source_url=case_data.get("source_url", ""),
+                        stand=case_data.get("decided"),
+                        fetched_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        grade="B"
+                    )
+                    evidences.append(ev)
+
+            if len(evidences) >= top_k:
+                break
+
+        return evidences
 
     def similar_cases(
         self,

@@ -43,8 +43,8 @@ class LLMClient:
             self._clients[pname] = OpenAI(
                 base_url=base_url,
                 api_key=api_key,
-                timeout=18.0,
-                max_retries=1
+                timeout=60.0,
+                max_retries=2
             )
 
     def get_task_config(self, task: str) -> Dict[str, Any]:

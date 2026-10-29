@@ -82,6 +82,8 @@ interface AppContextType {
   // 侧边栏折叠状态 (全局响应式与定位)
   sidebarCollapsed: boolean;
   setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  // 正在切换/调阅中的案卷 ID (供侧边栏和主视口提供高质感过渡与微脉冲反馈)
+  switchingCaseId: string | null;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
@@ -93,12 +95,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentCase, setCurrentCase] = useState<CaseState | null>(null);
   const [casesList, setCasesList] = useState<CaseSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [switchingCaseId, setSwitchingCaseId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   // 保持 currentCase 最新引用的 Ref，供 loadCase 闭包读取，避免 useCallback 依赖 currentCase 引发死循环重渲染
   const currentCaseRef = useRef<CaseState | null>(null);
   currentCaseRef.current = currentCase;
+  // 正在加载的案卷 ID 与请求时序序号，用于并发写锁与竞态保护
+  const loadingCaseIdRef = useRef<string | null>(null);
+  const loadCaseSeqRef = useRef<number>(0);
 
   // 3D 景深查明推演动画弹窗状态
   const [isPipelineAnimationOpen, setIsPipelineAnimationOpen] = useState<boolean>(false);
@@ -232,23 +238,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast('当前案件正在执行 Multi-Agent 流式协同研判，请等待完成后再切换', 'warning');
         return false;
       }
+      // 如果目标案件已加载完成且未强制刷新，且并非正在加载其他案件，则无需重复拉取
+      if (!force && currentCaseRef.current?.case_id === caseId && loadingCaseIdRef.current !== caseId) {
+        setCurrentCaseId(caseId);
+        return true;
+      }
+      // 如果正在拉取该案，直接返回
+      if (loadingCaseIdRef.current === caseId) {
+        return true;
+      }
+      loadingCaseIdRef.current = caseId;
+      setSwitchingCaseId(caseId);
+      const seq = ++loadCaseSeqRef.current;
       setLoading(true);
       setError(null);
-      // 仅在切换到不同案件时才重置 currentCase，避免刷新同一案件时产生白屏闪烁
-      if (currentCaseRef.current && currentCaseRef.current.case_id !== caseId) {
-        setCurrentCase(null);
-      }
       setCurrentCaseId(caseId);
       try {
         const data = await lawAgentApi.getCase(caseId);
-        setCurrentCase(data);
-        return true;
+        // 竞态保护：仅最新请求时序才写入状态，避免乱序覆写
+        if (seq === loadCaseSeqRef.current) {
+          setCurrentCase(data);
+          return true;
+        }
+        return false;
       } catch (err: any) {
-        setError(err.message || '加载案件数据失败');
-        showToast(err.message || '加载案件数据失败', 'error');
+        if (seq === loadCaseSeqRef.current) {
+          setError(err.message || '加载案件数据失败');
+          showToast(err.message || '加载案件数据失败', 'error');
+        }
         return false;
       } finally {
-        setLoading(false);
+        if (seq === loadCaseSeqRef.current) {
+          setLoading(false);
+          setSwitchingCaseId(null);
+          loadingCaseIdRef.current = null;
+        }
       }
     },
     [showToast]
@@ -279,9 +303,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(() => {});
   }, []);
 
-  // 初次挂载或外部改变 currentCaseId 且尚未加载该案件时执行
+  // 初次挂载或外部改变 currentCaseId 且尚未加载该案件时执行 (含防重保护)
   useEffect(() => {
-    if (currentCaseId && currentCaseRef.current?.case_id !== currentCaseId) {
+    if (currentCaseId && currentCaseRef.current?.case_id !== currentCaseId && loadingCaseIdRef.current !== currentCaseId) {
       loadCase(currentCaseId);
     }
   }, [currentCaseId, loadCase]);
@@ -290,7 +314,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!currentCaseId || currentCase?.status !== 'running') return;
     const unsub = lawAgentApi.subscribeEvents(currentCaseId, (event, data) => {
-      if (event === 'state_update') {
+      if (event === 'node_complete') {
+        setCurrentCase((prev: any) => (prev ? { ...prev, current_node: data.node } : prev));
+      } else if (event === 'state_update') {
         setCurrentCase(data);
       } else if (event === 'done') {
         refreshCurrentCase();
@@ -357,6 +383,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         closeCaseEntryModal,
         sidebarCollapsed,
         setSidebarCollapsed,
+        switchingCaseId,
       }}
     >
       {children}

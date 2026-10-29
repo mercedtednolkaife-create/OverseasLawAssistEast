@@ -20,6 +20,7 @@ from lawagent.store.snapshots import SnapshotManager
 from lawagent.store.db import init_snapshot_db
 from lawagent.store.chunker import build_and_save_chunks
 from lawagent.store.bm25 import BM25Engine
+from scripts.kb_expansion_data import NEW_NORMS_DATA, NEW_EDGES_DATA, NEW_RISK_COMMUNITIES
 
 
 ASEAN_NORMS_DATA: List[Dict[str, Any]] = [
@@ -234,6 +235,26 @@ ASEAN_NORMS_DATA: List[Dict[str, Any]] = [
         "mandatory_level": "mandatory_override"
     },
     {
+        "norm_id": "SG:IAA_Cap_143A:Sec12A",
+        "law": "SG_IAA_Cap_143A",
+        "enbez": "Sec.12A",
+        "title": "《新加坡国际仲裁法》(IAA Cap. 143A) 第12A条：法院支持涉外仲裁之临时保全与证据调查管辖权",
+        "heading_path": "Singapore International Arbitration Act (Cap. 143A) > Part II > Section 12A Court-ordered interim measures",
+        "text_de": "Singapore International Arbitration Act Cap. 143A Sec. 12A (Court-ordered Interim Measures & Evidence Gathering)",
+        "language_mode": "bilingual",
+        "lang_original": "en",
+        "text_original": "The High Court or a judge thereof shall have the same power of making orders in respect of any of the matters mentioned in section 12(1)(c) to (i) for the purpose of and in relation to an arbitration as the Court has for the purpose of and in relation to an action or matter in the Court, including the preservation, interim custody or sale of any property which is the subject-matter of the dispute.",
+        "text_en": "The High Court shall have the same power of making orders in respect of interim measures for the purpose of and in relation to an arbitration, including the taking of evidence, the preservation of property, and interim injunctions.",
+        "text_zh": "【司法部法通网权威译本】新加坡高等法院有权为支持涉外商事与工程仲裁，颁发涉及当事人财产保全、证据保全、签发临时禁令（如见索即付保函止付禁令）及责令出示工程图纸证据之裁定。但涉华工程图纸与境内勘察资料出境受中国《数据安全法》第36条外国司法调证前置审批强行法管辖限制。",
+        "translation_source": "MOJ_FATONG_2026",
+        "norm_category": "statute",
+        "mandatory_level": "default",
+        "elements_json": json.dumps([
+            {"eid": "e_iaa_interim_injunction", "text_zh": "法院签发涉外仲裁临时禁令与保函止付裁定管辖权", "status": "mandatory"},
+            {"eid": "e_iaa_cross_border_data_conflict", "text_zh": "外国法院证据披露命令与国内数据出境审批之法律冲突", "status": "mandatory"}
+        ], ensure_ascii=False)
+    },
+    {
         "norm_id": "SG:Precedent:BS_Mount_Sophia",
         "law": "Precedent",
         "enbez": "BS Mount Sophia",
@@ -422,6 +443,28 @@ ASEAN_NORMS_DATA: List[Dict[str, Any]] = [
         "mandatory_level": "contract_default"
     },
     {
+        "norm_id": "FIDIC:Silver_1999:Clause_14.8",
+        "law": "FIDIC",
+        "enbez": "Silver:14.8",
+        "title": "《FIDIC 银皮书 EPC》第14.8款：延误付款利息与分包背靠背付款限制 (Tier 1 核心条款)",
+        "heading_path": "FIDIC Conditions of Contract for EPC/Turnkey Projects 1999 > Clause 14 Contract Price and Payment > Clause 14.8 Delayed Payment",
+        "text_de": "FIDIC Silver Book (1999) Clause 14.8 Delayed Payment & Subcontracting Terms",
+        "language_mode": "bilingual",
+        "lang_original": "en",
+        "text_original": "If the Contractor does not receive payment in accordance with Sub-Clause 14.7 [Payment], the Contractor shall be entitled to receive financing charges compounded monthly on the amount unpaid during the period of delay. Unless otherwise stated in the Particular Conditions, these financing charges shall be calculated at the annual rate of three percentage points above the discount rate of the central bank.",
+        "text_en": "If the Contractor does not receive payment in accordance with Sub-Clause 14.7 [Payment], the Contractor shall be entitled to receive financing charges compounded monthly on the amount unpaid during the period of delay. Main contractors cannot make payments to subcontractors conditional on receiving payments from the Employer where prohibited by statutory legislation.",
+        "text_zh": "【国际工程核心条款】发包人延误向承包商支付工程进度款的，承包商有权就迟延付款金额按月计收复利财务费用，并有权在提前21天通知后减缓施工进度或暂停施工。在分包工程中，任何将总承包商向分包商付款的条件设定为‘须以总承包商从发包人处收到工程款为前提’（Pay-when-paid / Pay-if-paid）的背靠背条款，在马来西亚（CIPAA 第35条）及新加坡（SOPA 第9条）等东盟法域被强行法明文宣告自始绝对无效。",
+        "translation_source": "MOJ_FATONG_2026",
+        "norm_category": "fidic_standard",
+        "fidic_tier": "core_dispute",
+        "fidic_edition": "1999_SILVER",
+        "mandatory_level": "contract_default",
+        "elements_json": json.dumps([
+            {"eid": "e_delayed_payment_interest", "text_zh": "工程进度款延误计付复利与暂停施工权", "status": "mandatory"},
+            {"eid": "e_pay_when_paid_invalidity", "text_zh": "东盟属地强行法对背靠背付款条款的效力击穿", "status": "mandatory"}
+        ], ensure_ascii=False)
+    },
+    {
         "norm_id": "FIDIC:Red_1999:Clause_20.1",
         "law": "FIDIC",
         "enbez": "Red:20.1",
@@ -598,6 +641,7 @@ ASEAN_NORMS_DATA: List[Dict[str, Any]] = [
         "mandatory_level": "mandatory_override"
     }
 ]
+ASEAN_NORMS_DATA.extend(NEW_NORMS_DATA)
 
 
 # =========================================================================
@@ -670,6 +714,7 @@ ASEAN_EDGES_DATA: List[Dict[str, Any]] = [
     }
 ]
 
+ASEAN_EDGES_DATA.extend(NEW_EDGES_DATA)
 
 # =========================================================================
 # 六大高频工程风险社区 (risk_communities)
@@ -761,6 +806,7 @@ ASEAN_RISK_COMMUNITIES: List[Dict[str, Any]] = [
     }
 ]
 
+ASEAN_RISK_COMMUNITIES.extend(NEW_RISK_COMMUNITIES)
 
 def ingest_asean_kb(snapshot_id: str = "20261021-asean-v2.2"):
     """执行知识库写入与图谱关系同步"""
@@ -872,8 +918,8 @@ def ingest_asean_kb(snapshot_id: str = "20261021-asean-v2.2"):
             )
         )
         # 同步写入 edges_top（双向可查）
-        src_node = f"NORM:{edge['src']}" if not edge['src'].startswith("NORM:") else edge['src']
-        dst_node = f"NORM:{edge['dst']}" if not edge['dst'].startswith("NORM:") else edge['dst']
+        src_node = edge['src'] if edge['src'].startswith(("NORM:", "CASE:", "CPT:")) else f"NORM:{edge['src']}"
+        dst_node = edge['dst'] if edge['dst'].startswith(("NORM:", "CASE:", "CPT:")) else f"NORM:{edge['dst']}"
         cur.execute(
             """INSERT INTO edges_top(src, dst, rel, source, reviewed, rk)
                VALUES(?, ?, ?, ?, ?, 1)""",

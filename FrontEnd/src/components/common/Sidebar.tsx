@@ -14,6 +14,7 @@ import {
   GitBranch,
   FolderArchive,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
     currentCaseId,
     casesList,
     loadCase,
+    switchingCaseId,
     openCaseEntryModal,
     openCommandPalette,
   } = useApp();
@@ -139,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
           {/* 1. 工作台总览 */}
           <button
             onClick={() => setCurrentView('home')}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer active:scale-[0.98] ${
               currentView === 'home'
                 ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/20 font-semibold'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -153,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
           {/* 2. 专案研判 */}
           <button
             onClick={() => setCurrentView('analysis')}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer active:scale-[0.98] ${
               currentView === 'analysis'
                 ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/20 font-semibold'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -169,40 +171,53 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
             <div className="pl-3 pr-1 pt-1 space-y-0.5 border-l border-slate-200/80 ml-4">
               {casesList.slice(0, 5).map((c) => {
                 const isActive = currentCaseId === c.case_id;
+                const isSwitching = switchingCaseId === c.case_id;
                 const isPreInv = c.lifecycle_stage === 'pre_investment';
                 return (
                   <button
                     key={c.case_id}
                     onClick={() => {
-                      loadCase(c.case_id);
-                      setCurrentView('analysis');
+                      if (currentCaseId !== c.case_id || currentView !== 'analysis') {
+                        loadCase(c.case_id);
+                        setCurrentView('analysis');
+                      }
                     }}
-                    className={`w-full text-left px-2 py-1.5 rounded-lg text-xs flex items-center justify-between group transition-colors cursor-pointer ${
+                    className={`w-full text-left pl-3.5 pr-2 py-1.5 rounded-lg text-xs flex items-center justify-between group transition-all duration-150 cursor-pointer active:scale-[0.98] relative ${
                       isActive
-                        ? 'bg-blue-50/80 text-blue-900 font-semibold'
-                        : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                        ? 'bg-blue-50/90 text-blue-900 font-semibold border border-blue-200/60 shadow-2xs'
+                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border border-transparent hover:border-slate-200/40 hover:translate-x-0.5'
                     }`}
                   >
+                    {/* 绝对定位指示条，出现与消失绝不挤压或推移文字，彻底消除水平抖动 */}
+                    <span
+                      className={`absolute left-1.5 top-1/2 -translate-y-1/2 w-1 h-3.5 bg-blue-600 rounded-full shadow-xs transition-all duration-200 ${
+                        isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'
+                      }`}
+                    />
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                           isPreInv ? 'bg-indigo-500' : 'bg-purple-500'
                         }`}
                       />
-                      <span className="font-mono text-[11px] text-slate-400 shrink-0">
+                      <span className={`font-mono text-[11px] shrink-0 ${isActive ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
                         {c.case_id}
                       </span>
                       <span className="truncate text-[11px]">{c.title}</span>
                     </div>
-                    {c.parent_case_id && (
-                      <span title="派生子案"><GitBranch className="w-3 h-3 text-slate-400 shrink-0" /></span>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0 ml-1">
+                      {isSwitching ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
+                      ) : c.parent_case_id ? (
+                        <span title="派生子案"><GitBranch className="w-3 h-3 text-slate-400 shrink-0" /></span>
+                      ) : null}
+                    </div>
                   </button>
                 );
               })}
               <button
                 onClick={() => setCurrentView('cases')}
-                className="w-full text-left px-2 py-1 text-[11px] text-slate-400 hover:text-blue-600 flex items-center gap-1 cursor-pointer transition-colors"
+                className="w-full text-left px-2 py-1 text-[11px] text-slate-400 hover:text-blue-600 flex items-center gap-1 cursor-pointer transition-colors active:scale-[0.98]"
               >
                 <FolderArchive className="w-3 h-3" />
                 <span>查看全部案卷档案库 ➔</span>
@@ -224,20 +239,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
 
           <button
             onClick={() => setCurrentView('verification')}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer active:scale-[0.98] ${
               currentView === 'verification'
                 ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/20 font-semibold'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`}
-            title="涉外工程合同强行法合规审查"
+            title="涉外工程合同合规审查"
           >
             <FileCheck2 className={`w-4 h-4 ${currentView === 'verification' ? 'text-white' : 'text-slate-500'}`} />
-            {!collapsed && <span>合同红线审查</span>}
+            {!collapsed && <span>涉外合同审查</span>}
           </button>
 
           <button
             onClick={() => setCurrentView('search')}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer active:scale-[0.98] ${
               currentView === 'search'
                 ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/20 font-semibold'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -250,7 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
 
           <button
             onClick={() => setCurrentView('consults')}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer active:scale-[0.98] ${
               currentView === 'consults'
                 ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/20 font-semibold'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -274,7 +289,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
 
           <button
             onClick={() => setCurrentView('compliance')}
-            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 cursor-pointer active:scale-[0.98] ${
               currentView === 'compliance'
                 ? 'bg-blue-600 text-white shadow-xs shadow-blue-500/20 font-semibold'
                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'

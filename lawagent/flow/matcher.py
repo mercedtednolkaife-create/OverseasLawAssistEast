@@ -15,8 +15,8 @@ from lawagent.core.types import (
 from lawagent.llm.client import LLMClient
 
 
-MATCHER_SYSTEM_PROMPT = """你是一名经验丰富的国际法务与德国民商法分析专家。
-你的任务是将查明案件事实（Facts）与德国法构成要件（Legal Elements）进行要件事实匹配分析（Subsumtion），并识别事实缺口与待向德国当地律师核实的关键问题。
+MATCHER_SYSTEM_PROMPT = """你是一名经验丰富的国际建设工程与东盟出海合规法务专家。
+你的任务是将查明案件事实（Facts）与东道国强行法及国际工程合同构成要件（Legal Elements）进行要件事实匹配分析（Subsumtion），并识别事实缺口与待向属地当地律师核实的关键问题。
 
 匹配状态定义：
 1. satisfied：当事人提供的案件事实完全满足该构成要件的全部事实要素。
@@ -33,7 +33,7 @@ MATCHER_SYSTEM_PROMPT = """你是一名经验丰富的国际法务与德国民�
       "fact_ids": ["F1", "F2"],
       "material_ids": ["M1"],
       "match_note": "中文简述事实涵摄情况",
-      "counsel_question": "如为 partial 或 missing，提炼向德国律师咨询的问题（若 satisfied 则为 null）"
+      "counsel_question": "如为 partial 或 missing，提炼向属地律师咨询的问题（若 satisfied 则为 null）"
     }
   ]
 }
@@ -123,9 +123,9 @@ async def match_facts_and_elements(
                 system_prompt=MATCHER_SYSTEM_PROMPT,
                 user_prompt=prompt,
                 temperature=0.0,
-                retries=0
+                retries=1
             ),
-            timeout=16.0
+            timeout=30.0
         )
         matches = res.get("matches", [])
         match_map = {m["element_id"]: m for m in matches if "element_id" in m}
@@ -155,17 +155,18 @@ async def match_facts_and_elements(
             updated_elements.append(el_copy)
 
         return updated_elements, counsel_questions
-    except Exception:
-        # Rule fallback: match simple keywords or first facts
+    except Exception as e:
+        # 严谨中立降级：坚决杜绝臆造事实链接（严禁盲目绑定 facts[0].fid）
         updated = []
         for el in elements:
             el_copy = el.model_copy(deep=True)
-            el_copy.match_status = "partial" if facts else "missing"
-            el_copy.match_note = "规则匹配降级：需人工复核要件事实支撑"
-            if facts:
-                el_copy.fact_links = [facts[0].fid]
-                el_copy.slot_hits = {el.element_id: [facts[0].fid]}
+            el_copy.match_status = "missing"
+            el_copy.match_note = f"【大模型服务超时或异常】要件事实涵摄未自动完成，已转入人工复核模式 (原因: {str(e)[:60]})"
+            el_copy.fact_links = []
+            el_copy.material_links = []
+            el_copy.slot_hits = {}
             updated.append(el_copy)
+        counsel_questions.append("【待人工核验】要件与事实匹配分析未自动完成，建议法务团队与属地大律师重点核验各法定要件之事实举证。")
         return updated, counsel_questions
 
 

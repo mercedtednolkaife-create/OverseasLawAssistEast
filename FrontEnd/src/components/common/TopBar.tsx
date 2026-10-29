@@ -11,10 +11,8 @@ import {
   Check,
   Gavel,
   ShieldCheck,
-  Plus,
-  Search,
   Landmark,
-  ChevronRight,
+  Loader2,
 } from 'lucide-react';
 
 interface TopBarProps {
@@ -30,6 +28,7 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
     currentCaseId,
     casesList,
     loadCase,
+    switchingCaseId,
     isRightDockOpen,
     openRightDock,
     closeRightDock,
@@ -65,10 +64,10 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
   // 工具箱模式下的视图标题
   const toolTitles: Record<string, string> = {
     home: '工作台总览',
-    verification: '合同合规红线审查',
-    search: '东盟法规与裁判数据库',
+    verification: '涉外合同合规审查',
+    search: '东盟法规与裁判库',
     consults: '属地法律顾问库',
-    compliance: '跨国合规评估与法域比选',
+    compliance: '合规审查与法域比选',
     cases: '专案档案库',
   };
 
@@ -93,26 +92,37 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
 
               {caseMenuOpen && (
                 <div className="absolute left-0 top-full mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 z-50 space-y-0.5 max-h-72 overflow-y-auto apple-modal-card">
-                  {casesList.map((c) => (
-                    <button
-                      key={c.case_id}
-                      onClick={() => {
-                        loadCase(c.case_id);
-                        setCaseMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                        c.case_id === currentCaseId
-                          ? 'bg-blue-50 text-blue-900 font-semibold'
-                          : 'text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="min-w-0 truncate">
-                        <span className="font-mono text-blue-600 font-semibold mr-1.5">{c.case_id}</span>
-                        <span>{c.title}</span>
-                      </div>
-                      {c.case_id === currentCaseId && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
-                    </button>
-                  ))}
+                  {casesList.map((c) => {
+                    const isSwitching = switchingCaseId === c.case_id;
+                    const isActive = c.case_id === currentCaseId;
+                    return (
+                      <button
+                        key={c.case_id}
+                        onClick={() => {
+                          if (c.case_id !== currentCaseId || currentView !== 'analysis') {
+                            loadCase(c.case_id);
+                            setCurrentView('analysis');
+                          }
+                          setCaseMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-900 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="min-w-0 truncate">
+                          <span className="font-mono text-blue-600 font-semibold mr-1.5">{c.case_id}</span>
+                          <span>{c.title}</span>
+                        </div>
+                        {isSwitching ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
+                        ) : isActive ? (
+                          <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -183,7 +193,7 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
         /* 形态 B：工作台总览模式 (Home Overview) */
         /* ========================================================================= */
         <>
-          {/* 左侧：标题与就绪指示 (去除重复折叠按钮) */}
+          {/* 左侧：标题与状态指示 */}
           <div className="flex items-center gap-2.5 min-w-0 shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center text-blue-600 shadow-2xs">
@@ -196,49 +206,20 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
             </div>
           </div>
 
-          {/* 中央：快速法典检索跳转框 */}
-          <button
-            type="button"
-            onClick={() => setCurrentView('search')}
-            className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100/80 hover:bg-slate-200/70 border border-slate-200/60 text-xs text-slate-400 hover:text-slate-600 transition-all cursor-pointer w-72"
-          >
-            <Search className="w-3.5 h-3.5 text-slate-400" />
-            <span className="truncate">搜索东盟法典、裁判案例或 FIDIC 条款...</span>
-          </button>
-
-          {/* 右侧：新建案卷 + 专案研判快捷入口 + AI 法律助手 (精简无重复) */}
+          {/* 右侧：仅保留 AI 法律助手，彻底去除与边栏重复的新建案卷、专案研判及检索框 */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={openCaseEntryModal}
-              className="p-1.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs shadow-blue-500/25 active:scale-[0.98] transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>新建查明案卷</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCurrentView('analysis')}
-              className="p-1.5 px-2.5 rounded-xl border border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
-              title="进入专案法律研判"
-            >
-              <span>专案研判</span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-
             <button
               type="button"
               onClick={() => (isRightDockOpen ? closeRightDock() : openRightDock('case_copilot'))}
               className={`p-1.5 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 isRightDockOpen
                   ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs'
-                  : 'border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700'
+                  : 'border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs'
               }`}
               title={isRightDockOpen ? "收起法律辅助面板" : "展开 AI 法律助手"}
             >
               <Bot className="w-3.5 h-3.5 text-blue-600" />
-              <span className="hidden sm:inline">AI 法律助手</span>
+              <span>AI 法律助手</span>
             </button>
           </div>
         </>
@@ -269,26 +250,37 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
 
               {caseMenuOpen && (
                 <div className="absolute right-0 top-full mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-1.5 z-50 space-y-0.5 max-h-72 overflow-y-auto apple-modal-card">
-                  {casesList.map((c) => (
-                    <button
-                      key={c.case_id}
-                      onClick={() => {
-                        loadCase(c.case_id);
-                        setCaseMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                        c.case_id === currentCaseId
-                          ? 'bg-blue-50 text-blue-900 font-semibold'
-                          : 'text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="min-w-0 truncate">
-                        <span className="font-mono text-blue-600 font-semibold mr-1.5">{c.case_id}</span>
-                        <span>{c.title}</span>
-                      </div>
-                      {c.case_id === currentCaseId && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
-                    </button>
-                  ))}
+                  {casesList.map((c) => {
+                    const isSwitching = switchingCaseId === c.case_id;
+                    const isActive = c.case_id === currentCaseId;
+                    return (
+                      <button
+                        key={c.case_id}
+                        onClick={() => {
+                          if (c.case_id !== currentCaseId || currentView !== 'analysis') {
+                            loadCase(c.case_id);
+                            setCurrentView('analysis');
+                          }
+                          setCaseMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-900 font-semibold'
+                            : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="min-w-0 truncate">
+                          <span className="font-mono text-blue-600 font-semibold mr-1.5">{c.case_id}</span>
+                          <span>{c.title}</span>
+                        </div>
+                        {isSwitching ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
+                        ) : isActive ? (
+                          <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

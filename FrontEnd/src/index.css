@@ -8,6 +8,7 @@
 @layer base {
   html {
     color-scheme: light;
+    scrollbar-gutter: stable;
   }
   body {
     background-color: #f8fafc;
@@ -79,21 +80,31 @@
   background-image: radial-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px);
 }
 
-/* 立体质感玻璃拟态与阴影阶梯 (Gemini / Linear 风格) */
+/* 立体质感玻璃拟态与阴影阶梯 (默认半透微晶，悬浮时 100% 完全不透明) */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(228, 228, 231, 0.85);
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 0 6px 16px -2px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.glass-panel:hover {
+  background: #ffffff !important;
 }
 
 .glass-panel-elevated {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1px solid rgba(228, 228, 231, 0.9);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 14px 28px -4px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.glass-panel-elevated:hover {
+  background: #ffffff !important;
 }
 
 .glass-panel-dark {
@@ -104,24 +115,25 @@
   box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
-/* Apple 级 Bento 玻璃卡片：72% 透明度 + 饱和度提升 + 顶部 1px 镜面内高光 + 多层柔和弥散阴影 */
+/* Apple 级 Bento 玻璃卡片：默认半透 86%（原悬浮态透明度），鼠标悬浮时 100% 完全不透明遮蔽背景 */
 .apple-bento-card {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(226, 232, 240, 0.85);
   box-shadow: 
     0 1px 2px rgba(15, 23, 42, 0.03),
     0 12px 32px -4px rgba(15, 23, 42, 0.05),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .apple-bento-card:hover {
-  background: rgba(255, 255, 255, 0.88);
+  background: #ffffff !important;
+  border-color: rgba(203, 213, 225, 0.95);
   transform: translateY(-2px);
   box-shadow: 
-    0 4px 8px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.06),
     0 20px 40px -8px rgba(37, 99, 235, 0.08),
     inset 0 1px 0 0 rgba(255, 255, 255, 1);
 }
@@ -304,23 +316,20 @@
   will-change: transform, opacity;
 }
 
-/* 3. 页面级切换动效 (侧边栏切换 - 增强空间景深感、流体弹性与感知对比度) */
+/* 3. 页面与专案级切换动效 (遵循 Apple HIG × Microsoft Fluent 2 现代工业标准，消除重度模糊光栅化掉帧) */
 @keyframes apple-page-fade-slide {
   0% {
     opacity: 0;
-    transform: translateY(18px) scale(0.99);
-    filter: blur(4px);
+    transform: translateY(10px) scale(0.996);
   }
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-    filter: blur(0);
   }
 }
 .apple-page-pane {
-  animation: apple-page-fade-slide 360ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity, filter;
-  transform-origin: 50% 15%;
+  animation: apple-page-fade-slide 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: 50% 10%;
 }
 
 /* 4. Tab 切换动效 (子页面分段控制器切换) */
@@ -335,8 +344,7 @@
   }
 }
 .apple-tab-pane {
-  animation: apple-tab-fade-slide 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: transform, opacity;
+  animation: apple-tab-fade-slide 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* ========================================================================= */

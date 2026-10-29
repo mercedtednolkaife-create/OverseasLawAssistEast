@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
+import { DEFAULT_COMPARISON_MATRIX } from './complianceDefaultData';
 import {
   Check,
   Loader2,
@@ -29,8 +30,8 @@ const COUNTRIES = [
 export const ASEANComparisonMatrix: React.FC = () => {
   const { openCaseEntryModal, openCaseEntryWithPrefill, showToast, setPrefillIntakeParams } = useApp();
   const [selectedKeys, setSelectedKeys] = useState<string[]>(['id', 'vn']);
-  const [matrixData, setMatrixData] = useState<ComparisonRow[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [matrixData, setMatrixData] = useState<ComparisonRow[]>(DEFAULT_COMPARISON_MATRIX as unknown as ComparisonRow[]);
+  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     let mounted = true;
@@ -42,10 +43,7 @@ export const ASEANComparisonMatrix: React.FC = () => {
         }
       })
       .catch((err) => {
-        console.error('Failed to load comparison matrix', err);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
+        console.warn('Comparison matrix background fetch failed, using fallback:', err);
       });
     return () => {
       mounted = false;
@@ -94,13 +92,13 @@ export const ASEANComparisonMatrix: React.FC = () => {
   };
 
   return (
-    <div className="acrylic-card p-6 shadow-sm space-y-5">
+    <div className="apple-bento-card p-6 space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs shadow-blue-500/50" />
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shadow-xs shadow-blue-500/40" />
             <h3 className="text-base font-bold text-slate-900 tracking-tight">
-              东盟重点法域涉外基建与投资实务横向对比 (2026 现行有效法源)
+              东盟重点法域实务横向对比
             </h3>
           </div>
           <p className="text-xs text-slate-500 mt-1">
@@ -134,10 +132,10 @@ export const ASEANComparisonMatrix: React.FC = () => {
               key={c.key}
               type="button"
               onClick={() => toggleCountry(c.key)}
-              className={`px-3 py-1 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer flex items-center gap-1.5 ${
                 isSelected
                   ? 'bg-blue-50 text-blue-800 border-blue-200/90 shadow-2xs font-semibold'
-                  : 'bg-slate-50 text-slate-600 border-slate-200/70 hover:bg-slate-100'
+                  : 'bg-slate-50/80 text-slate-600 border-slate-200/80 hover:bg-slate-100'
               }`}
             >
               <span>{c.flag}</span>
@@ -148,11 +146,11 @@ export const ASEANComparisonMatrix: React.FC = () => {
         })}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200/70">
+      <div className="overflow-x-auto rounded-xl border border-slate-200/80">
         <table className="w-full text-left border-collapse min-w-[900px]">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/80">
-              <th className="py-3 px-3 text-xs font-bold text-slate-700 w-44">
+            <tr className="border-b border-slate-200 bg-slate-50/90">
+              <th className="py-3 px-3.5 text-xs font-bold text-slate-700 w-44">
                 实务审查维度
               </th>
               {COUNTRIES.map((c) => {
@@ -162,7 +160,7 @@ export const ASEANComparisonMatrix: React.FC = () => {
                     key={c.key}
                     onClick={() => toggleCountry(c.key)}
                     className={`py-3 px-3 text-xs font-bold transition-colors cursor-pointer select-none ${
-                      isSelected ? 'text-blue-900 bg-blue-50/40' : 'text-slate-700'
+                      isSelected ? 'text-blue-900 bg-blue-50/50' : 'text-slate-700'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
@@ -176,37 +174,37 @@ export const ASEANComparisonMatrix: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
-            {loading ? (
+            {loading && matrixData.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-16 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                    <span className="text-xs font-medium">正在自东盟六国法源智库实时加载横向比对矩阵...</span>
+                    <span className="text-xs font-medium">正在载入横向比对矩阵...</span>
                   </div>
                 </td>
               </tr>
             ) : (
             matrixData.map((row, idx) => (
               <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                <td className="py-3.5 px-3 font-semibold text-slate-900 bg-slate-50/40">
+                <td className="py-3.5 px-3.5 font-semibold text-slate-900 bg-slate-50/40">
                   {row.dimension}
                 </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('id') ? 'bg-blue-50/15' : ''}`}>
+                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('id') ? 'bg-blue-50/20' : ''}`}>
                   {row.id}
                 </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('vn') ? 'bg-blue-50/15' : ''}`}>
+                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('vn') ? 'bg-blue-50/20' : ''}`}>
                   {row.vn}
                 </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('my') ? 'bg-blue-50/15' : ''}`}>
+                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('my') ? 'bg-blue-50/20' : ''}`}>
                   {row.my}
                 </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('sg') ? 'bg-blue-50/15' : ''}`}>
+                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('sg') ? 'bg-blue-50/20' : ''}`}>
                   {row.sg}
                 </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('th') ? 'bg-blue-50/15' : ''}`}>
+                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('th') ? 'bg-blue-50/20' : ''}`}>
                   {row.th}
                 </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('ph') ? 'bg-blue-50/15' : ''}`}>
+                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('ph') ? 'bg-blue-50/20' : ''}`}>
                   {row.ph}
                 </td>
               </tr>

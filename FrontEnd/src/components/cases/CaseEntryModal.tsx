@@ -88,6 +88,10 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
       if (res.jurisdiction) {
         setJurisdiction(res.jurisdiction);
         setProjectHostCountry(res.jurisdiction);
+        const cfg = getJurisdictionConfig(res.jurisdiction);
+        if (cfg) {
+          setChoiceOfLaw(`${cfg.name_zh}实体法`);
+        }
       }
       if (res.governing_law) {
         setGoverningLawOption(res.governing_law === res.jurisdiction ? 'same' : res.governing_law);
@@ -105,7 +109,9 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
 
       setConsentAccepted(true);
       setExtractedSuccess(true);
-      showToast('✓ AI 要素抽提成功，已自动填入全部建案必填项（可直接启动研判）', 'success');
+      const jurCfg = res.jurisdiction ? getJurisdictionConfig(res.jurisdiction) : null;
+      const jurName = jurCfg ? `【${jurCfg.name_zh}】` : '';
+      showToast(`✓ AI 要素抽提成功，已自动识别并切换至${jurName}法域，参数已填入`, 'success');
       setTimeout(() => setExtractedSuccess(false), 4000);
     } catch (e: any) {
       showToast(e.message || '要素抽提失败，请手动录入', 'error');
@@ -134,6 +140,10 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
       if (intakeRes.jurisdiction) {
         setJurisdiction(intakeRes.jurisdiction);
         setProjectHostCountry(intakeRes.jurisdiction);
+        const cfg = getJurisdictionConfig(intakeRes.jurisdiction);
+        if (cfg) {
+          setChoiceOfLaw(`${cfg.name_zh}实体法`);
+        }
       }
       if (intakeRes.governing_law) {
         setGoverningLawOption(intakeRes.governing_law === intakeRes.jurisdiction ? 'same' : intakeRes.governing_law);
@@ -151,7 +161,9 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
 
       setConsentAccepted(true);
       setExtractedSuccess(true);
-      showToast('✓ 文档解析与要素抽提完成，已自动填入全部建案必填项', 'success');
+      const jurCfg = intakeRes.jurisdiction ? getJurisdictionConfig(intakeRes.jurisdiction) : null;
+      const jurName = jurCfg ? `【${jurCfg.name_zh}】` : '';
+      showToast(`✓ 文档解析与抽提完成，已自动识别并切换至${jurName}法域，参数已填入`, 'success');
       setTimeout(() => setExtractedSuccess(false), 4000);
     } catch (e: any) {
       showToast(e.message || '文档解析失败', 'error');
@@ -279,9 +291,9 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
         : choiceOfLaw;
 
       const meta: CaseMeta = {
-        jurisdiction: projectHostCountry,
+        jurisdiction: jurisdiction,
         host_country: currentJurisdictionConfig.name_zh,
-        project_host_country: projectHostCountry,
+        project_host_country: jurisdiction,
         governing_law_jurisdiction: govLawName,
         contract_type: contractType,
         parties: partiesStr.split(',').map((s) => s.trim()).filter(Boolean),
@@ -511,6 +523,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                       type="button"
                       onClick={() => {
                         setJurisdiction(j.code);
+                        setProjectHostCountry(j.code);
                         setChoiceOfLaw(`${j.name_zh}实体法`);
                       }}
                       className={`p-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer ${

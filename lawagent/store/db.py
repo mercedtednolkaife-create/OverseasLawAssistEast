@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS edges_top(
   rk INT
 );
 CREATE INDEX IF NOT EXISTS idx_top_src ON edges_top(src, rel);
+CREATE INDEX IF NOT EXISTS idx_top_dst ON edges_top(dst, rel);
 
 CREATE TABLE IF NOT EXISTS hot_norm_cases(
   norm_id TEXT,
@@ -581,7 +582,7 @@ class StateDBManager:
         consult_id = data.get("consult_id") or f"CON-{int(datetime.datetime.now().timestamp()*1000)}"
         case_id = data.get("case_id", "")
         expert_id = data.get("expert_id", "")
-        expert_name = data.get("expert_name", "德国法专家")
+        expert_name = data.get("expert_name", "东盟工程法特邀专家")
         status = data.get("status", "dispatched")
         question_snapshot = data.get("question_snapshot", "")
         evidence_summary = data.get("evidence_summary", "")

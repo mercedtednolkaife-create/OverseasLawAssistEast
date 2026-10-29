@@ -137,9 +137,9 @@ async def evaluate_sufficiency_llm(
                 system_prompt=SUFFICIENCY_SYSTEM_PROMPT,
                 user_prompt=prompt,
                 temperature=0.0,
-                retries=0
+                retries=1
             ),
-            timeout=16.0
+            timeout=30.0
         )
         items = res.get("elements", [])
         item_map = {it["element_id"]: it for it in items if "element_id" in it}
@@ -162,4 +162,4 @@ async def evaluate_sufficiency_llm(
         return updated_elements
     except Exception:
         # Fallback to rule evaluation
-        return evaluate_sufficiency_rule(question, elements, evidence_dict)
+        return evaluate_sufficiency_rule(question, elements, evidence_dict, is_pre_investment=is_pre_investment)

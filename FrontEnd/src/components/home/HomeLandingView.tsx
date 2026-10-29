@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { lawAgentApi } from '../../api/lawAgentApi';
+import { AseanVectorBackground } from './AseanVectorBackground';
 import {
   Search,
   ArrowRight,
@@ -135,12 +136,10 @@ export const HomeLandingView: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const sampleKeywords = [
-    { label: '印尼 SEMA 3/2023 纯英文合同', key: 'sema_3_2023' },
-    { label: '大马 CIPAA 35 背靠背无效', key: 'cipaa_sec35' },
-    { label: 'FIDIC 20.1 28天索赔失权', key: 'fidic_20_1' },
+    { label: '印尼外文合同效力 (SEMA 3/2023)', key: 'sema_3_2023' },
+    { label: 'FIDIC 28天索赔时效抗辩', key: 'fidic_20_1' },
+    { label: '马来西亚背靠背支付无效 (CIPAA 35)', key: 'cipaa_sec35' },
     { label: '新加坡保函显失公平止付', key: 'mount_sophia' },
-    { label: '菲律宾 RA 11966 PPP法典', key: 'ph_ra11966' },
-    { label: '越南 2025 新建设法违约金', key: 'vn_2025_construction' },
   ];
 
   const handleSelectPreset = (key: string) => {
@@ -211,7 +210,7 @@ export const HomeLandingView: React.FC = () => {
             title: topItem.title || topItem.id,
             quote: (topItem.text_de || topItem.text_zh_machine || '').slice(0, 200),
           },
-          strategy: '建议针对本法条要件创建专案卷宗，加载工程数值参数（工期延误天数、索赔通知日、TKDN比例）启动多智能体推演。',
+          strategy: '建议针对本条法律要件创建专案案卷，载入工程工期延误、索赔通知时效或属地准入指标开展研判。',
           targetJurisdiction: targetJur,
           suggestedStage: 'execution_dispute',
         };
@@ -239,7 +238,7 @@ export const HomeLandingView: React.FC = () => {
     }
 
     if (!matched) {
-      showToast('未在东盟六国成文法典及先例库中检索到直接匹配法条，建议尝试精确条号或实务关键词', 'warning');
+      showToast('未在东盟重点法域法典及先例库中检索到直接匹配法条，建议尝试精确条号或实务关键词', 'warning');
       setSearching(false);
       return;
     }
@@ -271,18 +270,22 @@ export const HomeLandingView: React.FC = () => {
   };
 
   return (
-    <div className="apple-page-pane max-w-[1540px] mx-auto px-4 sm:px-6 py-4 sm:py-5 space-y-4 select-none">
-      {/* ========================================================================= */}
-      {/* 顶部 Hero 检索区域 (The Omni-Legal Bar) */}
-      {/* ========================================================================= */}
-      <section className="apple-bento-card rounded-[24px] p-5 sm:p-6 shadow-2xs space-y-3">
+    <div className="relative min-h-full pb-8">
+      {/* 整个主页全景山海日光矢量背景 (仿 aiclipmaxx 现代极简风格) */}
+      <AseanVectorBackground />
+
+      <div className="relative z-10 max-w-[1540px] mx-auto px-4 sm:px-6 py-4 sm:py-5 space-y-4 select-none">
+        {/* ========================================================================= */}
+        {/* 顶部 Hero 检索区域 (The Omni-Legal Bar) */}
+        {/* ========================================================================= */}
+        <section className="apple-bento-card rounded-[24px] p-5 sm:p-6 shadow-2xs space-y-3">
           <div className="max-w-4xl mx-auto text-center space-y-2.5">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               东盟基建工程与涉外投资法律智能工作台
             </h1>
 
-            <p className="text-xs text-slate-500 max-w-xl mx-auto">
-              东盟建设工程合规审查、合同红线体检与索赔争议研判工作台
+            <p className="text-xs text-slate-500 max-w-xl mx-auto font-normal">
+              涵盖东盟六国投资准入、涉外合同合规审查、现行法规检索与索赔争议研判
             </p>
 
             {/* 全局检索输入框：统一蓝色行动按钮 */}
@@ -293,15 +296,15 @@ export const HomeLandingView: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="输入法律问题、法条编号或中英关键词..."
-                  className="w-full pl-10 pr-24 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 bg-white shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-600 transition-all"
+                  placeholder="输入东道国法律问题、法条号或索赔争议要点..."
+                  className="w-full pl-10 pr-24 py-2.5 rounded-xl border border-slate-200/90 text-xs sm:text-sm text-slate-900 bg-white/95 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-600 transition-all placeholder:text-slate-400"
                 />
                 <button
                   type="submit"
                   disabled={searching || !searchQuery.trim()}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer disabled:opacity-50"
                 >
-                  {searching ? '研判中...' : 'AI 研判'}
+                  {searching ? '研判中...' : '即时研判'}
                 </button>
               </div>
             </form>
@@ -314,7 +317,7 @@ export const HomeLandingView: React.FC = () => {
                   key={item.key}
                   type="button"
                   onClick={() => handleSelectPreset(item.key)}
-                  className="text-[11px] px-2.5 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition-colors cursor-pointer border border-slate-200/60 font-medium active:scale-[0.98]"
+                  className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white/75 hover:bg-white text-slate-700 transition-colors cursor-pointer border border-slate-200/60 font-medium active:scale-[0.98]"
                 >
                   {item.label}
                 </button>
@@ -325,12 +328,12 @@ export const HomeLandingView: React.FC = () => {
 
         {/* 智能研判结果原地展开卡片 */}
         {activeQA && (
-          <section className="bg-white rounded-[24px] p-4 sm:p-5 space-y-3.5 shadow-sm border border-blue-200/80 animate-in fade-in slide-in-from-top-2 duration-200">
+          <section className="apple-bento-card rounded-[24px] p-4 sm:p-5 space-y-3.5 shadow-sm border border-blue-200/80 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-600" />
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <span>智能研判意见</span>
+                  <span>研判结论与法定依据</span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">
                     {activeQA.lawBasis.country} · {activeQA.lawBasis.normId}
                   </span>
@@ -367,12 +370,12 @@ export const HomeLandingView: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
-                <div className="text-[11px] font-bold text-slate-800">定性判定结论</div>
+                <div className="text-[11px] font-bold text-slate-800">判定结论</div>
                 <p className="text-xs text-slate-700 leading-relaxed">{activeQA.verdict}</p>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
-                <div className="text-[11px] font-bold text-slate-800">法定依据与正本</div>
+                <div className="text-[11px] font-bold text-slate-800">法定依据与法条正本</div>
                 <div className="text-xs text-slate-900 font-semibold">
                   {activeQA.lawBasis.flag} {activeQA.lawBasis.title}
                 </div>
@@ -382,14 +385,14 @@ export const HomeLandingView: React.FC = () => {
               </div>
 
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
-                <div className="text-[11px] font-bold text-slate-800">出海实务对策</div>
+                <div className="text-[11px] font-bold text-slate-800">实务对策与建议</div>
                 <p className="text-xs text-slate-700 leading-relaxed">{activeQA.strategy}</p>
               </div>
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100">
               <span className="text-[11px] text-slate-400 font-mono">
-                司法部法通网 2026 现行规范 · 官方权威法源对齐
+                司法部“法通网”现行法源对齐
               </span>
 
               <div className="flex items-center gap-2">
@@ -406,7 +409,7 @@ export const HomeLandingView: React.FC = () => {
                   className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-xs shadow-blue-500/25 active:scale-[0.98] cursor-pointer flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>以此新建案卷 ➔</span>
+                  <span>以此立项研判 ➔</span>
                 </button>
               </div>
             </div>
@@ -429,17 +432,17 @@ export const HomeLandingView: React.FC = () => {
                   专案深度法律研判
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">
-                  出海工程投资准入与索赔争议多智能体推演
+                  出海工程投资准入与索赔争议深度研判
                 </p>
               </div>
             </div>
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-blue-600">
-              <span>进入法律研判</span>
+              <span>进入专案研判</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
 
-          {/* Hub 2: 合同强行法红线审查 */}
+          {/* Hub 2: 涉外合同合规审查 */}
           <div
             onClick={() => setCurrentView('verification')}
             className="group apple-bento-card rounded-[22px] p-4 sm:p-4.5 flex flex-col justify-between space-y-3 hover:border-blue-500/60 hover:shadow-md transition-all duration-200 cursor-pointer active:scale-[0.98]"
@@ -450,10 +453,10 @@ export const HomeLandingView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                  合同合规红线审查
+                  涉外合同合规审查
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">
-                  涉外工程专用条件穿透审查与示范反制条款
+                  工程专用条件合规核验与示范替代条款
                 </p>
               </div>
             </div>
@@ -463,7 +466,7 @@ export const HomeLandingView: React.FC = () => {
             </div>
           </div>
 
-          {/* Hub 3: 东盟法规与裁判数据库 */}
+          {/* Hub 3: 东盟法规与裁判库 */}
           <div
             onClick={() => setCurrentView('search')}
             className="group apple-bento-card rounded-[22px] p-4 sm:p-4.5 flex flex-col justify-between space-y-3 hover:border-blue-500/60 hover:shadow-md transition-all duration-200 cursor-pointer active:scale-[0.98]"
@@ -474,7 +477,7 @@ export const HomeLandingView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                  东盟法规与裁判数据库
+                  东盟法规与裁判库
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">
                   重点法域现行法典、法通网权威译本与裁判先例
@@ -482,7 +485,7 @@ export const HomeLandingView: React.FC = () => {
               </div>
             </div>
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-blue-600">
-              <span>检索法律法规</span>
+              <span>检索法规判例</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
@@ -554,7 +557,7 @@ export const HomeLandingView: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-800">暂无专案卷宗，从这里开始您的第一个出海项目</p>
-                <p className="text-xs text-slate-500">支持录入东盟六国涉外工程 EPC、特许经营 BOT 或海外投资并购专案，启动 8 阶段多智能体研判</p>
+                <p className="text-xs text-slate-500">支持录入东盟六国涉外工程 EPC、特许经营 BOT 或海外投资并购专案，启动全流程法律分析与论证研判</p>
               </div>
               <div className="pt-2 flex items-center justify-center gap-3">
                 <button
@@ -614,25 +617,61 @@ export const HomeLandingView: React.FC = () => {
           )}
         </section>
 
-        {/* 底部 2026 修法雷达 */}
-        <section className="p-3 rounded-xl bg-slate-100/80 border border-slate-200/60 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-slate-600">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-mono text-[10px] font-bold shrink-0">
-              2026 修法
-            </span>
-            <span className="truncate text-slate-700 text-xs">
-              🇻🇳 越南《2025新建设法》确立预定违约金 · 🇮🇩 印尼 SEMA 3/2023 限制纯外文合同无效 · 🇵🇭 菲律宾 PPP 法典全面废止旧 BOT 法
-            </span>
+        {/* 底部：东盟重点法域最新立法与司法动态提示 */}
+        <section className="apple-bento-card rounded-2xl p-4 text-xs space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-600" />
+              <span className="font-bold text-slate-800 text-xs">
+                东盟重点法域最新立法与司法动态提示
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                / Recent Legal Developments
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentView('compliance')}
+              className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer flex items-center gap-1 text-[11px] self-start sm:self-auto"
+            >
+              <span>查看跨国合规评估与比选</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setCurrentView('compliance')}
-            className="text-blue-600 hover:text-blue-800 font-medium shrink-0 cursor-pointer flex items-center gap-0.5"
-          >
-            <span>查看风险矩阵</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-0.5">
+            <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-[11px]">
+                <span>🇻🇳</span>
+                <span>越南《2025新建设法》</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-normal">
+                确立工程预定违约金（LD）机制，打破旧法仅认可 12% 惩罚性违约金的刚性限制。
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-[11px]">
+                <span>🇮🇩</span>
+                <span>印尼最高院 SEMA 3/2023</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-normal">
+                最高法院确立：除证明当事人恶意串通外，涉外合同未签署印尼语译本不必然绝对无效。
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-[11px]">
+                <span>🇵🇭</span>
+                <span>菲律宾新 PPP 法典 (RA 11966)</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-normal">
+                全面废止实施 30 年的旧 BOT 法，确立特许经营因政府原因终止的公允审计清算补偿规则。
+              </p>
+            </div>
+          </div>
         </section>
+      </div>
     </div>
   );
 };

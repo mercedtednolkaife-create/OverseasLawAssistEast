@@ -32,6 +32,7 @@ import { GradeBadge } from '../common/GradeBadge';
 import { CitationGraphFullscreenModal } from './CitationGraphFullscreenModal';
 import { ViabilityCalculationModal } from './ViabilityCalculationModal';
 import { TacticalGuidance, NegotiationScript, UrgentAction, AttachedArtifact } from '../../types/lawAgent';
+import { getJurisdictionConfig, ASEAN_JURISDICTIONS } from '../../configs/jurisdictions';
 
 type AnalysisFacet = 'verdict' | 'elements' | 'sandbox' | 'export';
 
@@ -51,18 +52,27 @@ export const CaseAnalysisView: React.FC = () => {
     casesList,
     loadCase,
     refreshCurrentCase,
+    switchingCaseId,
   } = useApp();
 
   // 当前主切面：verdict (决策/准入全景) | elements (争点/红线要件) | sandbox (沙盘/工坊) | export (图谱/意见书)
   const [facet, setFacet] = useState<AnalysisFacet>('verdict');
 
   const isPreInv = currentCase?.meta?.lifecycle_stage === 'pre_investment';
+  const hostJur = currentCase?.meta?.jurisdiction || 'asean_id';
+  const jurConfig = getJurisdictionConfig(hostJur);
 
   // 工程沙盘交互试算状态
   const initialParams = currentCase?.meta?.engineering_params || {};
-  const [simTkdn, setSimTkdn] = useState<number>(initialParams.declared_tkdn_pct ?? 28);
-  const [simDelayDays, setSimDelayDays] = useState<number>(initialParams.delay_days ?? 180);
-  const [simNoticeDays, setSimNoticeDays] = useState<number>(initialParams.notice_days ?? 18);
+  const [simTkdn, setSimTkdn] = useState<number>(() => {
+    return initialParams.declared_tkdn_pct ?? initialParams.subcontract_ratio ?? (hostJur === 'asean_my' ? 35 : hostJur === 'asean_vn' ? 8 : 28);
+  });
+  const [simDelayDays, setSimDelayDays] = useState<number>(() => {
+    return initialParams.delay_days ?? initialParams.eot_delay_days ?? 180;
+  });
+  const [simNoticeDays, setSimNoticeDays] = useState<number>(() => {
+    return initialParams.notice_days ?? initialParams.notice_served_days ?? (hostJur === 'asean_my' ? 10 : 18);
+  });
   const [simMainLd, setSimMainLd] = useState<number>(initialParams.main_ld_cap_pct ?? 15);
   const [simSubLd, setSimSubLd] = useState<number>(initialParams.sub_ld_cap_pct ?? 10);
   const [simSinosureDays, setSimSinosureDays] = useState<number>(initialParams.sinosure_notice_days ?? 12);
@@ -97,13 +107,27 @@ export const CaseAnalysisView: React.FC = () => {
 
   useEffect(() => {
     const params = currentCase?.meta?.engineering_params || {};
-    if (params.declared_tkdn_pct !== undefined) setSimTkdn(params.declared_tkdn_pct);
-    if (params.delay_days !== undefined) setSimDelayDays(params.delay_days);
-    if (params.notice_days !== undefined) setSimNoticeDays(params.notice_days);
+    const jur = currentCase?.meta?.jurisdiction || 'asean_id';
+    const tkdnVal = params.declared_tkdn_pct ?? params.subcontract_ratio ?? (jur === 'asean_my' ? 35 : jur === 'asean_vn' ? 8 : 28);
+    setSimTkdn(tkdnVal);
+    const delayVal = params.delay_days ?? params.eot_delay_days ?? 180;
+    setSimDelayDays(delayVal);
+    const noticeVal = params.notice_days ?? params.notice_served_days ?? (jur === 'asean_my' ? 10 : 18);
+    setSimNoticeDays(noticeVal);
     if (params.main_ld_cap_pct !== undefined) setSimMainLd(params.main_ld_cap_pct);
     if (params.sub_ld_cap_pct !== undefined) setSimSubLd(params.sub_ld_cap_pct);
     if (params.sinosure_notice_days !== undefined) setSimSinosureDays(params.sinosure_notice_days);
     userInteractedRef.current = false;
+
+    // 核心状态重置：防止上一案的争点选择、话术索引、勾选项等残留污染新案
+    setSelectedIssueId('');
+    setActiveScriptIdx(0);
+    setCompletedActionIds({});
+    setShowGraphModal(false);
+    setShowViabilityModal(false);
+    setSelectedSpvScheme('B');
+    setForeignEquityPct(49);
+    setLocalSubcontractPct(jur === 'asean_my' ? 35 : jur === 'asean_vn' ? 8 : 28);
   }, [currentCase?.case_id]);
 
   // 用户主动交互滑块辅助处理
@@ -180,6 +204,58 @@ export const CaseAnalysisView: React.FC = () => {
   // 基准参数快照
   const baselineParams = useMemo(() => currentCase?.meta?.engineering_params || {}, [currentCase?.case_id]);
 
+  // 滑块 1 依据案件东道国法域自适应 (避免非印尼案件显示印尼 TKDN)
+  const slider1Config = useMemo(() => {
+    const hostJur = currentCase?.meta?.jurisdiction || 'asean_id';
+    if (hostJur === 'asean_my') {
+      return {
+        title: '马来西亚 本地分包/土著采购比例 (CIDB Act 520)',
+        target: 30,
+        anchorLeft: '37.5%',
+        isCompliant: simTkdn >= 30,
+        statusLabel: simTkdn >= 30 ? '(符合 CIDB 规范)' : '(配额不足预警)',
+        desc: simTkdn >= 30
+          ? '已达到马来西亚 CIDB 属地分包配额标准，履约风险受控。'
+          : `属地配额低于 30% 基准线，易遭 CIDB 资质审查与属地分包抗辩。`,
+      };
+    }
+    if (hostJur === 'asean_vn') {
+      return {
+        title: '越南 2025新建设法违约金 (LD) 上限率 (Law 135/2025)',
+        target: 8,
+        anchorLeft: '10%',
+        isCompliant: simTkdn <= 8,
+        statusLabel: simTkdn <= 8 ? '(符合商法 8% 封顶)' : '(超额易遭法定核减)',
+        desc: simTkdn <= 8
+          ? '在越南商法第 301 条 8% 封顶线内，受法律强行法保护。'
+          : `超出商法 8% 基础线，可依据 2025 新建设法第 86.2 条提请法院核减。`,
+      };
+    }
+    if (hostJur === 'asean_sg') {
+      return {
+        title: '新加坡 SOPA 快速付款裁决核算准备金率',
+        target: 20,
+        anchorLeft: '25%',
+        isCompliant: simTkdn >= 20,
+        statusLabel: simTkdn >= 20 ? '(拨备充足)' : '(流动性预警)',
+        desc: simTkdn >= 20
+          ? '符合新加坡建筑业付款保障法 SOPA 快速裁决准备金安全线。'
+          : '准备金不足，面临紧急仲裁强制执行流动性压力。',
+      };
+    }
+    // 默认印尼
+    return {
+      title: '印尼 TKDN 本地化采购率 (MEMR 11/2024)',
+      target: 40,
+      anchorLeft: '42.8%',
+      isCompliant: simTkdn >= 40,
+      statusLabel: simTkdn >= 40 ? '(达标)' : '(缺口待豁免)',
+      desc: simTkdn >= 40
+        ? '已达电力主机采购法定线，可直接申请完工 COD 证书。'
+        : `存在 ${40 - simTkdn}% 缺口，需依据 MEMR 11/2024 第 8 条提请部长特许豁免。`,
+    };
+  }, [currentCase?.meta?.jurisdiction, simTkdn]);
+
   // 恢复案卷初始基准参数
   const handleResetBaseline = () => {
     userInteractedRef.current = true;
@@ -229,7 +305,8 @@ export const CaseAnalysisView: React.FC = () => {
     const parties = meta?.parties?.length ? meta.parties.join(' vs ') : '中资总承包商/投资方 vs 东道国业主/特许权授予方';
     const criticalDate = meta?.contract_date || meta?.signing_date || '2024-03-15';
     const hostJur = meta?.jurisdiction || 'asean_id';
-    const choiceOfLaw = meta?.choice_of_law || meta?.governing_law_jurisdiction || hostJur;
+    const jurConfig = getJurisdictionConfig(hostJur);
+    const choiceOfLaw = meta?.choice_of_law || meta?.governing_law_jurisdiction || `${jurConfig.name_zh}实体法`;
 
     return {
       title,
@@ -237,16 +314,206 @@ export const CaseAnalysisView: React.FC = () => {
       parties,
       criticalDate,
       choiceOfLaw,
-      hostJur,
+      hostJur: `${jurConfig.flag} ${jurConfig.name_zh}`,
     };
   }, [currentCase, casesList, isPreInv]);
 
-  // 从案件数据提取战术引导与 3D 定性结论
+  // 从案件数据提取战术引导与 3D 定性结论 (自适应东盟法域)
   const tacticalGuidance: TacticalGuidance = useMemo(() => {
-    if (currentCase?.meta?.tactical_guidance) {
-      return currentCase.meta.tactical_guidance;
+    const hostJur = currentCase?.meta?.jurisdiction || 'asean_id';
+    const activeGuidance = currentCase?.meta?.tactical_guidance || (currentCase as any)?.tactical_guidance;
+    // 如果存在后端缓存，但当前案件为非印尼且缓存中含有印尼特有关键字 (SEMA/MEMR/TKDN/印尼)，则视为陈旧数据穿透
+    const isStaleIndonesian = hostJur !== 'asean_id' && activeGuidance && JSON.stringify(activeGuidance).includes('印尼');
+    if (activeGuidance && !isStaleIndonesian) {
+      return activeGuidance;
     }
-    // 缺省稳健定性结论
+    const jurConfig = getJurisdictionConfig(hostJur);
+
+    if (hostJur === 'asean_my') {
+      return {
+        qualitative_verdict: {
+          legal_support_level: isPreInv ? '附条件准入 (Conditional Clearance)' : '强支持 (Substantial Support)',
+          confidence_band: isPreInv ? '置信区间 78%-86%' : '置信区间 84%-92%',
+          procedural_exposure: isPreInv ? 'CIDB 资质合规 & 属地劳工配额' : 'CIPAA 第35条背靠背无效 & 28天时效抗辩',
+          counter_block_expectation: isPreInv ? '中转新加坡 SPV 激活 BIT 保护' : '高确定性阻断 (CIPAA 强行法排除背靠背条款)',
+        },
+        negotiation_scripts: [
+          {
+            scenario_title: 'FIDIC 20.1 索赔通知逾期反驳 (Prevention Principle)',
+            legal_basis: 'FIDIC 20.1 · Prevention Principle · 马来西亚合同法 Contracts Act 1950 善意履约原则',
+            script_zh: '我方坚决驳斥发包人因我方未严格满足 28 天通知即主张权利灭失之抗辩。根据普通法确立并为马来西亚联邦法院采纳之“阻碍原则 (Prevention Principle)”，当工期延误系因发包人交地迟延等自身违约导致时，发包人无权援引除斥期条款计取预定违约金 (LD)。在卷监理日志已证实发包人完全实际知情，程序瑕疵不构成实体权利灭失。',
+            script_en: 'We vigorously refute the Employer\'s contention that Contractor\'s entitlement to Time Extension is barred under Clause 20.1. Under the established Prevention Principle affirmed by Malaysian courts, an Employer cannot benefit from its own breach. The contemporaneous records demonstrate the Employer\'s actual knowledge, legally precluding forfeiture.',
+          },
+          {
+            scenario_title: '马来西亚 CIPAA 2012 法定裁决与背靠背无效条款抗辩',
+            legal_basis: '马来西亚 CIPAA 2012 第 35 条有条件付款无效明文 & 亚洲国际仲裁中心 (AIAC) 规程',
+            script_zh: '针对分包商所提起的 CIPAA 快速法定裁决，我方提出严正抗辩：虽 CIPAA 第 35 条规定背靠背付款条款自始无效，但主合同争议正处于关键路径事实审理阶段，且发包人拖欠主合同款项系因不可归责于总包方之客观原因所致。我方正依法向高院提请中止裁决执行，并提出反向扣款抵销，防范突击索兑。',
+            script_en: 'Pursuant to Section 35 of CIPAA 2012, while conditional payment mechanisms face statutory constraints, the Contractor maintains substantive cross-claims for delay compensation. We are lodging emergency applications to stay adjudication enforcement and safeguard against unmerited execution.',
+          },
+          {
+            scenario_title: '见索即付保函恶意索兑抗辩与中信保通报口径',
+            legal_basis: '新加坡最高法院 BS Mount Sophia 判例 · 显失公平止付规则 · 中信保 30 天报损规程',
+            script_zh: '严正告知发包人：鉴于工期延误系发包人未尽交地义务所致，目前并无任何承包商实质违约。若发包人突击索兑履约保函，将构成极度显失公平 (Unconscionability)。我方将立即向紧急仲裁员提请全额临时止付令，且我方已向中国信保正式提交出险通报，发包人恶意行为将被列入多边联合黑名单。',
+            script_en: 'Any demand upon the Performance Security while delay is solely attributable to site handover failure constitutes unconscionability (BS Mount Sophia [2016] SGCA 57). Contractor is immediately applying for emergency interim injunctions and has lodged Sinosure pre-loss notices.',
+          },
+        ],
+        urgent_actions: [
+          {
+            action_type: 'FIDIC 20.1 索赔通知补强函',
+            deadline_tag: '7日内发出',
+            document_template_title: '《关于工程受阻关键路径停滞之工期顺延补充通告》',
+            key_points: [
+              '正式援引 FIDIC 银皮书第 8.4(c) 款（雇主原因延误）与 20.1 款',
+              '随函附送监理工程师每日现场签到表与 P6 关键路径阻断对比图',
+              '马来西亚法域应留存正式书面签收回执与向工程师送达留痕凭证',
+            ],
+          },
+          {
+            action_type: 'CIPAA 裁决应诉与 AIAC 答辩准备',
+            deadline_tag: '10日法定答辩期内',
+            document_template_title: '《依据 CIPAA 2012 第 10 条提交之工程款争议实质答辩书》',
+            key_points: [
+              '调取工程师签证之工期延误阻却与反向扣款抵销证据清单',
+              '依据 CIDB Act 520 审查分包商施工资质与执照有效性',
+            ],
+          },
+          {
+            action_type: '中国信保出险事前留痕通报',
+            deadline_tag: '30日除斥期内',
+            document_template_title: '《海外投资/承包工程险可能损失正式通知书 (Notice of Loss)》',
+            key_points: [
+              '向中国出口信用保险公司提交正式书面《可能损失通知书》锁定保全利益',
+              '提交发包人拖欠工程款及恶意索兑保函威胁证据链',
+            ],
+          },
+        ],
+      };
+    }
+
+    if (hostJur === 'asean_vn') {
+      return {
+        qualitative_verdict: {
+          legal_support_level: isPreInv ? '附条件准入 (Conditional Clearance)' : '强支持 (Substantial Support)',
+          confidence_band: isPreInv ? '置信区间 78%-86%' : '置信区间 83%-91%',
+          procedural_exposure: isPreInv ? '外商投资负面清单 & 工商登记' : '2025新建设法第 86.2 条违约金(LD)上限核减',
+          counter_block_expectation: isPreInv ? '中转新加坡 SPV 激活 BIT 保护' : '高确定性阻断 (依据新建设法 86.2 条调减违约金)',
+        },
+        negotiation_scripts: [
+          {
+            scenario_title: 'FIDIC 20.1 索赔通知逾期反驳 (Prevention Principle)',
+            legal_basis: 'FIDIC 20.1 · Prevention Principle · 越南民法典善意原则',
+            script_zh: '我方坚决驳斥发包人因我方未严格满足 28 天通知即主张权利灭失之抗辩。发包人原因交地迟延实质导致关键路径受阻，发包人无权以此要求罚金。',
+            script_en: 'We vigorously refute Employer\'s claim of forfeiture under Clause 20.1. Handover delays caused by Employer cannot justify liquidated damages.',
+          },
+          {
+            scenario_title: '越南《2025新建设法》第 86.2 条预定损害赔偿 (LD) 封顶抗辩',
+            legal_basis: '越南 2025 年新建设法 (Law 135/2025) 第 86.2 条 & 商法第 301 条 8% 封顶',
+            script_zh: '依据越南《2025新建设法》第 86.2 条及《商法》第 301 条，违约金与预定损害赔偿须以实际合理损失为基准，法定封顶为 8%。发包人擅自扣减缺乏法定依据，我方保留提起越仲 (VIAC) 反诉及司法核减权利。',
+            script_en: 'Pursuant to Article 86.2 of Vietnam Construction Law 2025 and Commercial Law Article 301, liquidated damages must reflect actual losses and cannot exceed statutory limits.',
+          },
+          {
+            scenario_title: '见索即付保函恶意索兑抗辩与中信保通报口径',
+            legal_basis: '国际商会 URDG 758 · 显失公平止付规则 · 中信保 30 天报损规程',
+            script_zh: '严正告知发包人：鉴于工期延误的唯一近因系发包人未交付土地，若突击索兑履约保函将直接构成欺诈与极度显失公平。我方已向中国信保正式提交出险通报。',
+            script_en: 'Any call upon the Performance Security while delay is attributable to site non-possession constitutes egregious unconscionability.',
+          },
+        ],
+        urgent_actions: [
+          {
+            action_type: 'FIDIC 20.1 索赔通知补强函',
+            deadline_tag: '7日内发出',
+            document_template_title: '《关于工程受阻关键路径停滞之工期顺延补充通告》',
+            key_points: [
+              '正式援引 FIDIC 银皮书第 8.4(c) 款与 20.1 款',
+              '随函附送监理工程师每日现场签到表与 P6 阻断对比图',
+              '越南法域应留存正式书面签收与越文备忘录回执',
+            ],
+          },
+          {
+            action_type: '越南新建设法 86.2 条损害核算抗辩',
+            deadline_tag: '14日内核算期内',
+            document_template_title: '《依据 2025 新建设法提请违约金司法调减抗辩要旨》',
+            key_points: [
+              '提交不可抗力证明与实际合理损失对比测算表',
+              '援引商法 301 条主张 8% 法定上限封顶',
+            ],
+          },
+          {
+            action_type: '中国信保出险事前留痕通报',
+            deadline_tag: '30日除斥期内',
+            document_template_title: '《海外投资/承包工程险可能损失正式通知书 (Notice of Loss)》',
+            key_points: [
+              '向中国出口信用保险公司提交正式书面《可能损失通知书》锁定保全利益',
+              '提交发包人延迟批文及突击索兑保函威胁证据链',
+            ],
+          },
+        ],
+      };
+    }
+
+    if (hostJur === 'asean_sg') {
+      return {
+        qualitative_verdict: {
+          legal_support_level: isPreInv ? '附条件准入 (Conditional Clearance)' : '强支持 (Substantial Support)',
+          confidence_band: isPreInv ? '置信区间 80%-88%' : '置信区间 85%-93%',
+          procedural_exposure: isPreInv ? '中转 SPV 投资协定保护 & 税务安排' : 'SOPA 快速付款程序 & 保函止付门槛',
+          counter_block_expectation: isPreInv ? '全面激活 BIT 与中立仲裁管辖' : '高确定性阻断 (BS Mount Sophia 显失公平止付与 SOPA 保护)',
+        },
+        negotiation_scripts: [
+          {
+            scenario_title: 'FIDIC 20.1 索赔通知逾期反驳 (Prevention Principle)',
+            legal_basis: 'FIDIC 20.1 · Prevention Principle · 新加坡普通法防阻原则',
+            script_zh: '我方坚决驳斥发包人因我方未严格满足 28 天通知即主张权利灭失之抗辩。根据新加坡普通法确立之防阻原则 (Prevention Principle)，发包人未尽移交施工现场义务构成自身违约，无权援引除斥期条款计取预定违约金 (LD)。在卷监理日志已证实发包人完全实际知情，程序瑕疵不构成实体权利灭失。',
+            script_en: 'Contractor refutes Employer\'s forfeiture contention under Clause 20.1. Under Singapore common law Prevention Principle, Employer cannot benefit from its own failure to deliver site possession.',
+          },
+          {
+            scenario_title: '新加坡 SOPA 第 9 条反背靠背支付与工程款清偿',
+            legal_basis: '新加坡建筑业付款与裁决法 (SOPA) 第 9 条强行法',
+            script_zh: '依据新加坡建筑业付款与裁决法 (SOPA) 第 9 条，任何以第三方付款为条件的背靠背付款条款均属自始无效。分包合同款项需按审定进度结算，总包商不得因业主未付而扣延分包款。',
+            script_en: 'Pursuant to Section 9 of the Building and Construction Industry Security of Payment Act (SOPA), pay-when-paid provisions are statutorily void and unenforceable.',
+          },
+          {
+            scenario_title: 'BS Mount Sophia 显失公平保函止付口径',
+            legal_basis: '新加坡上诉庭 BS Mount Sophia [2016] SGCA 57 · 显失公平止付先例',
+            script_zh: '严正告知发包人：鉴于工程延误系发包人未交付施工场地所致，若发包人恶意突击索兑履约保函，将构成极度显失公平 (Unconscionability)。我方将立即向新加坡高院提请止付禁令。',
+            script_en: 'Any demand upon the Performance Security constitutes unconscionability under BS Mount Sophia [2016] SGCA 57, warranting interim injunction relief from the Singapore High Court.',
+          },
+        ],
+        urgent_actions: [
+          {
+            action_type: 'FIDIC 20.1 索赔通知补强函',
+            deadline_tag: '7日内发出',
+            document_template_title: '《关于工程受阻关键路径停滞之工期顺延补充通告》',
+            key_points: [
+              '正式援引 FIDIC 银皮书第 8.4(c) 款与 20.1 款',
+              '附监理工程师每日现场签到表与 P6 阻断对比图',
+              '留存正式书面签收回执与向工程师送达留痕凭证',
+            ],
+          },
+          {
+            action_type: 'SIAC 紧急仲裁与保函止付',
+            deadline_tag: '48小时内',
+            document_template_title: '《向新加坡高院/SIAC紧急仲裁员提请保函临时止付令申请书》',
+            key_points: [
+              '依据 BS Mount Sophia 规则整理发包人缺乏善意之证据链',
+              '向开证商业银行送达争议正式通告函',
+              '申请 SIAC 紧急仲裁员程序冻结保函兑付',
+            ],
+          },
+          {
+            action_type: '中国信保出险事前留痕通报',
+            deadline_tag: '30日除斥期内',
+            document_template_title: '《海外投资/承包工程险可能损失正式通知书 (Notice of Loss)》',
+            key_points: [
+              '向中国出口信用保险公司提交正式书面《可能损失通知书》锁定保全利益',
+              '提交发包人延迟批文及突击索兑保函威胁证据链',
+            ],
+          },
+        ],
+      };
+    }
+
+    // 默认或印尼法域 (asean_id)
     return {
       qualitative_verdict: {
         legal_support_level: isPreInv ? '附条件准入 (Conditional Clearance)' : '强支持 (Substantial Support)',
@@ -370,10 +637,138 @@ export const CaseAnalysisView: React.FC = () => {
     return issues.find((i) => i.id === selectedIssueId) || issues[0];
   }, [issues, selectedIssueId]);
 
-  // 当前选中争点下挂载的要件
+  // 当前选中争点下挂载的要件 (自适应东盟法域)
   const activeElements = useMemo(() => {
     const rawElements = currentCase?.elements || [];
+    const hostJur = currentCase?.meta?.jurisdiction || 'asean_id';
+    const jurConfig = getJurisdictionConfig(hostJur);
+
     if (rawElements.length === 0) {
+      if (hostJur === 'asean_my') {
+        return isPreInv
+          ? [
+              {
+                element_id: 'elem-1',
+                name_zh: '马来西亚外商投资与 CIDB 承包工程资质许可',
+                status: 'covered' as const,
+                match_note: '持有有效的马来西亚 CIDB 执照及 MIDA 外资投资准入合规登记。',
+                gap_note: '资质牌照要件齐备。',
+                ref_norm: 'CIDB Act 520',
+                eid: 'E1',
+              },
+              {
+                element_id: 'elem-2',
+                name_zh: '属地合资与土著股东权益合规审查',
+                status: 'covered' as const,
+                match_note: '已按马来西亚公司法与属地股权配额标准订立合资协议。',
+                gap_note: '合规要件通过。',
+                ref_norm: 'Companies Act 2016',
+                eid: 'E2',
+              },
+              {
+                element_id: 'elem-3',
+                name_zh: '双语合同效力与强行法合规审查',
+                status: 'covered' as const,
+                match_note: '合同采用英文及马来语规范，符合马来西亚合同法标准。',
+                gap_note: '合规要件齐备。',
+                ref_norm: 'Contracts Act 1950',
+                eid: 'E3',
+              },
+            ]
+          : [
+              {
+                element_id: 'elem-1',
+                name_zh: '迟延交地事实与发包人违约责任归属',
+                status: 'covered' as const,
+                match_note: '在卷现场监理日志证明交地迟延达关键路径阻断，责任归属于发包人。',
+                gap_note: '要件事实闭合完整。',
+                ref_norm: 'FIDIC Silver 8.4(c)',
+                eid: 'E1',
+              },
+              {
+                element_id: 'elem-2',
+                name_zh: '28天索赔通知送达与阻碍原则 (Prevention Principle)',
+                status: 'partial' as const,
+                match_note: '承包商已发出阻工通报，依据马来西亚合同法阻碍原则，发包人不可援引自身违约获益免除责任。',
+                gap_note: '需补强工程师例会纪要与书面送达回执凭证。',
+                ref_norm: 'FIDIC Silver 20.1 & Contracts Act 1950',
+                eid: 'E2',
+              },
+              {
+                element_id: 'elem-3',
+                name_zh: 'CIPAA 2012 第 35 条背靠背条款法定绝对无效',
+                status: 'covered' as const,
+                match_note: '分包合同以业主付款为前提之“背靠背”条款违反 CIPAA 强行法，总承包商需以主合同延误提出实体交叉索赔。',
+                gap_note: '已锁定法定无效抗辩，正向 AIAC 准备实质应诉。',
+                ref_norm: 'CIPAA 2012 Sec 35',
+                eid: 'E3',
+              },
+            ];
+      }
+
+      if (hostJur === 'asean_vn') {
+        return isPreInv
+          ? [
+              {
+                element_id: 'elem-1',
+                name_zh: '越南外商投资牌照与承包资质许可',
+                status: 'covered' as const,
+                match_note: '持有有效的越南计划投资部 (MPI) 投资登记证 (IRC)。',
+                gap_note: '资质牌照要件齐备。',
+                ref_norm: 'VN Law on Investment 2020',
+                eid: 'E1',
+              },
+              {
+                element_id: 'elem-2',
+                name_zh: '双语合同与越文官方效力审查',
+                status: 'covered' as const,
+                match_note: '合同采用越文及英文双语文本，满足涉外承揽法定义务。',
+                gap_note: '合规要件通过。',
+                ref_norm: 'Civil Code 2015',
+                eid: 'E2',
+              },
+              {
+                element_id: 'elem-3',
+                name_zh: '2025新建设法 86.2 条违约金封顶合规',
+                status: 'covered' as const,
+                match_note: '合同约定的损害赔偿条款符合商法 8% 封顶及新建设法标准。',
+                gap_note: '要件通过。',
+                ref_norm: 'Law 135/2025 Art 86.2',
+                eid: 'E3',
+              },
+            ]
+          : [
+              {
+                element_id: 'elem-1',
+                name_zh: '迟延交地事实与发包人违约责任归属',
+                status: 'covered' as const,
+                match_note: '在卷现场监理日志证明交地迟延达关键路径停滞，责任归属于发包人。',
+                gap_note: '要件事实闭合完整。',
+                ref_norm: 'FIDIC Silver 8.4(c)',
+                eid: 'E1',
+              },
+              {
+                element_id: 'elem-2',
+                name_zh: '28天索赔通知送达与发包人知情推定',
+                status: 'partial' as const,
+                match_note: '承包商已发出阻工邮件，发包人完全知情，不可免除自身违约后果。',
+                gap_note: '需补强监理工程例会纪要凭证。',
+                ref_norm: 'FIDIC Silver 20.1',
+                eid: 'E2',
+              },
+              {
+                element_id: 'elem-3',
+                name_zh: '2025新建设法 86.2 条违约金封顶与合理性审查',
+                status: 'covered' as const,
+                match_note: '预定损害赔偿受越南商法 301 条 8% 封顶及新建设法合理损失归属约束。',
+                gap_note: '需提交不可抗力证明。',
+                ref_norm: 'VN Law 135/2025 Art 86.2',
+                eid: 'E3',
+              },
+            ];
+      }
+
+      // 默认印尼法域 (asean_id)
       return isPreInv
         ? [
             {
@@ -452,6 +847,38 @@ export const CaseAnalysisView: React.FC = () => {
     }));
   }, [currentCase, activeIssue]);
 
+  // 综合测算模型指标 (完全绑定当前案卷后端真实战术研判与证据链数据)
+  const viabilityAssessment = useMemo(() => {
+    const rawConf = tacticalGuidance.qualitative_verdict?.confidence_band || '82% - 90%';
+    const match = rawConf.match(/(\d+)%/g);
+    let avgScore = 88;
+    if (match && match.length >= 2) {
+      const v1 = parseInt(match[0], 10);
+      const v2 = parseInt(match[1], 10);
+      avgScore = Math.round((v1 + v2) / 2);
+    } else if (match && match.length === 1) {
+      avgScore = parseInt(match[0], 10);
+    }
+
+    const ratingLevel: 'high' | 'medium' | 'low' = avgScore >= 85 ? 'high' : avgScore >= 75 ? 'medium' : 'low';
+    const coveredCount = activeElements.filter((e) => e.status === 'covered').length;
+    const elemRatio = Math.round((coveredCount / Math.max(activeElements.length, 1)) * 100);
+
+    return {
+      overallScore: avgScore,
+      ratingLabel: tacticalGuidance.qualitative_verdict?.legal_support_level || (isPreInv ? '合规可准入' : '强支持 · 胜诉倾向'),
+      ratingLevel,
+      elementsScore: elemRatio,
+      elementsDetail: `${coveredCount}/${activeElements.length} 核心要件满足在卷举证`,
+      defenseScore: tacticalGuidance.qualitative_verdict?.counter_block_expectation ? 88 : 80,
+      defenseDetail: tacticalGuidance.qualitative_verdict?.counter_block_expectation || '已锁定阻断抗辩与补强底线',
+      authorityScore: currentCase?.evidence ? Math.min(100, Object.keys(currentCase.evidence).length * 15 + 40) : 95,
+      authorityDetail: `${jurConfig.name_zh}官方现行法典与权威判例`,
+      complianceScore: currentCase?.flags?.length ? Math.max(70, 100 - currentCase.flags.length * 10) : 100,
+      complianceDetail: currentCase?.flags?.length ? `检出 ${currentCase.flags.length} 处合规关注` : '已通过涉外法查明全流程合规质检',
+    };
+  }, [tacticalGuidance, activeElements, currentCase, jurConfig, isPreInv]);
+
   // 复制话术
   const handleCopyScript = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -511,7 +938,12 @@ export const CaseAnalysisView: React.FC = () => {
             <span className="text-slate-600 font-sans">
               履行地：<strong className="text-slate-900 font-mono">{caseMeta.hostJur}</strong>
             </span>
-
+            {switchingCaseId && switchingCaseId !== currentCase?.case_id && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[11px] font-sans border border-blue-200/80 animate-pulse ml-1">
+                <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
+                <span>正在调阅 {switchingCaseId} 卷宗...</span>
+              </span>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             {caseMeta.title}
@@ -592,7 +1024,7 @@ export const CaseAnalysisView: React.FC = () => {
       {/* 切面 1：决策全景看板 / 投前准入全景看板 (verdict) */}
       {/* ========================================================================= */}
       {facet === 'verdict' && (
-        <div key="facet-verdict" className="space-y-6 animate-in fade-in duration-200">
+        <div key="facet-verdict" className="space-y-6 apple-tab-pane">
           {/* 顶部：三维定性结论遥测带 (中立多维定性研判结论) */}
           <div className="apple-bento-card rounded-[30px] p-6 sm:p-7 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
@@ -637,7 +1069,7 @@ export const CaseAnalysisView: React.FC = () => {
                   {tacticalGuidance?.qualitative_verdict?.procedural_exposure || (isPreInv ? '受控合规关注 (TKDN 40%)' : '可控中度威胁 (FIDIC 20.1 时效)')}
                 </div>
                 <div className="text-xs text-slate-500 font-mono">
-                  {isPreInv ? '印尼 TKDN 40% & SEMA 3/2023 语言刚性规制' : '对方主张 28 天失权，需落实监理事实送达底稿'}
+                  {isPreInv ? `${jurConfig.short_name}外资准入与强行法合规` : (hostJur === 'asean_my' ? '对方主张 28 天失权及背靠背付款，需落实 CIPAA 送达底稿' : '对方主张 28 天失权，需落实监理事实送达底稿')}
                 </div>
               </div>
 
@@ -655,24 +1087,29 @@ export const CaseAnalysisView: React.FC = () => {
               </div>
             </div>
 
-            {/* 定性评述段落 */}
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed pt-1">
-              {isPreInv ? (
-                <>
-                  依据在卷投资事实与东道国强行法，拟投项目
-                  <strong className="text-slate-900 font-semibold mx-1">{caseMeta.title}</strong>
-                  具备东道国外资准入与特许经营合法性。核心风险在于东道国
-                  <span className="font-mono font-medium text-slate-800"> MEMR 11/2024 TKDN 本地化采购率与土地确权</span>
-                  ，推荐通过新加坡/香港中转设立 SPV 并与业主预置特许豁免约定以完全对冲风险敞口。
-                </>
-              ) : (
-                <>
-                  依据在卷案情与现行东盟及 FIDIC 规范，我方主张具备充分法定请求权基础。对方主要抗辩焦点集中于
-                  <span className="font-mono font-medium text-slate-800"> FIDIC 20.1 索赔通知28天时效</span>
-                  。经查明，业主迟延交地构成工程阻工关键近因，可援引国际工程权威“阻碍原则 (Prevention Principle)”及东道国最高法院判例先例阻断其失权抗辩。
-                </>
+            {/* 定性评述段落 (完全绑定当前案卷后端真实战略研判与核心裁判要素) */}
+            <div className="text-xs sm:text-sm text-slate-600 leading-relaxed pt-1 space-y-1.5">
+              <p>
+                依据在卷案情与东道国 ({jurConfig.name_zh}) 司法实践，我方关于
+                <strong className="text-slate-900 font-semibold mx-1">{caseMeta.title}</strong>
+                的法律立场评定为【{tacticalGuidance.qualitative_verdict?.legal_support_level}】。
+                {currentCase?.strategic_assessment?.outcome_branches?.[0]?.outcome_summary && (
+                  <span className="text-slate-800 font-medium ml-1">
+                    研判结论：{currentCase.strategic_assessment.outcome_branches[0].outcome_summary}
+                  </span>
+                )}
+              </p>
+              {currentCase?.strategic_assessment?.pivotal_factors && currentCase.strategic_assessment.pivotal_factors.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
+                  <span className="text-slate-400 font-mono text-[11px]">关键裁判抗辩枢纽:</span>
+                  {currentCase.strategic_assessment.pivotal_factors.map((factor, idx) => (
+                    <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px] border border-slate-200/60">
+                      ⚡ {factor}
+                    </span>
+                  ))}
+                </div>
               )}
-            </p>
+            </div>
           </div>
 
           {/* 下半区 8:4 布局：假定条件推演矩阵 (65%) + 谈判行动底线 (35%) */}
@@ -698,14 +1135,14 @@ export const CaseAnalysisView: React.FC = () => {
                 </span>
               </div>
 
-              {/* 三阶泳道卡片 */}
+              {/* 三阶泳道卡片 (完全绑定后端真实战略研判与红队抗辩) */}
               <div className="space-y-3.5">
-                {/* 泳道 1: 乐观假定 */}
+                {/* 泳道 1: 乐观假定 (绑定后端真实战略研判乐观分支) */}
                 <div className="p-4.5 rounded-2xl border border-emerald-200/80 bg-emerald-50/30 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800">
                       <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span>{isPreInv ? '【乐观情景 · 外资持牌准入与BIT全保护】' : '【乐观情景 · 胜诉与完全顺延】'}</span>
+                      <span>{currentCase?.strategic_assessment?.outcome_branches?.[0]?.title ? `【乐观情景 · ${currentCase.strategic_assessment.outcome_branches[0].title}】` : (isPreInv ? '【乐观情景 · 外资持牌准入与BIT全保护】' : '【乐观情景 · 胜诉与完全顺延】')}</span>
                     </span>
                     <span className="text-[11px] font-mono text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md font-semibold">
                       {isPreInv ? '牌照齐备 · BIT保护生效' : '胜券锁定 · 阻断失权'}
@@ -714,20 +1151,18 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="text-xs text-slate-700 space-y-1">
                     <p>
                       <strong>事实认定前提 (If)：</strong>{' '}
-                      {isPreInv
-                        ? '调取当地工业部出具的 TKDN 40% 豁免批复，并通过新加坡 SPV 完成外资股比核准（符合东道国负面清单 49% 上限）。'
-                        : '调取现场监理签发之每日阻工日志，或取得印尼能矿部 MEMR 11/2024 TKDN 豁免函批复。'}
+                      {currentCase?.strategic_assessment?.outcome_branches?.[0]?.condition_precedent || (isPreInv
+                        ? (hostJur === 'asean_id' ? '调取当地工业部出具的 TKDN 40% 豁免批复，并通过新加坡 SPV 完成外资股比核准。' : `调取${jurConfig.name_zh}外资主管机关准入批复，并通过合规 SPV 架构完成投资备案。`)
+                        : '调取现场监理签发之每日阻工日志，并依据东道国法律完成核心证据链保全。')}
                     </p>
                     <p>
                       <strong>法律适用后果 (Then)：</strong>{' '}
-                      {isPreInv
-                        ? '获得东道国 BKPM 外资准入与 BUJKA 总承包持牌许可，特许权协议受中新 BIT 间接征收保护与 ICSID 国际仲裁管辖。'
-                        : '阻断发包人 28 天失权主张，工期获全额顺延 (EOT)，完全排除预定违约金 (LD)，保函获法院/仲裁庭专属禁令止付。'}
+                      {currentCase?.strategic_assessment?.outcome_branches?.[0]?.outcome_summary || (isPreInv
+                        ? `获得${jurConfig.name_zh}外资准入与总承包持牌许可，特许权协议受双边投资保护协定 (BIT) 间接征收保护与国际仲裁管辖。`
+                        : '阻断发包人失权主张，工期获全额顺延 (EOT)，完全排除预定违约金 (LD)，保函获法院/仲裁庭专属禁令止付。')}
                     </p>
                     <p className="text-[11px] font-mono text-slate-400">
-                      {isPreInv
-                        ? '依据：东道国 Law 2/2017 · 中新 BIT 第 6 条 · BKPM 5/2021'
-                        : '依据：FIDIC Silver 8.4(c) · Prevention Principle · SEMA 3/2023 · BS Mount Sophia [2016] SGCA 57'}
+                      依据：{currentCase?.strategic_assessment?.outcome_branches?.[0]?.substantive_basis?.join(' · ') || (isPreInv ? `${jurConfig.short_name}投资法案 · 国际投资协定 (BIT)` : `FIDIC Silver · ${jurConfig.short_name}强行法规范`)}
                     </p>
                   </div>
                 </div>
@@ -746,30 +1181,28 @@ export const CaseAnalysisView: React.FC = () => {
                   <div className="text-xs text-slate-700 space-y-1">
                     <p>
                       <strong>事实认定前提 (If)：</strong>{' '}
-                      {isPreInv
-                        ? '依托属地 KSO 联合体满足本地劳工与承包配额，主合同完成官方印尼语与英语双语同文签署。'
-                        : '依托在卷往来邮件与会议纪要间接证明发包人知情事实，但未获正式书面签署确认。'}
+                      {currentCase?.strategic_assessment?.actionable_checklist?.[0]
+                        ? `严格执行风控清单：${currentCase.strategic_assessment.actionable_checklist[0]}，固定现场各方知情事实。`
+                        : (isPreInv ? `依托${jurConfig.name_zh}属地合资/联营体满足本地化配额要求，完成规范双语合同签署。` : '依托在卷往来邮件与会议纪要间接证明发包人知情事实，但未获正式书面签署确认。')}
                     </p>
                     <p>
                       <strong>法律适用后果 (Then)：</strong>{' '}
                       {isPreInv
                         ? '特许经营协议合法生效，满足行业强制准入门槛，属地强行法排斥风险在受控区间。'
-                        : '实体请求权成立，可主张部分工期补偿；发包人将针对违约金上限 (10%~15%) 展开激烈抵扣抗辩。'}
+                        : '实体请求权成立，可主张部分工期补偿；发包人将针对违约金上限展开抗辩。'}
                     </p>
                     <p className="text-[11px] font-mono text-slate-400">
-                      {isPreInv
-                        ? '依据：东道国第 24/2009 号法律 · SEMA 3/2023 · 属地资质管理条例'
-                        : '依据：东道国民法典第 1338 条善意原则 · 比例分担并发延误'}
+                      依据：{jurConfig.name_zh}法律规范 · {tacticalGuidance.qualitative_verdict?.counter_block_expectation || '善意履约原则'}
                     </p>
                   </div>
                 </div>
 
-                {/* 泳道 3: 底线突破 */}
+                {/* 泳道 3: 压力情景 (绑定后端真实红队抗辩与时效审查) */}
                 <div className="p-4.5 rounded-2xl border border-rose-200/80 bg-rose-50/30 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-800">
                       <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      <span>{isPreInv ? '【压力情景 · 股权穿透超标与强行法效力挑战】' : '【压力情景 · 证据瑕疵与违约交锋】'}</span>
+                      <span>{isPreInv ? '【压力情景 · 股权穿透超标与强行法效力挑战】' : '【压力情景 · 对方红队抗辩交锋】'}</span>
                     </span>
                     <div className="flex items-center gap-2">
                       {!isPreInv && simNoticeDays > 28 && (
@@ -778,27 +1211,25 @@ export const CaseAnalysisView: React.FC = () => {
                         </span>
                       )}
                       <span className="text-[11px] font-mono text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-md font-semibold">
-                        {isPreInv ? '合同无效风险 · 审查挑战' : '失权威胁 · 刚性违约'}
+                        {isPreInv ? '合同无效风险 · 审查挑战' : '失权威胁 · 违约抗辩'}
                       </span>
                     </div>
                   </div>
                   <div className="text-xs text-slate-700 space-y-1">
                     <p>
                       <strong>事实认定前提 (If)：</strong>{' '}
-                      {isPreInv
+                      {currentCase?.strategic_assessment?.red_team_defenses?.[0]?.opposing_claim || (isPreInv
                         ? '合同仅签署单语版本，或外资实际控股穿透超过东道国负面清单法定上限且未获特许豁免。'
-                        : '索赔通知超过 28 天且无法举证发包人实际知情，或合同未签署属地官方语言版本。'}
+                        : '索赔通知超过 28 天且无法举证发包人实际知情，或合同未签署属地官方语言版本。')}
                     </p>
                     <p>
                       <strong>法律适用后果 (Then)：</strong>{' '}
-                      {isPreInv
-                        ? '特许权协议面临东道国最高法院确认合同无效风险，且无法穿透享受双边投资保护协定待遇。'
-                        : '仲裁员可能机械适用时效条款认定失权；单语合同面临印尼第 24/2009 号法律绝对无效挑战。'}
+                      {currentCase?.strategic_assessment?.red_team_defenses?.[0]?.factual_counter_point
+                        ? `我方反制主张：${currentCase.strategic_assessment.red_team_defenses[0].factual_counter_point}`
+                        : (isPreInv ? `特许权协议面临${jurConfig.name_zh}法院确认合同无效风险，且无法穿透享受双边投资保护协定待遇。` : `仲裁员可能机械适用时效条款认定失权；合同部分排除性条款面临${jurConfig.name_zh}强行法审查。`)}
                     </p>
                     <p className="text-[11px] font-mono text-slate-400">
-                      {isPreInv
-                        ? '依据：印尼第 24/2009 号法律 · 印尼最高法院 601 K/Pdt/2015 判例'
-                        : '依据：严格字面解释 · 印尼最高法院 601 K/Pdt/2015 判例'}
+                      依据：{currentCase?.strategic_assessment?.red_team_defenses?.[0]?.opposing_basis || `严格字面解释 · ${jurConfig.short_name}最高法院司法先例`}
                     </p>
                   </div>
                 </div>
@@ -870,7 +1301,7 @@ export const CaseAnalysisView: React.FC = () => {
       {/* 切面 2：争点拆解 & 要件四态涵摄 (elements) */}
       {/* ========================================================================= */}
       {facet === 'elements' && (
-        <div key="facet-elements" className="space-y-6 animate-in fade-in duration-200">
+        <div key="facet-elements" className="space-y-6 apple-tab-pane">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* 左栏 (32% · 4列)：争议焦点 / 审查支柱列表 */}
             <div className="lg:col-span-4 apple-bento-card rounded-[30px] p-5 space-y-4">
@@ -1031,7 +1462,7 @@ export const CaseAnalysisView: React.FC = () => {
       {/* 切面 3：工程沙盘 & 攻防工坊 (sandbox) */}
       {/* ========================================================================= */}
       {facet === 'sandbox' && (
-        <div key="facet-sandbox" className="space-y-6 animate-in fade-in duration-200">
+        <div key="facet-sandbox" className="space-y-6 apple-tab-pane">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* 左舱 (48% · 6列)：精密参数沙盘 / 投资架构比选 */}
             <div className="lg:col-span-6 apple-bento-card rounded-[30px] p-7 space-y-6">
@@ -1083,12 +1514,12 @@ export const CaseAnalysisView: React.FC = () => {
               {/* 争议模式下的五大滑块 (带法定红线刻度锚点) */}
               {!isPreInv ? (
                 <div className="space-y-5">
-                  {/* 滑块 1: 印尼 TKDN 本地化采购率 (法定 40% 红线) */}
+                  {/* 滑块 1: 属地强行法与本地采购配额自适应滑块 */}
                   <div className="clean-row-card p-4 space-y-2.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-semibold text-slate-900 flex items-center gap-1.5">
                         <Activity className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                        印尼 TKDN 本地化采购率 (MEMR 11/2024)
+                        {slider1Config.title}
                       </span>
                       <div className="flex items-center gap-2">
                         {baselineParams.declared_tkdn_pct !== undefined && simTkdn !== baselineParams.declared_tkdn_pct && (
@@ -1096,30 +1527,28 @@ export const CaseAnalysisView: React.FC = () => {
                             {simTkdn > baselineParams.declared_tkdn_pct ? `+${(simTkdn - baselineParams.declared_tkdn_pct).toFixed(0)}%` : `${(simTkdn - baselineParams.declared_tkdn_pct).toFixed(0)}%`} 较基准
                           </span>
                         )}
-                        <span className={`font-mono font-bold ${simTkdn >= 40 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                          {simTkdn}% {simTkdn >= 40 ? '(达标)' : '(缺口待豁免)'}
+                        <span className={`font-mono font-bold ${slider1Config.isCompliant ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {simTkdn}% {slider1Config.statusLabel}
                         </span>
                       </div>
                     </div>
                     <div className="relative pt-1 pb-3">
                       <input
                         type="range"
-                        min="10"
+                        min="5"
                         max="80"
                         value={simTkdn}
                         onChange={(e) => handleSliderChange(setSimTkdn, Number(e.target.value))}
                         className="w-full accent-blue-600 cursor-pointer"
                       />
                       {/* 法定刻度锚点 */}
-                      <div className="absolute left-[42.8%] top-5 text-[10px] font-mono text-amber-700 flex flex-col items-center">
-                        <span className="w-0.5 h-2 bg-amber-500" />
-                        <span>40% 法定线</span>
+                      <div className="absolute top-5 text-[10px] font-mono text-emerald-600 flex flex-col items-center" style={{ left: slider1Config.anchorLeft }}>
+                        <span className="w-0.5 h-2 bg-emerald-500" />
+                        <span>{slider1Config.target}% 基准线</span>
                       </div>
                     </div>
                     <p className="text-[11px] text-slate-500">
-                      {simTkdn >= 40
-                        ? '已达电力主机采购法定线，可直接申请完工 COD 证书。'
-                        : `存在 ${40 - simTkdn}% 缺口，需依据 MEMR 11/2024 第 8 条提请部长特许豁免。`}
+                      {slider1Config.desc}
                     </p>
                   </div>
 
@@ -1159,7 +1588,13 @@ export const CaseAnalysisView: React.FC = () => {
                     <p className="text-[11px] text-slate-500">
                       {simNoticeDays <= 28
                         ? '在 28 天除斥期内完成送达，完全排除失权抗辩。'
-                        : '已超 28 天时效，需重点援引 Prevention Principle 与 SEMA 3/2023 反失权。'}
+                        : (hostJur === 'asean_my'
+                            ? '已超 28 天时效，需重点援引 Prevention Principle（阻碍原则）与 Contracts Act 1950 善意履约反失权。'
+                            : hostJur === 'asean_vn'
+                            ? '已超 28 天时效，需重点援引民法典善意原则与新建设法第 86.2 条合理损失界定反失权。'
+                            : hostJur === 'asean_sg'
+                            ? '已超 28 天时效，需重点援引新加坡普通法 Prevention Principle 反失权。'
+                            : '已超 28 天时效，需重点援引 Prevention Principle 与 SEMA 3/2023 善意原则反失权。')}
                     </p>
                   </div>
 
@@ -1244,17 +1679,17 @@ export const CaseAnalysisView: React.FC = () => {
                       {
                         key: 'A',
                         title: '方案 A：中资母公司直接投资 (Direct Investment)',
-                        desc: '受中印/中国东盟双边条约直接保护，但缺少中转税收协定与法域中立仲裁优势。',
+                        desc: `受中国与${jurConfig.name_zh}双边投资保护协定 (BIT) 直接保护，但缺少中转税收协定与法域中立仲裁优势。`,
                       },
                       {
                         key: 'B',
                         title: '方案 B：设立新加坡 SPV 中转 (Singapore SPV + BIT)',
-                        desc: '激活新-印 BIT 间接征收保护与税务协定 (DTA)，且履约保函受新加坡法院专属管辖。',
+                        desc: `激活新加坡与东道国双边投资保护 (BIT) 间接征收保护与税务协定 (DTA)，且履约保函受法域中立仲裁管辖。`,
                       },
                       {
                         key: 'C',
-                        title: '方案 C：属地 KSO/JO 联营体 (Consortium / Joint Operation)',
-                        desc: '满足印尼 Law 2/2017 资质强行法与本地劳工配额要求，但存在连带责任接口敞口。',
+                        title: '方案 C：属地合资/联营体 (Consortium / Joint Operation)',
+                        desc: `满足${jurConfig.name_zh}工程资质强行法与本地劳工配额要求，但存在连带责任接口敞口。`,
                       },
                     ].map((opt) => (
                       <div
@@ -1336,7 +1771,7 @@ export const CaseAnalysisView: React.FC = () => {
                 <div className="flex flex-wrap gap-2">
                   {tacticalGuidance.negotiation_scripts.map((sc, idx) => {
                     const isTriggeredByNotice = sc.scenario_title.includes('20.1') && simNoticeDays > 28;
-                    const isTriggeredByTkdn = sc.scenario_title.includes('TKDN') && simTkdn < 40;
+                    const isTriggeredByTkdn = (sc.scenario_title.includes('TKDN') || sc.scenario_title.includes('CIPAA') || sc.scenario_title.includes('86.2') || sc.scenario_title.includes('SOPA')) && simTkdn < (slider1Config.target || 30);
                     const isTriggeredBySinosure = sc.scenario_title.includes('信保') && simSinosureDays > 30;
                     const isTriggered = isTriggeredByNotice || isTriggeredByTkdn || isTriggeredBySinosure;
                     return (
@@ -1480,7 +1915,7 @@ export const CaseAnalysisView: React.FC = () => {
       {/* 切面 4：法源穿透图谱 & 意见书交付 (export) */}
       {/* ========================================================================= */}
       {facet === 'export' && (
-        <div key="facet-export" className="space-y-6 animate-in fade-in duration-200">
+        <div key="facet-export" className="space-y-6 apple-tab-pane">
           {/* 顶部操作栏：简洁标题 + 拓扑图谱按钮 + 双 DOCX 导出操作按钮组 */}
           <div className="apple-bento-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -1668,23 +2103,11 @@ export const CaseAnalysisView: React.FC = () => {
         </div>
       )}
 
-      {/* 算法模型与依据弹窗 */}
+      {/* 算法模型与依据弹窗 (完全绑定当前案卷动态数据) */}
       <ViabilityCalculationModal
         isOpen={showViabilityModal}
         onClose={() => setShowViabilityModal(false)}
-        assessment={{
-          overallScore: 88,
-          ratingLabel: isPreInv ? '附条件准入可行' : '强支持 · 充分胜诉倾向',
-          ratingLevel: 'high',
-          elementsScore: 92,
-          elementsDetail: `${activeElements.filter((e) => e.status === 'covered').length}/${activeElements.length} 核心要件满足`,
-          defenseScore: 86,
-          defenseDetail: '致命抗辩已备阻碍原则反制',
-          authorityScore: 96,
-          authorityDetail: '东盟六国官方现行成文法典',
-          complianceScore: 100,
-          complianceDetail: '已通过涉外法查明规范校验',
-        }}
+        assessment={viabilityAssessment}
         isPreInvestment={isPreInv}
       />
 

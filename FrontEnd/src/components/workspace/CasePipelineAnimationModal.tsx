@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Play,
-  Pause,
-  RotateCcw,
   X,
   Check,
   ChevronRight,
@@ -30,7 +27,7 @@ interface CasePipelineAnimationModalProps {
   caseMeta?: PipelineCaseMeta;
 }
 
-// 5 阶段查明流水线定义，每个 Step 最短时间设置为 5 秒 (5000ms)，文字纯净精炼
+// 5 阶段查明流水线定义，文字纯净精炼，节奏平衡自然
 export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
   const isPreInv =
     caseMeta?.isPreInvestment ||
@@ -44,7 +41,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
         stepNumber: '01',
         title: 'Agent正在执行投资准入识别、东道国外资限制与央企合规前置审查',
         coreAction: '核验东道国外商投资负面清单（泰FBA/菲PCAB/印尼投资法）、土地所有权限制及国资委35号令门禁',
-        durationMs: 5000,
+        durationMs: 3200,
         pills: ['东道国外资准入', '负面清单核查', '国资委35号令门禁'],
       },
       {
@@ -52,7 +49,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
         stepNumber: '02',
         title: 'Agent正在执行跨境投资与工程准入合规要项结构化拆解',
         coreAction: '将投资合规要项拆解为外资股权红线(40%)、本地化率(TKDN)、PPP特许经营换届征收与中信保30日报损',
-        durationMs: 5000,
+        durationMs: 3200,
         pills: ['外资持股比例', 'TKDN/准入牌照', '中信保报损时效'],
       },
       {
@@ -60,7 +57,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
         stepNumber: '03',
         title: 'Agent正在执行东盟外资法典、BOI政策通告与特许经营判例检索',
         coreAction: '检索东道国外资法典、菲律宾Manila Water判例、中菲/中越双边投资协定(BIT)与PPP法典现行规范',
-        durationMs: 5000,
+        durationMs: 3200,
         pills: ['外资保护条约', '权威司法先例', 'BOI投资优惠'],
       },
       {
@@ -68,7 +65,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
         stepNumber: '04',
         title: 'Agent正在执行东道国政府批文防伪与投前尽调证据闭环核验',
         coreAction: '对齐东道国投资部(BKPM/BOI)官方正本，核验特许权协议、征地环评批文与合资联营架构真实性',
-        durationMs: 5000,
+        durationMs: 3200,
         pills: ['投资部一手批文', '尽调证据链闭环', '穿透式合规审查'],
       },
       {
@@ -76,7 +73,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
         stepNumber: '05',
         title: 'Agent正在执行投前准入构成要件评估与合规落地审查意见书生成',
         coreAction: '完成准入要件充分性评估与投资架构对冲设计，生成投前合规审查意见书与双包落地指引',
-        durationMs: 5000,
+        durationMs: 3200,
         pills: ['准入合规评估', '投资对冲方案', '合规意见书就绪'],
       },
     ];
@@ -88,7 +85,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       stepNumber: '01',
       title: 'Agent正在执行准据法识别、东道国强行法与央企安全审查',
       coreAction: '核验合同选法有效性、东道国强行法（印尼建筑法/越南新建设法/马来CIPAA）及国资委35号令安全门禁',
-      durationMs: 5000,
+      durationMs: 3200,
       pills: ['东道国准据法', '强行法审查', '国资委35号令门禁'],
     },
     {
@@ -96,7 +93,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       stepNumber: '02',
       title: 'Agent正在执行涉外建设工程争议焦点结构化拆解',
       coreAction: '将工程诉求拆解为工期顺延(EOT)、FIDIC 20.1 28天索赔失权通知、背靠背付款及本地化率(TKDN)争点',
-      durationMs: 5000,
+      durationMs: 3200,
       pills: ['FIDIC 8.4/20.1 时效', '背靠背付款效力', 'TKDN 配额审查'],
     },
     {
@@ -104,7 +101,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       stepNumber: '03',
       title: 'Agent正在执行东盟法典、司法通告与工程裁判先例检索',
       coreAction: '检索东道国成文法典、印尼SEMA 3/2023、新加坡BS Mount Sophia保函止付先例与FIDIC通用条件',
-      durationMs: 5000,
+      durationMs: 3200,
       pills: ['东盟现行法条', '权威裁判先例', 'FIDIC GC vs PC'],
     },
     {
@@ -112,7 +109,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       stepNumber: '04',
       title: 'Agent正在执行司法部“法通网”官方规范防伪与工程证据核验',
       coreAction: '对齐司法部法通网与东盟一手正本，完成停工令、工程师指令、签证单与第三方认证真实性核验',
-      durationMs: 5000,
+      durationMs: 3200,
       pills: ['官方多语正本', '工程留痕证据闭环', '三道防线合规审查'],
     },
     {
@@ -120,8 +117,8 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       stepNumber: '05',
       title: 'Agent正在执行法定构成要件审查与央企合规查明意见书生成',
       coreAction: '完成违约责任阻断与保函止付构成要件核验，生成出海基建央企法庭级查明意见书与信保保全指引',
-      durationMs: 5000,
-      pills: ['法定构成要件审查', '保函反制盾牌', '查明意见书就绪'],
+      durationMs: 3200,
+      pills: ['法定构成要件审查', '保函抗辩救济', '查明意见书就绪'],
     },
   ];
 };
@@ -139,24 +136,22 @@ export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProp
   const stages = useMemo(() => buildPipelineStages(caseMeta), [caseMeta]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [stageProgress, setStageProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setActiveIndex(0);
       setStageProgress(0);
-      setIsPaused(false);
       setIsFinished(false);
     }
   }, [isOpen]);
 
-  // 每个 Step 最短时间 5 秒 (5000ms) 的平滑过渡定时器
+  // 平滑过渡定时器
   useEffect(() => {
-    if (!isOpen || isPaused || isFinished) return;
+    if (!isOpen || isFinished) return;
     const currentStage = stages[activeIndex];
-    const duration = currentStage.durationMs || 5000;
-    const intervalMs = 50;
+    const duration = currentStage.durationMs || 3200;
+    const intervalMs = 40;
     const increment = (intervalMs / duration) * 100;
 
     const timer = setInterval(() => {
@@ -175,7 +170,17 @@ export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProp
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [isOpen, isPaused, isFinished, activeIndex, stages]);
+  }, [isOpen, isFinished, activeIndex, stages]);
+
+  // 完成后平滑自动切入案卷分析 (留存 1.6s 供用户感知推演完毕)
+  useEffect(() => {
+    if (isFinished && isOpen) {
+      const autoTimer = setTimeout(() => {
+        if (onComplete) onComplete();
+      }, 1600);
+      return () => clearTimeout(autoTimer);
+    }
+  }, [isFinished, isOpen, onComplete]);
 
   if (!isOpen) return null;
 
@@ -188,7 +193,7 @@ export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProp
       />
 
       <div className="relative z-10 w-full max-w-4xl flex flex-col items-center">
-        {/* 顶部控制栏 - Apple Bento Glass 风格 */}
+        {/* 顶部控制栏 - 极简纯净 Apple Bento Glass 风格 */}
         <div className="w-full flex items-center justify-between gap-3 mb-4 px-6 py-4 bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-[28px] shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-blue-500/25">
@@ -208,41 +213,6 @@ export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProp
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsPaused(!isPaused)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-200/80 rounded-xl transition-all cursor-pointer active:scale-[0.98]"
-            >
-              {isPaused ? <Play className="w-3.5 h-3.5 text-blue-600 fill-blue-600" /> : <Pause className="w-3.5 h-3.5 text-slate-600" />}
-              <span>{isPaused ? '继续' : '暂停'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (onComplete) {
-                  onComplete();
-                } else {
-                  onClose();
-                }
-              }}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
-              title="直接进入案卷深度研判"
-            >
-              跳过动画直接进入 ➔
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveIndex(0);
-                setStageProgress(0);
-                setIsFinished(false);
-                setIsPaused(false);
-              }}
-              className="p-2 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 transition-all cursor-pointer active:scale-[0.98]"
-              title="重新推演"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
             <button
               type="button"
               onClick={onClose}
@@ -317,8 +287,16 @@ export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProp
                     </div>
                   </div>
 
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/80">
-                    {index < activeIndex || isFinished ? '已完成' : isCurrent ? '执行中 (5s)' : '等待中'}
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      index < activeIndex || isFinished
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                        : isCurrent
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200/80'
+                        : 'bg-slate-100 text-slate-500 border border-slate-200/80'
+                    }`}
+                  >
+                    {index < activeIndex || isFinished ? '已完成' : isCurrent ? '执行中' : '等待中'}
                   </span>
                 </div>
 

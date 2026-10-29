@@ -3,9 +3,13 @@
 """
 
 import os
+import logging
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+logger = logging.getLogger(__name__)
 
 from lawagent.api.routes import cases, search, verify, consults, compliance
 from lawagent.store.db import StateDBManager
@@ -19,6 +23,20 @@ async def lifespan(app: FastAPI):
     db.list_experts()  # 触发专家名录自动播种
     from scripts.seed_asean_cases import seed_asean_demo_cases
     seed_asean_demo_cases(db)
+
+    # 启动自愈机制：检查并断点续推未完成的后台案件
+    try:
+        from lawagent.api.deps import get_workflow_runner
+        from lawagent.api.routes.cases import _run_workflow_background
+        runner = get_workflow_runner()
+        cases_list = db.list_cases()
+        for c in cases_list:
+            if c.status == "running":
+                logger.info("系统启动自愈: 发现未完成案件 %s，从断点自动续推...", c.case_id)
+                asyncio.create_task(_run_workflow_background(c.case_id, db, runner))
+    except Exception as e:
+        logger.warning("系统启动自愈检查发生异常: %s", e)
+
     yield
 
 
