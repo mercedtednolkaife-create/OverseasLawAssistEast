@@ -63,32 +63,42 @@ class SQLiteGraphStore:
         direction: str = "out",
         limit: int = 20
     ) -> List[Dict[str, Any]]:
-        """获取直连邻居节点 (支持 out / in / both)"""
-        clean_id = node_id if node_id.startswith(("NORM:", "CASE:", "CPT:")) else f"NORM:{node_id}"
+        """获取直连邻居节点 (支持 out / in / both，同时兼容裸 ID 与带 NORM:/CASE: 前缀 ID)"""
+        # 构建节点 ID 的多重变体，确保无论库中是裸 ID 还是带前缀均可精准召回
+        id_variants = [node_id]
+        if node_id.startswith("NORM:"):
+            id_variants.append(node_id[5:])
+        else:
+            id_variants.append(f"NORM:{node_id}")
+        if node_id.startswith("CASE:"):
+            id_variants.append(node_id[5:])
+        id_variants = list(dict.fromkeys(id_variants))
+
         conn = self._get_conn()
         cur = conn.cursor()
 
         query_rels = rels if rels else DEFAULT_GRAPH_RELS
-        placeholders = ",".join("?" for _ in query_rels)
+        placeholders_rels = ",".join("?" for _ in query_rels)
+        placeholders_ids = ",".join("?" for _ in id_variants)
 
         if direction == "out":
             sql = f"""SELECT dst as node, rel, source FROM edges_top
-                      WHERE src = ? AND rel IN ({placeholders})
+                      WHERE src IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
                       ORDER BY rk ASC LIMIT ?"""
-            cur.execute(sql, [clean_id, *query_rels, limit])
+            cur.execute(sql, [*id_variants, *query_rels, limit])
         elif direction == "in":
             sql = f"""SELECT src as node, rel, source FROM edges_top
-                      WHERE dst = ? AND rel IN ({placeholders})
+                      WHERE dst IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
                       ORDER BY rk ASC LIMIT ?"""
-            cur.execute(sql, [clean_id, *query_rels, limit])
+            cur.execute(sql, [*id_variants, *query_rels, limit])
         else:  # both
             sql = f"""SELECT dst as node, rel, source FROM edges_top
-                      WHERE src = ? AND rel IN ({placeholders})
+                      WHERE src IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
                       UNION ALL
                       SELECT src as node, rel, source FROM edges_top
-                      WHERE dst = ? AND rel IN ({placeholders})
+                      WHERE dst IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
                       LIMIT ?"""
-            cur.execute(sql, [clean_id, *query_rels, clean_id, *query_rels, limit])
+            cur.execute(sql, [*id_variants, *query_rels, *id_variants, *query_rels, limit])
 
         return [dict(r) for r in cur.fetchall()]
 
@@ -99,15 +109,19 @@ class SQLiteGraphStore:
         rels: Optional[List[str]] = None,
         limit: int = 60
     ) -> List[Dict[str, Any]]:
-        """执行 1~2 跳双向递归 CTE 图扩展 (严格控制扇出与最大条数)"""
+        """执行 1~2 跳双向递归 CTE 图扩展 (严格控制扇出与最大条数，同时兼容带前缀与裸 ID)"""
         if not start_ids:
             return []
 
         clean_starts = set()
         for sid in start_ids:
             clean_starts.add(sid)
-            if not sid.startswith(("NORM:", "CASE:", "CPT:")):
+            if sid.startswith("NORM:"):
+                clean_starts.add(sid[5:])
+            else:
                 clean_starts.add(f"NORM:{sid}")
+            if sid.startswith("CASE:"):
+                clean_starts.add(sid[5:])
         clean_starts_list = list(clean_starts)
 
         allowed_rels = rels or DEFAULT_GRAPH_RELS

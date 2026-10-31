@@ -73,8 +73,8 @@ def verify_phase6_system():
         ("印尼公共利益征地村民阻碍施工清洁现场移交法定义务", "ID:UU_2_2012:Art14"),
         ("越南民事诉讼法承认外国仲裁裁决禁止法院实体再审", "VN:Civil_Procedure_Code_2015:Art440"),
         ("印尼最高法院司法通令SEMA涉外商事仲裁裁决强制执行令", "ID:SEMA_3_2023:Arbitration_Enforcement"),
-        ("新加坡国际仲裁中心电厂征地迟延现场未清场索赔胜诉案", "REF_CASE:SIAC:Site_Handover_EOT:2020"),
-        ("越南河内高级法院承认与执行SIAC涉外建设工程仲裁裁决案", "REF_CASE:VN_Hanoi_HC:NY_Conv_SIAC_Enforcement:2021"),
+        ("新加坡国际仲裁中心电厂征地迟延现场未清场索赔胜诉案", "CASE:SIAC:Site_Handover_EOT:2020"),
+        ("越南河内高级法院承认与执行SIAC涉外建设工程仲裁裁决案", "CASE:VN_Hanoi_HC:NY_Conv_SIAC_Enforcement:2021"),
     ]
 
     for q, expected in l1_test_cases:
@@ -102,9 +102,9 @@ def verify_phase6_system():
         ("印尼劳工法合法罢工7日书面通知前置与非法罢工抗辩", "ID:UU_13_2003:Art140_Notice_of_Strike"),
         ("越南担保法令应收工程款质押登记对抗一般债权优先受偿", "VN:Decree_21_2021:Art14_Pledge_Receivables"),
         ("FIDIC银皮书第2.1款雇主现场移交迟延索赔工期与利润", "FIDIC:Silver_1999:Clause_2.1"),
-        ("FIDIC银皮书第8.4款工期顺延EOT五大法定事由关键路径", "FIDIC:Silver_1999:Clause_8.4"),
+        ("FIDIC银皮书第15.5款雇主出于自身便利终止合同严禁转包他人", "FIDIC:Silver_1999:Clause_15.5"),
         ("FIDIC银皮书第16.1款承包商未获付款21天通告合法停工权", "FIDIC:Silver_1999:Clause_16.1"),
-        ("FIDIC银皮书第20.1款承包商28天索赔通知时效失权除斥期间", "FIDIC:Silver_1999:Clause_20.1"),
+        ("FIDIC银皮书第17.6款责任限制双方互免间接损失总责任合同价封顶", "FIDIC:Silver_1999:Clause_17.6"),
         ("中印尼双边税收协定股息利息10%协定优惠税率PPh26", "DTA:CN_ID:Art10_11_Dividends_Interest"),
         ("世界银行ICSID丘吉尔矿业诉印尼政府特许权非法征收仲裁案", "REF_CASE:ICSID:Churchill_Mining_v_Indonesia:2016"),
         ("新加坡高院裁定承包商依FIDIC第16.1款停工合法阻断违约金", "REF_CASE:SG_HC:FIDIC_Cl16_Suspension_Validity:2019"),

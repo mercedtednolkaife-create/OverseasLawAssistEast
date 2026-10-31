@@ -285,7 +285,7 @@ export const HomeLandingView: React.FC = () => {
             </h1>
 
             <p className="text-xs text-slate-500 max-w-xl mx-auto font-normal">
-              涵盖东盟六国投资准入、涉外合同合规审查、现行法规检索与索赔争议研判
+              涵盖东盟投资准入、涉外合同合规审查、现行法规检索与索赔争议研判
             </p>
 
             {/* 全局检索输入框：统一蓝色行动按钮 */}
@@ -557,7 +557,7 @@ export const HomeLandingView: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-800">暂无专案卷宗，从这里开始您的第一个出海项目</p>
-                <p className="text-xs text-slate-500">支持录入东盟六国涉外工程 EPC、特许经营 BOT 或海外投资并购专案，启动全流程法律分析与论证研判</p>
+                <p className="text-xs text-slate-500">支持录入东盟涉外工程 EPC、特许经营 BOT 或海外投资并购专案，启动全流程法律分析与论证研判</p>
               </div>
               <div className="pt-2 flex items-center justify-center gap-3">
                 <button

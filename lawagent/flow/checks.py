@@ -118,6 +118,23 @@ def calibrate_asean_entry_checks(meta: CaseMeta) -> List[EntryCheckItem]:
         detail="确认项目属于央企主业清单备案范围，且中信保海外投资保单投保状态正常，已建立 30 日出险报损前置应急响应机制"
     ))
 
+    # 6. 国际投资协定保护 (ISDS) 与属地管辖机构前置校验 (CAFTA/BIT vs ACIA & ICSID vs UNCITRAL)
+    isds_forum = "ICSID 或 UNCITRAL 国际仲裁"
+    if jur == "asean_vn":
+        isds_forum = "UNCITRAL 仲裁规则 (由常设仲裁院 PCA 管理) 或 ICSID 附加便利规则 (注意：越南非 ICSID 缔约国，不可提请常规 ICSID 仲裁)"
+    elif jur == "asean_th":
+        isds_forum = "UNCITRAL 仲裁规则 (注意：泰国签署但至今未批准 ICSID 公约，投资仲裁不可走常规 ICSID 途径)"
+
+    checks.append(EntryCheckItem(
+        name="国际投资协定保护 (ISDS) 与属地管辖机构前置校验",
+        status="satisfied",
+        detail=(
+            f"【投资协定路径】：中国母公司直接投资适用《中国-东盟投资协议》(CAFTA) 或双边 BIT；"
+            f"若通过新加坡/大马 SPV 间接投资，适用《东盟全面投资协定》(ACIA) 须受 Art 19 利益拒绝条款实质性商业运营审查。\n"
+            f"【争议管辖机构】：针对东道国违约或间接征收，属地适用仲裁机制为【{isds_forum}】，须严格遵守 180 天前置行政磋商冷静期。"
+        )
+    ))
+
     return checks
 
 

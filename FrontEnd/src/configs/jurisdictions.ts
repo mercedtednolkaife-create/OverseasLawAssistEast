@@ -1,5 +1,5 @@
 /**
- * 东盟六国法域配置字典 (ASEAN Jurisdictions)
+ * 东盟法域配置字典 (ASEAN Jurisdictions)
  */
 
 export interface JurisdictionConfig {

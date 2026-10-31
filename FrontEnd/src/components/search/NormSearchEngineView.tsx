@@ -172,7 +172,7 @@ export const NormSearchEngineView: React.FC = () => {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-            收录东盟六国建设工程强行法、FIDIC 标准范本及最高法院司法裁判先例，支持中外双语对照研读。
+            收录东盟建设工程强行法、FIDIC 标准范本及最高法院司法裁判先例，支持中外双语对照研读。
           </p>
 
           {/* 法域快速筛选胶囊条 */}

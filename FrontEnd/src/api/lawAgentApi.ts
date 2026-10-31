@@ -390,7 +390,7 @@ export const lawAgentApi = {
   },
 
   /**
-   * 获取东盟六国涉外基建横向对比矩阵
+   * 获取东盟涉外基建横向对比矩阵
    * 对应 GET /compliance/comparison-matrix
    */
   async getComparisonMatrix(): Promise<any[]> {

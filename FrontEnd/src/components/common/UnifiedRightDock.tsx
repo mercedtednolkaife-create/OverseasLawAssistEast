@@ -466,7 +466,7 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                   <div>
                     <h5 className="font-semibold text-slate-800 text-xs">AI 法律咨询助手已挂载</h5>
                     <p className="text-[11px] text-slate-500 mt-1 max-w-[280px] mx-auto leading-relaxed">
-                      已集成东盟六国法典库与 FIDIC 合同规则。可针对工程索赔时效、保函止付条件与属地强行法提出咨询或展开抗辩推演。
+                      已集成东盟法典库与 FIDIC 合同规则。可针对工程索赔时效、保函止付条件与属地强行法提出咨询或展开抗辩推演。
                     </p>
                   </div>
                 </div>

@@ -9,56 +9,56 @@ providers:
 tasks:
   extract:
     provider: dashscope
-    model: "qwen-plus"
-    fallback_model: "qwen-max"
+    model: "qwen3.8-max"
+    fallback_model: "qwen3.7-flash"
     temperature: 0.0
     timeout: 25
 
   reformulate:
     provider: dashscope
-    model: "qwen-plus"
-    fallback_model: "qwen-max"
+    model: "qwen3.8-max"
+    fallback_model: "qwen3.7-flash"
     temperature: 0.2
     timeout: 25
 
   translate:
     provider: dashscope
-    model: "qwen-plus"
-    fallback_model: "qwen-max"
+    model: "qwen3.8-max"
+    fallback_model: "qwen3.7-flash"
     temperature: 0.0
     timeout: 20
 
   generate:
     provider: dashscope
-    model: "qwen-plus"
-    fallback_model: "qwen-max"
+    model: "qwen3.8-max"
+    fallback_model: "qwen3.7-flash"
     temperature: 0.1
     timeout: 30
 
   matcher:
     provider: dashscope
-    model: "qwen-plus"
-    fallback_model: "qwen-max"
+    model: "qwen3.8-max"
+    fallback_model: "qwen3.7-flash"
     temperature: 0.0
     timeout: 25
 
   judge: # 独立裁判模型，校验质量门禁与蕴含性
     provider: dashscope
-    model: "qwen-max"
-    fallback_model: "qwen-plus"
+    model: "qwen3.7-flash"
+    fallback_model: "qwen3.8-max"
     temperature: 0.0
     timeout: 30
 
   critic:
     provider: dashscope
-    model: "qwen-max"
-    fallback_model: "qwen-plus"
+    model: "qwen3.7-flash"
+    fallback_model: "qwen3.8-max"
     temperature: 0.0
     timeout: 30
 
   strategist:
     provider: dashscope
-    model: "qwen-plus"
-    fallback_model: "qwen-max"
+    model: "qwen3.8-max"
+    fallback_model: "qwen3.7-flash"
     temperature: 0.2
     timeout: 30

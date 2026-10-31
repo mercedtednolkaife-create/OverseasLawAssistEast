@@ -1,0 +1,162 @@
+- timepoint_id: TP_VN_CONSTRUCTION_2025
+  jurisdiction: asean_vn
+  law_name: 越南《2025年新建设法》(Law No. 135/2025/QH15)
+  effective_date: '2026-07-01'
+  enacted_date: '2025-11-28'
+  rule_type: statutory_overhaul
+  alert_level: red
+  condition: contract_date < 2026-07-01
+  description: 2026年7月1日正式生效。第86.2条全面承认预定损害赔偿(LD)机制，突破旧法8%商业罚金上限争议；对于在此之前签署的存量合同，需审查新旧法衔接特约。
+- timepoint_id: TP_VN_LAND_2024
+  jurisdiction: asean_vn
+  law_name: 越南《2024年新土地法》(Law No. 31/2024/QH15)
+  effective_date: '2024-08-01'
+  enacted_date: '2024-01-18'
+  rule_type: property_rights
+  alert_level: red
+  condition: contract_date >= 2024-08-01
+  description: 第79条确立国家收回土地的32类穷尽公共利益清单，非清单项目国家不负责征拆；按年缴租土地严禁抵押使用权。
+- timepoint_id: TP_ID_SEMA_3_2023
+  jurisdiction: asean_id
+  law_name: 印尼最高法院《2023年第3号通告》(SEMA No. 3/2023)
+  effective_date: '2023-12-29'
+  enacted_date: '2023-12-29'
+  rule_type: judicial_precedent
+  alert_level: yellow
+  condition: contract_date >= 2023-12-29
+  description: 确立诚实信用原则限制：若无恶意(itikad tidak baik)，当事人不得仅因涉外合同缺少印尼语版本而主张合同机械无效。
+- timepoint_id: TP_ID_MEMR_11_2024
+  jurisdiction: asean_id
+  law_name: 印尼能矿部《2024年第11号条例》(MEMR Reg 11/2024)
+  effective_date: '2024-08-01'
+  enacted_date: '2024-07-25'
+  rule_type: local_content_tkdn
+  alert_level: red
+  condition: contract_date >= 2024-08-01
+  description: 电力基础设施本地化率(TKDN)豁免申请机制，若属地产能无法满足，允许在签约前向能矿部申请设备进口豁免批文。
+- timepoint_id: TP_MY_CIPAA_2012
+  jurisdiction: asean_my
+  law_name: 马来西亚《2012年建筑业支付与裁决法》(CIPAA 2012)
+  effective_date: '2014-04-15'
+  enacted_date: '2012-06-22'
+  rule_type: adjudication_mandatory
+  alert_level: red
+  condition: all
+  description: 2014年4月15日起全面施行。第35条背靠背条款自始无效，确立45个工作日快速裁决及未付款法定停工权。
+- timepoint_id: TP_SG_SOPA_AMENDMENT_2019
+  jurisdiction: asean_sg
+  law_name: 新加坡《建筑业付款保障法修订案》(SOPA 2019)
+  effective_date: '2019-12-15'
+  enacted_date: '2019-10-01'
+  rule_type: statutory_amendment
+  alert_level: yellow
+  condition: contract_date >= 2019-12-15
+  description: 将付款答辩法定期限延长至最长21天，明确排除纯损害赔偿金(Damages)在SOPA裁决中的索赔，强化程序公平。
+- timepoint_id: TP_TH_CCC_INTEREST_2021
+  jurisdiction: asean_th
+  law_name: 泰国《民商法典法定利率紧急法令修正案 B.E. 2564》
+  effective_date: '2021-04-11'
+  enacted_date: '2021-04-10'
+  rule_type: statutory_amendment
+  alert_level: yellow
+  condition: contract_date >= 2021-04-11
+  description: 将民商法典第224条逾期法定利率由年息7.5%大幅下调为3%基础利率+2%迟延罚息=年息5%，并严禁按复利计息。
+- timepoint_id: TP_PH_PPP_CODE_2023
+  jurisdiction: asean_ph
+  law_name: 菲律宾《2023年公私合营法典》(PPP Code, RA 11966)
+  effective_date: '2023-12-23'
+  enacted_date: '2023-12-05'
+  rule_type: statutory_overhaul
+  alert_level: red
+  condition: contract_date >= 2023-12-23
+  description: 全面废止旧BOT法(RA 7718)，整合国家与地方PPP项目监管，确立特许权提前终止公允补偿计算标准与免受RTC禁令保护。
+- timepoint_id: TP_PH_RENEWABLE_ENERGY_2022
+  jurisdiction: asean_ph
+  law_name: 菲律宾能源部《可再生能源法实施细则修订通告》(DOE DC 2022-11-0034)
+  effective_date: '2022-12-08'
+  enacted_date: '2022-11-15'
+  rule_type: foreign_entry_liberalization
+  alert_level: green
+  condition: contract_date >= 2022-12-08
+  description: 历史性突破外商投资股比限制，允许外资在太阳能、风能、水力及海洋能电站项目中持有100%独资控股权。
+- timepoint_id: TP_FIDIC_2017_REVISION
+  jurisdiction: fidic
+  law_name: FIDIC 2017 版红/黄/银皮书系列合同条件
+  effective_date: '2017-12-05'
+  enacted_date: '2017-12-05'
+  rule_type: standard_contract_revision
+  alert_level: yellow
+  condition: contract_version == '2017'
+  description: 将第20.1款承包商索赔失权拓展为双向对等的Clause 20.2雇主与承包商对等28天通知时限，设立第21章常设DAAB裁决委员会。
+- timepoint_id: TP_CN_SASAC_75_2021
+  jurisdiction: prc_sasac
+  law_name: 国务院国资委《关于加强中央企业融资担保管理工作的通知》(国资发财评规〔2021〕75号)
+  effective_date: '2021-12-27'
+  enacted_date: '2021-12-27'
+  rule_type: sasac_mandatory_redline
+  alert_level: red
+  condition: all
+  description: 严禁央企对参股企业超股比担保，严禁对无股权关系企业担保；在东盟KSO联营体中提供PCG全额母公司担保直接触碰违规红线。
+- timepoint_id: TP_CN_DATA_SECURITY_2021
+  jurisdiction: prc_sasac
+  law_name: 《中华人民共和国数据安全法》
+  effective_date: '2021-09-01'
+  enacted_date: '2021-06-10'
+  rule_type: prc_national_security
+  alert_level: red
+  condition: all
+  description: 第36条明确非经国家主管机关批准不得向境外司法或执法机构提供境内数据，涉外仲裁证据开示出境必须履行前置审批。
+- timepoint_id: TP_SINOSURE_30DAY_NOTICE
+  jurisdiction: treaty
+  law_name: 中国出口信用保险公司特险保单出险预报与权益保全时限
+  effective_date: '2020-01-01'
+  enacted_date: '2020-01-01'
+  rule_type: insurance_timebar
+  alert_level: red
+  condition: all
+  description: 保单特险通则明确：发生东道国政治风险、违约拖欠或保函索兑险情后，必须在30个自然日内向信保正式报损，逾期将面临减赔或拒赔。
+- timepoint_id: TP_VN_COMMERCIAL_LIMITATION
+  jurisdiction: asean_vn
+  law_name: 越南《商业法》第319条商事消灭时效
+  effective_date: '2006-01-01'
+  enacted_date: '2005-06-14'
+  rule_type: statutory_timebar
+  alert_level: red
+  condition: all
+  description: 工程款追索与商事违约救济消灭时效仅为2年，单方发催款函未获书面确权不中断时效，满2年丧失司法追索权。
+- timepoint_id: TP_TH_PRESCRIPTION_2YEAR
+  jurisdiction: asean_th
+  law_name: 泰国《民商法典》第193/34(1)条承揽款消灭时效
+  effective_date: '1992-06-01'
+  enacted_date: '1992-04-01'
+  rule_type: statutory_timebar
+  alert_level: red
+  condition: all
+  description: 承揽人索赔工程进度款与竣工结算款请求权适用2年极短消灭时效，必须在2年内正式立案起诉或仲裁以中断时效。
+- timepoint_id: TP_VN_FCT_CIRCULAR_103
+  jurisdiction: asean_vn
+  law_name: 越南财政部第 103/2014/TT-BTC 号外国承包商税 (FCT) 通告
+  effective_date: '2014-10-01'
+  enacted_date: '2014-08-06'
+  rule_type: tax_withholding
+  alert_level: yellow
+  condition: all
+  description: 离岸供货与在岸服务未明确拆分的EPC总价合同，将被按混合税率对全额离岸设备征收增值税与企业所得税。
+- timepoint_id: TP_ID_PP_18_2021
+  jurisdiction: asean_id
+  law_name: 印尼政府《2021年第18号条例》(PP 18/2021 土地权利与空间管理)
+  effective_date: '2021-02-02'
+  enacted_date: '2021-02-02'
+  rule_type: property_rights
+  alert_level: green
+  condition: contract_date >= 2021-02-02
+  description: 明确外资PT PMA可直接持有最长80年(30+20+30)建筑使用权(HGB)，并设立地下空间与高架空间独立物权登记规则。
+- timepoint_id: TP_MY_MACC_17A_2020
+  jurisdiction: asean_my
+  law_name: 马来西亚《反贪污委员会法修订案》(MACC Act Sec 17A)
+  effective_date: '2020-06-01'
+  enacted_date: '2018-05-04'
+  rule_type: corporate_criminal_liability
+  alert_level: red
+  condition: contract_date >= 2020-06-01
+  description: 确立商业组织对关联人(代理/分包商)行贿承担严格企业刑事责任，唯有证明已建立完备的'合理预防程序(Adequate Procedures)'方可抗辩。

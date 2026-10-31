@@ -214,7 +214,7 @@ export const ExpertConsultsView: React.FC = () => {
         <div className="relative z-10 max-w-5xl space-y-3">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
-            <span>东盟六国特聘出海法律顾问网络 · 独立性排查 (COI Cleared) · 穿透式合规归档</span>
+            <span>东盟特聘出海法律顾问网络 · 独立性排查 (COI Cleared) · 穿透式合规归档</span>
           </div>
 
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
@@ -222,7 +222,7 @@ export const ExpertConsultsView: React.FC = () => {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-            特邀东盟六国涉外基建工程持证律师与国际争议裁决专家，提供东道国强行法、外资准入、履约保函与争议解决专项书面意见书。
+            特邀东盟涉外基建工程持证律师与国际争议裁决专家，提供东道国强行法、外资准入、履约保函与争议解决专项书面意见书。
           </p>
 
           {/* 法域快速筛选胶囊条 */}

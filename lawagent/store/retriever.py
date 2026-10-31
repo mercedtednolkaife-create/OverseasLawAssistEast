@@ -516,14 +516,26 @@ class HybridRetriever:
                     for node in linked_nodes:
                         norm_cid = f"CHUNK:REF_NORM:{node}:0"
                         case_cid = f"CHUNK:REF_CASE:{node}:0"
-                        if norm_cid not in candidate_cids:
-                            cur.execute("SELECT 1 FROM reference_chunks WHERE chunk_id = ?", (norm_cid,))
-                            if cur.fetchone():
-                                candidate_cids.append(norm_cid)
-                        elif case_cid not in candidate_cids:
-                            cur.execute("SELECT 1 FROM reference_chunks WHERE chunk_id = ?", (case_cid,))
-                            if cur.fetchone():
-                                candidate_cids.append(case_cid)
+                        l1_norm_cid = f"CHUNK:NORM:{node}:0"
+                        l1_case_cid = f"CHUNK:CASE:{node}:0"
+
+                        # 优先在 reference_chunks 中查找
+                        found = False
+                        for cid in (norm_cid, case_cid):
+                            if cid not in candidate_cids:
+                                cur.execute("SELECT 1 FROM reference_chunks WHERE chunk_id = ?", (cid,))
+                                if cur.fetchone():
+                                    candidate_cids.append(cid)
+                                    found = True
+                                    break
+                        # 若 reference_chunks 未命中，跨层回退查询 L1 chunks 表
+                        if not found:
+                            for cid in (l1_norm_cid, l1_case_cid, norm_cid, case_cid):
+                                if cid not in candidate_cids:
+                                    cur.execute("SELECT 1 FROM chunks WHERE chunk_id = ?", (cid,))
+                                    if cur.fetchone():
+                                        candidate_cids.append(cid)
+                                        break
                 except Exception:
                     pass
 
@@ -531,6 +543,12 @@ class HybridRetriever:
         for cid in candidate_cids:
             cur.execute("SELECT chunk_id, kind, ref_id, text FROM reference_chunks WHERE chunk_id = ?", (cid,))
             row = cur.fetchone()
+            is_l1_fallback = False
+            if not row:
+                # 跨层回退查询 L1 chunks 表
+                cur.execute("SELECT chunk_id, kind, norm_id AS ref_id, text FROM chunks WHERE chunk_id = ?", (cid,))
+                row = cur.fetchone()
+                is_l1_fallback = True
             if not row:
                 continue
 
@@ -540,44 +558,44 @@ class HybridRetriever:
             seen_refs.add(ref_id)
 
             kind = row["kind"]
-            if kind == "reference_norm":
+            if kind in ("reference_norm", "norm"):
                 norm = self.snapshot_mgr.norm_lookup(ref_id, snapshot_id=snapshot_id)
                 if norm:
                     ev = Evidence(
                         eid=f"E_L2_{len(evidences) + 1}",
                         kind="norm",
                         role="law",
-                        layer="L2",
+                        layer="L1" if is_l1_fallback else "L2",
                         ref_id=norm["norm_id"],
                         text_de=(norm.get("text_zh") or norm.get("text_en") or row["text"])[:1500],
                         text_original=norm.get("text_original"),
                         text_en=norm.get("text_en"),
                         text_zh=norm.get("text_zh"),
                         language_mode=norm.get("language_mode", "bilingual"),
-                        translation_source=norm.get("translation_source", "MOJ_FATONG_2026"),
-                        source_url=norm.get("source_url", "https://www.fatong.gov.cn"),
+                        translation_source=norm.get("translation_source") or "MOJ_FATONG_2026",
+                        source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                         stand=norm.get("stand"),
                         fetched_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        grade="B"
+                        grade="A" if is_l1_fallback else "B"
                     )
                     evidences.append(ev)
-            elif kind == "reference_case":
+            elif kind in ("reference_case", "case"):
                 case_data = self.snapshot_mgr.case_lookup(ref_id, snapshot_id=snapshot_id)
                 if case_data:
                     ev = Evidence(
                         eid=f"E_L2_{len(evidences) + 1}",
                         kind="case",
                         role="law",
-                        layer="L2",
+                        layer="L1" if is_l1_fallback else "L2",
                         ref_id=case_data["case_id"],
                         text_de=row["text"][:1500],
                         text_original=case_data.get("gruende"),
                         text_en=case_data.get("tenor"),
                         text_zh=case_data.get("leitsatz"),
-                        source_url=case_data.get("source_url", ""),
+                        source_url=case_data.get("source_url") or "",
                         stand=case_data.get("decided"),
                         fetched_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-                        grade="B"
+                        grade="A" if is_l1_fallback else "B"
                     )
                     evidences.append(ev)
 

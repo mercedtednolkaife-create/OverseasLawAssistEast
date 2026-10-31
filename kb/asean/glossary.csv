@@ -1,23 +1,121 @@
-zh,target,category
-工期顺延,Extension of Time EOT Clause 8.4 delayed possession site,FIDIC
-工期延误,delay Extension of Time EOT Clause 8.4,FIDIC
-索赔时效,Clause 20.1 28 days notice of claim time bar,FIDIC
-索赔通知,Clause 20.1 28 days notice of claim,FIDIC
-失权抗辩,time-bar bar from any remedy good faith SEMA 3 2023,Indonesia
-保函止付,performance security bond unconscionability stop payment BS Mount Sophia,Singapore
-履约保函,performance security bond Clause 4.2,FIDIC
-显失公平,unconscionability unconscionable BS Mount Sophia JBE Properties,Singapore
-本地化率,TKDN Tingkat Komponen Dalam Negeri MEMR Reg 11 2024,Indonesia
-外资准入,foreign contractor license BUJKA PCAB CIDB joint venture,ASEAN
-联合体,KSO Kerja Sama Operasi Joint Operation UU 2 2017,Indonesia
-联营体,KSO Kerja Sama Operasi Joint Operation BUJKA,Indonesia
-背靠背,pay-when-paid CIPAA Section 35 SOPA Section 9 void,Malaysia
-间接征收,indirect expropriation BIT China ASEAN Article 6,BIT
-征收补偿,prompt adequate effective market value,BIT
-特许经营,concession agreement PPP RA 11966 Law 135 2025,Philippines
-语言效力,SEMA 3 2023 UU 24 2009 language validity bad faith,Indonesia
-预定违约金,liquidated damages LDs Law 135 2025 Decree 210 2026,Vietnam
-国资监管,PRC SASAC Order 35 state-owned enterprise investment,China
-数据安全,PRC Data Security Law Article 36 cross-border transfer,China
-建设工程,construction services contract FIDIC Silver Book,FIDIC
-总承包,EPC turnkey contractor FIDIC Silver Book,FIDIC
+Term_CN,Term_EN,Term_Local,Jurisdiction,Legal_Definition
+背靠背付款条款,Pay-when-paid Clause,Klausul Pembayaran Berturut,asean_all,以发包人向总包付款作为总包向分包付款之前提条件的条款，在新、马法定绝对无效
+工期顺延,Extension of Time (EOT),Perpanjangan Waktu,asean_all,因发包人违约或不可抗力导致关键路径延误时承包商免除违约金并延展工期的法定权利
+误期损害赔偿金,Liquidated Damages (LD),Ganti Rugi Keterlambatan,asean_all,当事人预先在合同中约定的工期延误定额赔偿金，受属地法上限或法院酌减约束
+催告通知令,Formal Notice of Default,Somasi,asean_id,印尼法下主张债务人迟延违约前必须正式发出的司法或书面催告令
+善意原则,Good Faith,Itikad Baik,asean_id,印尼民法典第1338条与SEMA 3/2023核心原则，禁止权利滥用与恶意主张合同无效
+建筑使用权,Right to Build,Hak Guna Bangunan (HGB),asean_id,外资PT PMA可合法持有并设立抵押的最长80年土地物权形式
+土地提存清场,Consignment Deposit,Konsinyasi,asean_id,印尼征地法下将补偿金提存地方法院后合法强制清场交地的特别程序
+本地化采购率,Local Content Requirement,Tingkat Komponen Dalam Negeri (TKDN),asean_id,印尼法律规定的工程材料、设备及劳工必须采购本土资源的法定强制比例
+外国建筑代表处,Foreign Construction Representative Office,BUJKA,asean_id,外国建筑承包商在印尼承揽工程必须设立的属地执业代表机构
+联合体运营体,Joint Operation,Kerja Sama Operasi (KSO),asean_id,外国承包商在印尼必须与本土持照建筑企业组建的无独立法人资格联合体
+建筑物失败,Building Failure,Kegagalan Bangunan,asean_id,印尼建筑服务法规定竣工移交后最长10年内倒塌由总包与设计连带赔偿的责任
+动产信托担保,Fiduciary Security,Jaminan Fidusia,asean_id,印尼动产及施工机械设备转移所有权以担保主债权履行的法定担保形式
+延期偿债程序,Suspension of Debt Payment,PKPU,asean_id,印尼商事法院主持的准破产债务重组司法程序，设立法定临时债务冻结期
+侵权行为,Tortious Act,Perbuatan Melawan Hukum (PMH),asean_id,印尼民法典第1365条法定损害赔偿请求权基础，常被当地人用于恶意绕开仲裁条款
+缔约过失,Fault in Contracting,Lỗi trong giao kết hợp đồng,asean_vn,越南民法典第397条规定的谈判阶段隐瞒真相或恶意破裂谈判应承担的信赖利益赔偿责任
+情势变更,Change of Circumstances (Hardship),Hoàn cảnh thay đổi cơ bản,asean_vn,越南民法典第420条规定的客观条件重大改变时重新协商及请求法院调整合同机制
+商业违约金上限,Penalty Cap 8%,Mức phạt vi phạm 8%,asean_vn,越南2005年商业法第301条规定的商事合同违约金不得超过违约部分8%的强行法限制
+外国承包商许可证,Foreign Contractor Permit,Giấy phép hoạt động xây dựng,asean_vn,外国企业在越施工必须在签约后申领且必须与越企联营的法定施工许可证
+外国承包商税,Foreign Contractor Tax (FCT),Thuế nhà thầu nước ngoài,asean_vn,外国实体在越南境内提供工程或技术服务被源泉扣缴的增值税与所得税混合税
+红皮书土地证,Land Use Rights Certificate (LURC),Sổ đỏ / Sổ hồng,asean_vn,越南国家签发证明享有土地使用权及地面房屋所有权的法定不动产所有权凭证
+一次性交租,Lump-sum Land Rental,Thuê đất trả tiền một lần,asean_vn,外资企业在越拿地唯一允许向银行抵押土地使用权融资的交租方式
+按年交租,Annual Land Rental,Thuê đất trả tiền hàng năm,asean_vn,外资企业仅享有租赁权、严禁将土地使用权物权向银行抵押融资的交租方式
+海域移交审批,Sea Area Assignment,Giao khu vực biển,asean_vn,海上风电、光伏浮体电站及取排水码头工程必须向资源环境部申请的海域使用批文
+快速法定裁决,Statutory Adjudication,Adjudikasi Berkanun,asean_my,马来CIPAA与新加坡SOPA设立的工程款争议在45~60天内迅速获得具有约束力决定的程序
+建筑工业发展局,Construction Industry Development Board,CIDB,asean_my,马来西亚主管承包商资质等级注册(G1~G7)与建筑征费的法定监管机构
+防阻原则,Prevention Principle,Prinsip Pencegahan,asean_all,发包人阻碍承包商施工且未依约顺延工期时，工期变为无约束(Time at Large)的普通法原则
+工期变为无约束,Time at Large,Masa Terbuka,asean_all,因发包人阻碍导致原完工日失效，承包商仅须在合理时间内完工，发包人丧失LD扣除权
+小股东压迫救济,Oppression of Minority,Penindasan Minoriti,asean_my,马来公司法第346条与新加坡第216条保护合资中资股东免受控股外方侵害的诉权
+土著股权配额,Bumiputera Equity Policy,Dasar Ekuiti Bumiputera,asean_my,马来西亚政府特许项目强制要求30%~51%股份由本土马来土著持有的政策
+显失公平止付标准,Unconscionability Exception,Pengecualian Ketidakpatutan,asean_sg,新加坡终审法院确立的以明显不当或恶意施压为由司法止付独立保函的标准
+真实预估损失,Genuine Pre-estimate of Loss,Anggaran Kerugian Tulen,asean_sg,新加坡法下判定违约金条款有效而非惩罚性罚金(Penalty)的严格判定标准
+目的适用性严格责任,Fitness for Purpose,Kesesuaian untuk Tujuan,asean_fidic,黄皮书与银皮书下EPC承包商必须保证设计与建造成果完全满足雇主功能要求的严格责任
+不可预见物质条件,Unforeseeable Physical Conditions,Keadaan Fizikal Tidak Terduga,asean_fidic,红/黄皮书第4.12款赋予承包商索赔地下异常地质工期与费用的核心请求权基础
+商定与确定,Agreement and Determination,Persetujuan dan Penentuan,asean_fidic,FIDIC工程师或雇主代表公正裁量工期与费用的程序，2017版增设42天时限
+争端避免裁决委员会,Dispute Avoidance/Adjudication Board,Lembaga Pertikaian,asean_fidic,FIDIC第20/21章常设或特设由1~3名独立专家组成的争议快速解决前置机构
+承揽工程编,Hire of Work,Jang Tham Khong,asean_th,泰国民商法典第七章关于包工包料承揽合同权利义务与风险划分的专门法典
+外商经营许可证,Foreign Business License (FBL),Bai Anuyat Prakop Thurakit,asean_th,外国人在泰国从事受限建筑或服务行业必须向商业发展厅申领的准入许可
+投资促进委员会,Board of Investment (BOI),Kha-na Kam-ma-kan Song-soem,asean_th,泰国主管提供100%外资独资豁免、免征企业所得税与永久购地特权的部级机构
+地上权,Right of Superficies,Sitthi Nuea Thi Din,asean_th,泰国法下在租赁土地上合法独立建造、持有电站厂房物权长达30年的法定物权形式
+短消灭时效,Short Prescription (2 Years),Ayu Khwam 2 Pi,asean_th,泰国CCC第193/34条规定的承揽人追索工程款必须在2年内立案起诉的除斥期间
+建筑业仲裁委员会,Construction Industry Arbitration Commission,CIAC,asean_ph,菲律宾法律赋予其对境内一切建设工程争议享有法定原始且排他管辖权的专门机构
+反傀儡法,Anti-Dummy Law,Batas Laban sa Dummy,asean_ph,菲律宾严厉打击外商使用挂名菲籍人代持股权或插手受限公用事业管理的刑法
+祖父穿透原则,Grandfather Rule,Panuntunan ng Ninuno,asean_ph,菲律宾证监会穿透审查多层合资公司中资实际综合持股比例是否突破40%上限的规则
+承包商执照法,Contractors License Law,Batas sa Lisensya ng Kontratista,asean_ph,菲律宾RA 4566号法案，要求进场施工必须取得PCAB资质执照，已被最高院废除外资歧视
+15年结构倒塌连带责任,15-Year Collapse Liability,Pananagutan sa Pagguho 15 Taon,asean_ph,菲律宾民法典第1723条规定的工程移交后15年内建筑物倒塌工程师总包终身连带赔偿
+变更无定价不赔铁律,No Written Price No Pay,Walang Nakasulat Walang Bayad,asean_ph,菲律宾民法典第1724条规定固定总价工程无书面定价协议变更款绝对归零铁律
+自由事先知情同意,Free and Prior Informed Consent,FPIC,asean_ph,涉原住民祖传领地(CADT)项目开工前必须履行的全体部落村民法定知情同意程序
+国家重大基建禁令排除,No-TRO Law on National Infrastructure,Bawal TRO sa Proyektong Pambansa,asean_ph,菲律宾RA 8975号法案明文禁止下级地方法院对国家重点基础设施工程签发停工令
+间接征收,Indirect Expropriation,Pengambilalihan Tidak Langsung,treaty,东道国政府出台监管政策实质性剥夺外国投资者合法投资价值构成国际法征收赔偿
+公允市场价值,Fair Market Value (FMV),Nilai Pasar Wajar,treaty,国际投资协定规定的对征收资产进行及时、有效、充分补偿的法定资产评估定价标准
+国民待遇,National Treatment (NT),Perlakuan Nasional,treaty,东道国给予外国投资者的待遇不得低于本国投资者在同等条件下的待遇标准
+最惠国待遇,Most-Favoured-Nation (MFN),Perlakuan Negara Paling Disukai,treaty,东道国给予外国投资者的待遇不得低于给予任何第三方国家投资者的优惠待遇标准
+公平公正待遇,Fair and Equitable Treatment (FET),Perlakuan Adil dan Setara,treaty,保护投资者合法合理投资期待、禁止东道国政府专断、缺乏透明度或否定司法的国际法标准
+投资者与国家间争端解决,Investor-State Dispute Settlement,ISDS,treaty,赋予外国私人投资者直接将东道国政府起诉至国际仲裁庭寻求巨额赔偿的直诉机制
+国际投资争端解决中心,ICSID,Pusat Antarabangsa Pertikaian Pelaburan,treaty,世界银行下设的投资争端仲裁机构，越、泰非缔约国须转走UNCITRAL仲裁规则
+联合国国际贸易法委员会,UNCITRAL Arbitration Rules,Peraturan Timbang Tara UNCITRAL,treaty,国际商事与投资条约仲裁通用规则，常由海牙常设仲裁院(PCA)担任注册管理机构
+利益拒绝条款,Denial of Benefits Clause,Klausa Penafian Faedah,treaty,ACIA第19条允许东道国拒绝给予未在设立国开展实质商业经营的空壳SPV协定保护
+常设机构,Permanent Establishment (PE),Bentuk Usaha Tetap (BUT),treaty,双边税收协定中外国工程在东道国施工超过6个月构成常设机构并纳税的实体标准
+预提所得税,Withholding Tax (WHT),Pajak Penghasilan Potong/Pungut,treaty,跨国支付股息、利息、特许权使用费时依税收协定由支付方代扣代缴的税款
+见索即付独立保函,Demand Guarantee,Garansi Bank Tuntutan Pertama,asean_fidic,只要受益人出具符合保函表面文本要求的违约声明开证行必须无条件兑付的担保
+出险报损30日时限,30-Day Loss Notification,Pemberitahuan Kerugian 30 Hari,treaty,中信保特险保单要求被保险人必须在政治风险或商事违约发生30日内发函报损的时限
+超股比担保禁止,Prohibition on Excess Guarantee,Larangan Jaminan Berlebihan,prc_sasac,国资委75号文严禁中央企业为参股项目提供超过自身持股比例的任何形式连带保证
+数据出境审批,Cross-Border Data Transfer Approval,Kelulusan Pemindahan Data,prc_sasac,中国数据安全法第36条规定向境外司法或仲裁机构提供境内数据必须履行的审批程序
+母公司完工担保,Parent Company Guarantee (PCG),Jaminan Syarikat Induk,asean_all,中资母公司为境外项目子公司或联营体向业主出具的保证工程按期保质完工的担保函
+不可抗力事件,Force Majeure,Keadaan Memaksa,asean_all,不能预见、不能避免并不能克服的客观情况，赋予受阻方免除工期违约责任的法定事由
+法定留置权,Mechanic's Lien,Hak Retensi,asean_all,因工程款未付对现场施工机械或建筑材料享有的法定留置优先受偿权，英美法系新马无土地留置权
+浮动抵押,Floating Charge,Cagaran Terapung,asean_my,对公司现存及未来全部流动资产设定的担保物权，违约或清盘时转化为固定抵押
+托伦斯土地登记,Torrens Title System,Sistem Hakmilik Torrens,asean_sg,新加坡与马来西亚采用的不动产产权以政府土地局登记为最终不可推翻公信力的登记制
+工程预付款保函,Advance Payment Guarantee,Jaminan Bayaran Pendahuluan,asean_fidic,担保总包商将业主支付的预付款专项用于工程实施并在进度款中按比例扣回的银行保函
+保留金返还,Release of Retention Money,Pelepasan Wang Tahanan,asean_fidic,在颁发接收证书(TOC)与缺陷责任期满颁发履约证书(PC)时分批退还业主的扣留款项
+缺陷通知期,Defects Notification Period (DNP),Tempoh Pemberitahuan Kecacatan,asean_fidic,移交后承包商承担缺陷修补法定义务的保修期限，FIDIC银皮书通常为移交后1~2年
+工程接收证书,Taking-Over Certificate (TOC),Perakuan Pengambilalihan,asean_fidic,证明工程或单位工程已实质性竣工并满足接收条件的官方凭证，切断迟延违约金计算
+履约证书,Performance Certificate,Perakuan Siap Kerja,asean_fidic,缺陷责任期满由工程师签署的确认承包商已完全履行全部合同义务的最终证明文件
+终止估价,Valuation at Date of Termination,Penilaian pada Tarikh Penamatan,asean_fidic,合同因违约或便利终止后，双方核算已完工程价值、材料设备款与损失赔偿额的结算程序
+便利终止权,Termination for Convenience,Penamatan untuk Keselesaan,asean_fidic,雇主单方非因承包商违约而解除合同的权利，严禁雇主为转包他人或自己实施而滥用
+反仲裁禁令,Anti-Arbitration Injunction,Injunksi Anti-Timbang Tara,asean_my,法院对非仲裁协议签署方或恶意滥用仲裁程序的当事人签发的阻止仲裁程序继续进行的禁令
+资产冻结禁令,Mareva Injunction / Freezing Order,Perintah Pembekuan Mareva,asean_sg,法院签发的在判决或仲裁裁决作出前冻结被申请人银行账户或核心不动产的临时禁令
+财产保全,Interim Measure / Asset Preservation,Tindakan Sementara,asean_all,仲裁庭或法院在实体审理期间为防止财产隐匿转移而采取的紧急查封扣押措施
+执行地法院审查,Enforcement Court Review,Semakan Mahkamah Pelaksanaan,asean_all,依据《纽约公约》第五条在被执行财产所在地法院对涉外仲裁裁决合法性进行的有限抗辩审查
+公共政策保留,Public Policy Defense,Pembelaan Dasar Awam,asean_all,执行地法院以仲裁裁决严重抵触本国基本法律道德准则为由拒绝承认与执行裁决的最终防线
+国际贸易法委员会仲裁,UNCITRAL Arbitration,Timbang Tara UNCITRAL,treaty,联合国国际贸易法委员会制定的国际投资与商事仲裁程序法规则
+常设仲裁院,Permanent Court of Arbitration (PCA),Mahkamah Timbang Tara Tetap,treaty,位于海牙的国际争端解决组织，常为 UNCITRAL 条约仲裁提供登记处管理服务
+最惠国待遇借道适用,MFN Clause Treaty Shopping,Penggunaan MFN Merentas Perjanjian,treaty,投资者企图通过最惠国待遇条款引入第三方更为宽松的仲裁管辖程序，受国际仲裁严格审查
+合法合理期待,Legitimate Expectations,Jangkaan Sah,treaty,国际投资法公平公正待遇(FET)的核心，东道国不可背弃向投资者做出的特定政策承诺
+直接诉权,Direct Action,Tindakan Terus,asean_ph,分包商或材料供应商对发包人未付给总包商的工程款余额依法直接向发包人起诉受偿的权利
+特许经营协议,Concession Agreement,Perjanjian Konsesi,asean_all,东道国政府授予投资人投资建设并运营高速公路、水厂或电站并收取费用的法定协议
+购电协议,Power Purchase Agreement (PPA),Perjanjian Pembelian Kuasa,asean_all,发电项目公司与东道国国家电网公司签署的长达20~30年的购售电兜底长协
+最低收入保证,Minimum Revenue Guarantee (MRG),Jaminan Pendapatan Minimum,asean_vn,PPP特许经营中政府承诺当实际车流量或售电量低于基准模型时给予财政补贴的机制
+主权违约担保,Sovereign Default Guarantee,Jaminan Kemungkiran Kerajaan,asean_id,印尼基建担保基金(IIGF/PT PII)对政府机构在PPP合同中的履约承诺提供的财政兜底担保
+空间规划利用合规,Spatial Planning Compliance,KKPR / KKPRL,asean_id,印尼投资拿地必须首要取得的陆地或海域空间规划利用合规确认许可批文
+环境影响评价报告,Environmental Impact Assessment (EIA),AMDAL,asean_id,重大电站与基建工程开工前必须经环境与林业部审批的最高等级环评准入报告
+施工许可证,Building Construction Permit (PBG),Persetujuan Bangunan Gedung,asean_id,替代原IMB，印尼工程在开工前必须取得的符合技术标准的法定建筑施工许可
+合格外籍劳工配额,Foreign Manpower Utilization Plan,RPTKA,asean_id,中资总承包商委派中方管理与技术人员赴印尼工地必须经劳工部批准的用工方案
+居留与工作签证,Temporary Stay Permit,KITAS / ITAS,asean_id,外国专家在东道国工程现场合法居住并进行施工作业的居留与工作许可卡
+属地劳工连带责任,Solidary Liability for Labor,Tanggungjawab Bersama Gaji Buruh,asean_th,泰国与菲律宾法律规定总承包商对分包商拖欠工人工资承担100%法定连带垫付责任
+非法罢工阻工,Illegal Strike,Mogok Kerja Tidak Sah,asean_id,未履行提前7天法定书面通知程序发起的封锁工地大门罢工，依法不享有免责
+设备原产地证明,Certificate of Origin (COO),Sijil Asal Usul (Form E / RCEP),treaty,用于在海关清关时享受中国-东盟自由贸易区零关税或优惠关税待遇的法定原产地单证
+设备免税主清单,Masterlist Import Duty Facility,Fasilitas Masterlist Bea Masuk,asean_id,经投资协调委员会(BKPM)批准的投资项目进口机器设备全额免征关税与进口增值税批文
+二手资本货物进口批文,Used Capital Goods Import License,Persetujuan Impor Barang Modal Bukan Baru,asean_id,印尼贸易部核发允许进口非全新工程施工机械设备(吊车/盾构机)的特殊配额批文
+离岸设备在岸施工拆分,Offshore / Onshore Contract Split,Pemisahan Kontrak Luar / Dalam Negeri,asean_all,将EPC工程拆分为离岸设备供应FOB与在岸工程施工安装以合法平抑东道国承包商税的架构
+转让定价同期资料,Transfer Pricing Documentation (TP Doc),Dokumentasi Harga Pindahan,asean_all,跨国母子公司之间发生关联设备供货或技术咨询交易必须编制的符合独立交易原则的税务档案
+资本金实缴时限,Charter Capital Contribution Timeline,Thời hạn góp vốn điều lệ,asean_vn,越南企业法要求外资公司注册资本必须在投资许可证核发后90天内一次性足额汇入实缴
+外债借贷登记,Offshore Loan Registration,Đăng ký khoản vay nước ngoài,asean_vn,境外母公司向越南项目子公司提供超过1年的中长期借款必须在国家银行(SBV)履行的登记程序
+强制本币结算令,Mandatory Local Currency Rule,Kewajiban Penggunaan Rupiah (PBI),asean_id,印尼央行要求境内一切现钞与非现钞商业结算必须强制使用印尼盾的监管法令
+外汇利润汇出审查,Profit Repatriation Review,Semakan Penghantaran Balik Keuntungan,asean_ph,菲律宾与泰国央行要求将外汇投资本金与合法利润汇回国内前必须出具完税证明的审查
+反洗钱合规审查,Anti-Money Laundering (AML),Pencegahan Pengubahan Wang Haram,asean_all,跨国工程资金往来必须接受开户银行进行的资金合法来源与受益所有人(BO)尽职调查
+国际制裁实体清单,International Sanctions List,Senarai Sekatan Antarabangsa,treaty,世界银行黑名单、OFAC制裁清单，凡涉及被制裁实体可能导致保函被冻结及融资违约
+合规免责证明,Compliance Safe Harbor,Pelabuhan Selamat Pematuhan,asean_all,证明企业已建立完备的合规管理体系以在发生员工违规时免除企业主体刑责的制度
+不可预见自然力,Unforeseeable Natural Forces,Kuasa Alam Tidak Terduga,asean_fidic,百年一遇特大暴雨、海啸等超出合同基准日合理预见范围并赋予工期费用补偿的自然力事件
+汇率风险对冲,Foreign Exchange Hedging,Lindung Nilai Pertukaran Asing,asean_all,利用远期结售汇合约或货币掉期规避东盟属地货币汇率大幅贬值导致工程亏损的金融工具
+暂列金额,Provisional Sums,Wang Peruntukan Sementara,asean_fidic,列入合同价格中用于实施某项不可预见工程或材料采购的准备金，须经工程师指令方可支出
+计日工,Daywork,Kerja Harian,asean_fidic,按预先商定的工料机日费率对临时紧急或难以计量的变更工作进行实报实销计价的机制
+工程变更指令,Variation Order (VO),Arahan Perubahan Kerja,asean_fidic,工程师或雇主正式签发的增加、删减或变更工程设计与施工方案的书面指令文件
+价值工程建议,Value Engineering (VE),Kejuruteraan Nilai,asean_fidic,承包商提出的优化施工方案并节约造价的建议，FIDIC规定节约额的50%作为奖励支付给承包商
+提前竣工奖金,Bonus for Early Completion,Bonus Penyiapan Awal,asean_fidic,合同约定的工程每提前一天竣工由雇主向承包商支付固定奖金以激励加速施工的条款
+履约保函减额,Reduction of Performance Security,Pengurangan Jaminan Prestasi,asean_fidic,在颁发部分工程接收证书(TOC)后按比例相应调减履约保函担保金额的合同机制
+双重征税协定常设机构,DTA Permanent Establishment,BUT Perjanjian Cukai Dua Kali,treaty,工程跨国施工持续时间判定是否构成东道国常设机构并开征企业所得税的双边协定规则
+关联方借款利息扣除上限,Thin Capitalization Rules,Had Potongan Faedah Pinjaman Sekutu,asean_all,东盟税法规定的企业向境外母公司支付借贷利息在税前扣除的债资比(Debt-to-Equity)限制
+原住民祖传领地,Ancestral Domain,Lupaing Ninuno (CADT),asean_ph,受菲律宾宪法保护的原住民族依法享有的对其传统部落土地拥有的不可分割所有权与自治权
+特权留置顺位,Privileged Liens Priority,Keutamaan Hak Istimewa,asean_id,印尼民法典第1139条确立的仓储运输、设备维修及工程承包款优先于普通无担保债权的受偿顺位

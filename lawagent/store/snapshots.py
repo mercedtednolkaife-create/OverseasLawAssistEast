@@ -40,13 +40,25 @@ KNOWN_NORM_ALIASES = {
     "PH_RA_11966:SEC18": "PH:RA_11966:Sec18",
     "TREATY:CN_ID_BIT:ART4": "TREATY:CN_ID_BIT_1992:Art4",
     "CN_ID_BIT:ART4": "TREATY:CN_ID_BIT_1992:Art4",
-    "BIT_CHINA_ASEAN:ART6": "TREATY:CN_ID_BIT_1992:Art4",
+    "BIT_CHINA_ASEAN:ART6": "CAFTA:2009:Art6_Expropriation",
+    "CAFTA:ART6": "CAFTA:2009:Art6_Expropriation",
     "PRC_SASAC:ORDER35": "CN:SASAC_Order_35:Art12",
     "PRC_DATA_SECURITY:ART36": "CN:Data_Security_Law:Art36",
+    "PRC_DATA_SEC:ART36": "CN:Data_Security_Law:Art36",
     "DATA_SECURITY_LAW:ART36": "CN:Data_Security_Law:Art36",
     "SINOSURE:ART15": "SINOSURE:Overseas_Policy:Art15",
     "SINOSURE:OVERSEAS_POLICY:ART15": "SINOSURE:Overseas_Policy:Art15",
+    "SINOSURE_POLICY:NOTICE_CLAUSE_ART12": "SINOSURE:Overseas_Policy:Art15",
+    "SINOSURE_POLICY:NOTICE_CLAUSE_ART15": "SINOSURE:Overseas_Policy:Art15",
     "TH_FBA:LIST3": "TH:FBA_1999:List3",
+    "TH:FBA_1999:LIST3_SEC10": "TH:FBA_1999:List3",
+    "TH_FBA:1999:SCHEDULE3": "TH:FBA_1999:List3",
+    "PH:RA_4566:CONTRACTOR_LICENSE": "PH:RA_4566:Sec15",
+    "PH_RA4566:CONTRACTOR_LICENSE": "PH:RA_4566:Sec15",
+    "PH_SC:G.R.217590_MANILAWATER": "PH:Precedent:PCAB_v_Manila_Water",
+    "PH_SC:G.R.217590": "PH:Precedent:PCAB_v_Manila_Water",
+    "MY_CIDB:ACT520": "MY:Act_520_CIDB:Sec25",
+    "VN_INV_LAW:61_2020": "VN:Law_61_2020:Art9",
     "TH_CCC:SEC596": "TH:CCC:Sec596",
     "FIDIC_SILVER:CLAUSE8.4": "FIDIC:Silver_1999:Clause_8.4",
     "FIDIC_SILVER:CLAUSE20.1": "FIDIC:Silver_1999:Clause_20.1",
@@ -336,6 +348,19 @@ class SnapshotManager:
         if row:
             return dict(row)
 
+        # 0.1 尝试在 reference_norms 中全字完全匹配 norm_id
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='reference_norms'")
+        if cur.fetchone():
+            cur.execute(
+                """SELECT * FROM reference_norms
+                   WHERE norm_id = ? OR norm_id = ?
+                   LIMIT 1""",
+                (clean_input, clean_input.replace(" ", ""))
+            )
+            r_l2 = cur.fetchone()
+            if r_l2:
+                return dict(r_l2)
+
         # 1. FIDIC 条号与跨版本等效降级检索支持
         if "FIDIC" in clean_input.upper():
             import re
@@ -422,18 +447,26 @@ class SnapshotManager:
         return None
 
     def case_lookup(self, case_id: str, snapshot_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """按 case_id 或 az 案号检索判例全文与元数据"""
+        """按 case_id 或 az 案号检索判例全文与元数据 (兼容 CASE: 与 REF_CASE: 前缀互通)"""
         conn = self.get_connection(snapshot_id)
         if not conn:
             return None
         cur = conn.cursor()
-        clean_cid = case_id.replace("CASE:", "").strip()
+        clean_cid = case_id.replace("CASE:", "").replace("REF_CASE:", "").strip()
+        variants = list(dict.fromkeys([
+            case_id,
+            clean_cid,
+            f"CASE:{clean_cid}",
+            f"REF_CASE:{clean_cid}"
+        ]))
+        placeholders = ",".join("?" for _ in variants)
+
         cur.execute(
-            """SELECT case_id, court, senate, decided, az, ecli, doctype, leitsatz, tenor, tatbestand, gruende, norms_meta, source_url
+            f"""SELECT case_id, court, senate, decided, az, ecli, doctype, leitsatz, tenor, tatbestand, gruende, norms_meta, source_url
                FROM cases
-               WHERE case_id = ? OR case_id = ? OR az = ? OR az LIKE ?
+               WHERE case_id IN ({placeholders}) OR az = ? OR az LIKE ? OR case_id LIKE ?
                LIMIT 1""",
-            (clean_cid, case_id, case_id, f"%{clean_cid}%")
+            (*variants, case_id, f"%{clean_cid}%", f"%{clean_cid}%")
         )
         row = cur.fetchone()
         if not row:
@@ -441,11 +474,11 @@ class SnapshotManager:
             cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='reference_cases'")
             if cur.fetchone():
                 cur.execute(
-                    """SELECT case_id, court, senate, decided, az, ecli, doctype, leitsatz, tenor, tatbestand, gruende, norms_meta, source_url
+                    f"""SELECT case_id, court, senate, decided, az, ecli, doctype, leitsatz, tenor, tatbestand, gruende, norms_meta, source_url
                        FROM reference_cases
-                       WHERE case_id = ? OR case_id = ? OR az = ? OR az LIKE ?
+                       WHERE case_id IN ({placeholders}) OR az = ? OR az LIKE ? OR case_id LIKE ?
                        LIMIT 1""",
-                    (clean_cid, case_id, case_id, f"%{clean_cid}%")
+                    (*variants, case_id, f"%{clean_cid}%", f"%{clean_cid}%")
                 )
                 row = cur.fetchone()
         return dict(row) if row else None
