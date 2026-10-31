@@ -160,3 +160,40 @@
   alert_level: red
   condition: contract_date >= 2020-06-01
   description: 确立商业组织对关联人(代理/分包商)行贿承担严格企业刑事责任，唯有证明已建立完备的'合理预防程序(Adequate Procedures)'方可抗辩。
+
+- timepoint_id: TP_TH_INTEREST_2021
+  jurisdiction: asean_th
+  law_name: 泰国《2021年第2564号修正民商法典紧急法令》
+  effective_date: '2021-04-11'
+  enacted_date: '2021-04-10'
+  rule_type: statutory_overhaul
+  alert_level: red
+  condition: default_period >= 2021-04-11
+  description: 彻底废除旧法年息7.5%标准，金钱债务迟延履行法定年利率统一下调为5%(基准3%+违约附加2%)，且严禁利滚利复利；2021年4月11日之后发生的违约利息强制适用新法5%。
+- timepoint_id: TP_PH_PSA_2022
+  jurisdiction: asean_ph
+  law_name: 菲律宾《2022年公共服务法修正案》(Republic Act No. 11659)
+  effective_date: '2023-04-01'
+  enacted_date: '2022-03-21'
+  rule_type: market_access
+  alert_level: green
+  condition: investment_date >= 2023-04-01
+  description: 将宪法40%外资上限严格收窄限定于6类核心公用事业；电信、铁路、民航、高速公路、新能源物流全面开放100%外商独资控股。
+- timepoint_id: TP_PH_GPRA_2024
+  jurisdiction: asean_ph
+  law_name: 菲律宾《2024年新政府采办改革法》(Republic Act No. 12009)
+  effective_date: '2024-07-20'
+  enacted_date: '2024-07-02'
+  rule_type: public_procurement
+  alert_level: yellow
+  condition: bidding_date >= 2024-07-20
+  description: 全面革新公共工程招投标模式，确立Fit-for-Purpose采购标准；涉外主权援助工程允许外国总承包商依持牌特别许可(Special License)直接参标，从严惩戒串标借资质。
+- timepoint_id: TP_ID_PP_9_2022_TAX
+  jurisdiction: asean_id
+  law_name: 印尼政府关于建筑服务税之第9/2022号条例(PP No. 9/2022)
+  effective_date: '2022-02-21'
+  enacted_date: '2022-02-21'
+  rule_type: tax_compliance
+  alert_level: yellow
+  condition: contract_payment >= 2022-02-21
+  description: 重新核定建筑服务最终所得税(PPh Final)优惠税率；大型持照施工税率为2.65%，穿透确立独立税号联合体(NPWP KSO)在岸代扣代缴与发票责任。

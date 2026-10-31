@@ -32,7 +32,7 @@ class NormOrCaseItem(BaseModel):
     fidic_edition: Optional[str] = None
     stand: Optional[str] = None
     has_pending_amend: Optional[bool] = False
-    source_url: str = ""
+    source_url: Optional[str] = ""
     layer: Optional[str] = "L1"
 
 
@@ -285,7 +285,7 @@ def search_norms_and_cases(
                                 fidic_edition=norm.get("fidic_edition"),
                                 stand=norm.get("stand"),
                                 has_pending_amend=bool(norm.get("has_pending_amend")),
-                                source_url=norm.get("source_url", "https://www.fatong.gov.cn"),
+                                source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                                 layer=default_item_layer
                             ))
 
@@ -318,7 +318,7 @@ def search_norms_and_cases(
                                 text_en=case_data.get("tenor"),
                                 text_zh=case_data.get("leitsatz"),
                                 text_zh_machine=f"【裁判要旨】{case_data['court']} 司法裁判要旨",
-                                source_url=case_data.get("source_url", ""),
+                                source_url=case_data.get("source_url") or "",
                                 layer=default_item_layer
                             ))
 
@@ -357,7 +357,7 @@ def search_norms_and_cases(
                             fidic_edition=norm.get("fidic_edition"),
                             stand=norm.get("stand"),
                             has_pending_amend=bool(norm.get("has_pending_amend")),
-                            source_url=norm.get("source_url", "https://www.fatong.gov.cn"),
+                            source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                             layer=ev_layer
                         ))
                 else:
@@ -375,7 +375,7 @@ def search_norms_and_cases(
                             text_en=case_data.get("tenor"),
                             text_zh=case_data.get("leitsatz"),
                             text_zh_machine=f"【裁判要旨】{case_data['court']} 建设工程裁判要旨",
-                            source_url=case_data.get("source_url", ""),
+                            source_url=case_data.get("source_url") or "",
                             layer=ev_layer
                         ))
         except Exception:

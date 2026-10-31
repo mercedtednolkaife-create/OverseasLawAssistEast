@@ -165,9 +165,9 @@ class Evidence(BaseModel):
     translation_source: Optional[str] = "MOJ_FATONG_2026"
     fidic_tier: Optional[str] = None
     fidic_edition: Optional[str] = None
-    source_url: str = ""
+    source_url: Optional[str] = ""
     stand: Optional[str] = None
-    fetched_at: str = ""
+    fetched_at: Optional[str] = ""
     grade: Literal["A", "B", "C", "D"] = "A"
 
     def __init__(self, **data):
@@ -175,6 +175,10 @@ class Evidence(BaseModel):
             data["text_original"] = data["text_de"]
         elif "text_de" not in data and "text_original" in data:
             data["text_de"] = data["text_original"]
+        if data.get("source_url") is None:
+            data["source_url"] = ""
+        if data.get("fetched_at") is None:
+            data["fetched_at"] = ""
         super().__init__(**data)
 
 

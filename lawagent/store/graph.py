@@ -12,11 +12,17 @@ DEFAULT_GRAPH_RELS = [
     "conflicts_with",
     "overrides",
     "interprets",
+    "interpreted_by",
     "applied_in",
     "triggers_preservation",
     "CITES",
+    "cites",
     "APPLIES",
-    "DEFINES"
+    "applies",
+    "DEFINES",
+    "correlates_with",
+    "references",
+    "governs"
 ]
 
 

@@ -119,3 +119,33 @@ Term_CN,Term_EN,Term_Local,Jurisdiction,Legal_Definition
 关联方借款利息扣除上限,Thin Capitalization Rules,Had Potongan Faedah Pinjaman Sekutu,asean_all,东盟税法规定的企业向境外母公司支付借贷利息在税前扣除的债资比(Debt-to-Equity)限制
 原住民祖传领地,Ancestral Domain,Lupaing Ninuno (CADT),asean_ph,受菲律宾宪法保护的原住民族依法享有的对其传统部落土地拥有的不可分割所有权与自治权
 特权留置顺位,Privileged Liens Priority,Keutamaan Hak Istimewa,asean_id,印尼民法典第1139条确立的仓储运输、设备维修及工程承包款优先于普通无担保债权的受偿顺位
+防阻原则,Prevention Principle,Prinsip Pencegahan,asean_all,普通法核心法理：发包人自身的违约或阻碍行为导致承包商工期延误的，发包人丧失扣收误期违约金(LD)权利
+工期重回自由,Time at Large,Masa Bebas,asean_all,因发包人阻碍且合同顺延机制失效导致原固定竣工日瓦解，承包商仅负有在合理时间内完工之义务
+税收总额提升条款,Gross-up Clause,Klausul Peningkatan Pajak,asean_all,涉外合同约定支付款项为税后净额，属地发生预扣税时由发包人全额补足差额以确保承包商实收净额不变
+不答辩即失权原则,Preclusion Rule,Prinsip Kehilangan Hak,asean_sg,新加坡SOPA法定要求发包人在付款证明中必须列明扣款理由，未在法定期限列明者在后续仲裁中永久失权
+清洁原则,Clean Hands Doctrine,Prinsip Tangan Bersih,asean_all,国际公法原则：外国投资者通过行贿、伪造公文或欺诈手段设立的投资，自始丧失双边投资条约(BIT)受案保护资格
+主权规制警察权,Regulatory Police Powers,Kewenangan Polisi Regulasi,asean_all,主权国家为了公共福利与资源主权实施普遍非歧视性经济管制措施，依法不构成必须赔偿的间接征收
+反挂名法,Anti-Dummy Law,Batas Nominee,asean_ph,菲律宾CA 108法令：严禁利用菲律宾籍公民代持以规避宪法外资比例红线，违者处以5至15年监禁且资产全部充公没收
+法定清偿催告书,Statutory Demand,Tuntutan Statutori,asean_sg,新加坡及普通法法域下发出为期21天刚性偿债通知，逾期未付即构成无可辩驳的法定破产原因直接签发清盘令
+现金流无力偿债测试,Cash Flow Insolvency Test,Uji Arus Kas,asean_sg,破产法优先审查企业即期与可预见短期内现金偿付能力，凡无法按期支付到期债务即构成法定破产原因
+少数股东压迫,Minority Oppression,Penindasan Pemegang Saham Minoritas,asean_sg,大股东滥用控制地位侵害合资企业少数股东合理期待，法院依法有权判令大股东无折价公允强制收购
+纯劳务派遣禁止,Labor-Only Contracting Prohibition,Larangan Outsourcing Tenaga Murni,asean_ph,分包商无实质资本或由总包直接指挥施工的被强制定性为违法派遣，总包直接被拟制为全体工人的法定直聘雇主
+建筑结构十五年责任,Decennial / 15-Year Collapse Liability,Tanggung Jawab Kerusakan 15 Tahun,asean_ph,菲律宾民法典第1723条确立建筑物完工交工后15年内因缺陷倒塌由总包与设计工程师承担法定无过错连带责任
+变更调价双重书面要件,Two Written Requirements for Variations,Syarat Ganda Tertulis,asean_ph,菲律宾民法典第1724条规定承包商主张变更工程款必须同时持有书面变更授权与双方书面单价确认协议
+建筑仲裁委员会专属管辖,CIAC Exclusive Jurisdiction,Yurisdiksi Eksklusif CIAC,asean_ph,菲律宾第1008号行政令赋予CIAC对建设工程争议排他管辖权，自动排除普通初审法院RTC的民商审判管辖
+违约金司法衡减权,Equitable Mitigation of Penalty,Pengurangan Denda Sepihak,asean_th,泰国民商法典第383条与菲律宾第1229条赋予主审法官依职权强行大幅裁减畸高违约金并按已使用工程比例同等扣减
+迟延债务新法定年利率5%,New Default Statutory Interest Rate 5%,Suku Bunga Wanprestasi 5%,asean_th,泰王国2021年紧急法令废止旧法7.5%年息，规定无约定金钱债务自2021年4月11日起统一按年利率5%计收且禁计复利
+承揽瑕疵保修一年时效,One-Year Defect Claim Prescription,Daluwarsa Cacat 1 Tahun,asean_th,泰国民商法典第601条规定发包人在发现隐蔽工程瑕疵之日起必须在严格1年内向法院提起诉讼，逾期实体索赔权消灭
+外国承包商税,Foreign Contractor Tax (FCT),Thuế Nhà Thầu Nước Ngoài,asean_vn,越南对未在越设立法人机构的外国承包商征收的包含企业所得税(CIT)与增值税(VAT)的综合预扣代扣税收制度
+离岸与在岸分拆模式,Onshore/Offshore Split Contract,Hợp đồng tách Onshore/Offshore,asean_vn,涉外EPC将境外纯设备供货与境内建筑安装拆分为两份独立合同以合法将离岸供货利润剥离免征属地承包商税
+过渡期折价结算电价,Transitional Renewable Tariff,Giá Điện Chuyển Tiếp,asean_vn,越南工贸部Decision 21/2023针对未赶上FIT优惠电价的风电光伏设立的最高限价与临时按50%拨付结算的过渡机制
+作业许可证强制联营,Construction Operating License Joint Venture,Giấy phép hoạt động liên danh,asean_vn,越南Decree 15/2021要求外国承包商必须取得作业许可证且强制与越南本土承包商组建联营体或签署本土分包合同
+先诉抗辩权明示放弃,Waiver of Beneficium Excussionis,Pelepasan Hak Istimewa Pasal 1831,asean_id,印尼民法典第1832条允许担保人在保函中明文放弃主债务人财产先行清算抗辩，确立见索即付无条件直兑地位
+双币汇率浮动结算机制,Dual-Currency FX Linked Mechanism,Mekanisme Kurs Terkait,asean_id,涉外工程合同以美元核定基准价值、付款时依印尼央行JISDOR实时汇率折算为印尼盾划转以兼顾货币法合规与汇率防爆
+第一顺位最高额抵押权,First Ranking Hak Tanggungan,Hak Tanggungan Peringkat Pertama,asean_id,依据印尼1996年第4号法对外资工业土地及地上重型冶炼厂设立的具备终审生效判决最高执行力的法定物权抵押登记
+矿石基准指导价强制结算,Mandatory Mineral Benchmark Price (HPM),Harga Patokan Mineral (HPM),asean_id,印尼能矿部第11/2020号令强制要求境内冶炼厂采购镍矿必须与LME月度官方HPM公式挂钩，低于指导价协议自始无效
+固定期限劳动合同期满补偿金,PKWT Severance Compensation,Uang Kompensasi PKWT,asean_id,印尼PP 35/2021条例强制要求雇主在固定劳动合同期满终止时必须按工龄月数比例全额计发法定经济补偿金专项准备
+见索即付保函违约陈述必备要件,Mandatory Statement of Breach under URDG 758,Pernyataan Pelanggaran Wajib,asean_all,URDG 758第15条强制要求受益人索赔必须说明申请人在何种具体方面构成违约，欠缺具体陈述构成单据表面重大不符
+担保行五日严格审单期限,Guarantor 5 Business Days Examination,Batas Waktu Pemeriksaan 5 Hari,asean_all,URDG 758第20条赋予担保行自收到索赔单据次日起严格5个银行营业日审单时限，逾期未出具不符点通知丧失拒付抗辩权
+DAAB裁定即时强制拘束力,Immediate Binding Effect of DAAB Decision,Daya Mengikat Langsung DAAB,asean_all,FIDIC 2017第21.4款规定DAAB裁定签发后双方必须立即照章付款，发出不满意通知(NOD)不停止裁定立即履行金钱支付
+合理商业期待保护原则,Protection of Legitimate Expectations,Perlindungan Ekspektasi Sah,asean_all,国际投资法公平公正待遇(FET)核心教义，严禁东道国政府由于国内政治选票反复无常单方推翻特许权调价主权承诺

@@ -200,7 +200,7 @@ class HybridRetriever:
                         text_zh=norm.get("text_zh"),
                         language_mode=norm.get("language_mode", "bilingual"),
                         translation_source=norm.get("translation_source"),
-                        source_url=norm["source_url"],
+                        source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                         stand=norm.get("stand"),
                         fetched_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
                         grade="A"
@@ -363,7 +363,7 @@ class HybridRetriever:
                         text_zh=norm.get("text_zh"),
                         language_mode=norm.get("language_mode", "bilingual"),
                         translation_source=norm.get("translation_source"),
-                        source_url=norm["source_url"],
+                        source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                         stand=norm.get("stand"),
                         fetched_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
                         grade="A"
@@ -381,7 +381,7 @@ class HybridRetriever:
                         text_original=case_data.get("gruende"),
                         text_en=case_data.get("tenor"),
                         text_zh=case_data.get("leitsatz"),
-                        source_url=case_data["source_url"],
+                        source_url=case_data.get("source_url") or "",
                         stand=case_data.get("decided"),
                         fetched_at=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
                         grade="A"
