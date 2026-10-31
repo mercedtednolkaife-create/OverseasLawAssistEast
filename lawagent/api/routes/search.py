@@ -322,15 +322,16 @@ def search_norms_and_cases(
                                 layer=default_item_layer
                             ))
 
-    # 当命中较少 (< 3 条) 或处于 AUTO/ALL/L2 深度检索时，调用 HybridRetriever 的 FAISS 稠密向量与 BM25 级联增强
-    if (len(items) < 3 or layer in ("ALL", "L2")) and query.strip():
+    # 调用 HybridRetriever 进行 FAISS 稠密向量、BM25 词法与 GraphRAG 图谱级联增强
+    if query.strip():
         try:
             retriever = get_retriever()
             kind_filter = kind if kind in ("norm", "case") else None
+            fetch_k = 20 if len(items) < 5 else 10
             if layer == "L2":
-                evidences = retriever.search_l2(query, top_k=20, law_filter=law, kind_filter=kind_filter)
+                evidences = retriever.search_l2(query, top_k=fetch_k, law_filter=law, kind_filter=kind_filter)
             else:
-                evidences = retriever.search(query, top_k=20, law_filter=law, kind_filter=kind_filter, layer=layer)
+                evidences = retriever.search(query, top_k=fetch_k, law_filter=law, kind_filter=kind_filter, layer=layer)
             for ev in evidences:
                 if ev.ref_id in seen_ids:
                     continue

@@ -97,6 +97,7 @@ def chunk_cases(cases: List[Dict[str, Any]], max_chars: int = 1500) -> List[Dict
 
     for c in cases:
         case_id = c["case_id"]
+        cid_clean = case_id[5:] if case_id.startswith("CASE:") else case_id
         court = c["court"] or ""
         az = c["az"] or ""
         decided = c["decided"] or ""
@@ -109,7 +110,7 @@ def chunk_cases(cases: List[Dict[str, Any]], max_chars: int = 1500) -> List[Dict
         tenor = c.get("tenor") or ""
         summary_text = f"Leitsatz: {leitsatz}\nTenor: {tenor}".strip()
         chunks.append({
-            "chunk_id": f"CHUNK:CASE:{case_id}:0",
+            "chunk_id": f"CHUNK:CASE:{cid_clean}:0",
             "kind": "case",
             "ref_id": case_id,
             "seq": 0,
@@ -121,7 +122,7 @@ def chunk_cases(cases: List[Dict[str, Any]], max_chars: int = 1500) -> List[Dict
         tatbestand = c.get("tatbestand") or ""
         if tatbestand:
             chunks.append({
-                "chunk_id": f"CHUNK:CASE:{case_id}:1",
+                "chunk_id": f"CHUNK:CASE:{cid_clean}:1",
                 "kind": "case",
                 "ref_id": case_id,
                 "seq": 1,
@@ -138,7 +139,7 @@ def chunk_cases(cases: List[Dict[str, Any]], max_chars: int = 1500) -> List[Dict
             for p in paragraphs:
                 if len(cur_p) + len(p) > max_chars and cur_p:
                     chunks.append({
-                        "chunk_id": f"CHUNK:CASE:{case_id}:{seq}",
+                        "chunk_id": f"CHUNK:CASE:{cid_clean}:{seq}",
                         "kind": "case",
                         "ref_id": case_id,
                         "seq": seq,
@@ -152,7 +153,7 @@ def chunk_cases(cases: List[Dict[str, Any]], max_chars: int = 1500) -> List[Dict
 
             if cur_p:
                 chunks.append({
-                    "chunk_id": f"CHUNK:CASE:{case_id}:{seq}",
+                    "chunk_id": f"CHUNK:CASE:{cid_clean}:{seq}",
                     "kind": "case",
                     "ref_id": case_id,
                     "seq": seq,

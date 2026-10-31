@@ -241,7 +241,7 @@ DECOMPOSE_SYSTEM_PROMPT = """你是一名经验丰富的东盟东道国建设工
 
 
 async def s3_decompose_node(state: CaseState) -> Dict[str, Any]:
-    """S3 节点：争点智能拆解，生成争议焦点、法律问题与待检索要素 (LLM 动态推演与示范案自适应)"""
+    """S3 节点：争点智能拆解，生成争议焦点、法律问题与待检索要素 (LLM 动态推演与示范案自适应，融合 GraphRAG 风险社区)"""
     issues: List[Issue] = list(state.issues)
     questions: List[LegalQuestion] = list(state.questions)
     elements: List[ElementState] = list(state.elements)
@@ -463,6 +463,31 @@ async def s3_decompose_node(state: CaseState) -> Dict[str, Any]:
                     ElementState(qid="Q1", element_id="e2", name_zh="损失因果关系与合同约定时效/通知形式要件合规", status="missing", rounds=0)
                 ]
 
+    # 接入 GraphRAG 风险社区 (risk_communities)：根据案情事实与法域自动注入红线法规
+    try:
+        from lawagent.store.snapshots import SnapshotManager
+        smgr = SnapshotManager()
+        db_conn = smgr.get_connection(state.snapshot_id)
+        if db_conn:
+            cur = db_conn.cursor()
+            cur.execute("SELECT community_id, name_zh, host_countries, norm_ids, trigger_scenarios FROM risk_communities")
+            rc_rows = cur.fetchall()
+            jur_code = (state.meta.jurisdiction or "asean_id").replace("asean_", "").upper()
+            full_context = f"{state.title or ''} {state.facts_zh or ''} {state.claims_zh or ''} {' '.join(c.text_zh for c in state.claims)}"
+            for r in rc_rows:
+                cid, cname, chosts_str, cnorms_str, ctrig_str = r[0], r[1], r[2], r[3], r[4]
+                hosts = json.loads(chosts_str) if chosts_str else []
+                if jur_code in hosts or "ALL" in hosts:
+                    triggers = json.loads(ctrig_str) if ctrig_str else []
+                    if any(t.lower() in full_context.lower() for t in triggers) or (cname and cname[:4] in full_context):
+                        community_norms = json.loads(cnorms_str) if cnorms_str else []
+                        for q in questions:
+                            for cn in community_norms:
+                                if cn not in q.must_norms:
+                                    q.must_norms.append(cn)
+    except Exception as e:
+        logger.debug(f"Risk community injection skipped: {e}")
+
     # 判断是否在此暂停供用户交互确认 (S3 Gate)
     status = state.status
     if state.mode == "full" and any(q.status == "draft" for q in questions):
@@ -572,10 +597,43 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
 # S5: Matcher (要件事实涵摄、判例比对与咨询问题生成)
 # =====================================================================
 async def matcher_node(state: CaseState) -> Dict[str, Any]:
-    """S5 节点：案件事实四态匹配、类似案例提取与律师咨询问题归纳"""
+    """S5 节点：案件事实四态匹配、类似案例提取与律师咨询问题归纳（深度融合数据库 elements_json 结构化法定要件槽位）"""
     client = LLMClient()
+
+    # 从数据库检索命中的规范中，提取已入库的结构化法定构成要件 (elements_json)，赋予要件槽位真实的实体法支撑
+    current_elements = list(state.elements)
+    existing_el_names = set(el.name_zh for el in current_elements)
+    try:
+        from lawagent.store.snapshots import SnapshotManager
+        smgr = SnapshotManager()
+        db_conn = smgr.get_connection(state.snapshot_id)
+        if db_conn and state.evidence:
+            cur = db_conn.cursor()
+            for ev in state.evidence.values():
+                if ev.kind == "norm":
+                    cur.execute("SELECT elements_json FROM norms WHERE norm_id = ?", (ev.ref_id,))
+                    row = cur.fetchone()
+                    if row and row[0]:
+                        try:
+                            el_list = json.loads(row[0])
+                            for idx, item in enumerate(el_list):
+                                item_text = item.get("text_zh") or item.get("name_zh") or ""
+                                if item_text and item_text not in existing_el_names:
+                                    existing_el_names.add(item_text)
+                                    current_elements.append(ElementState(
+                                        qid="Q1",
+                                        element_id=f"{ev.ref_id}_e{idx+1}",
+                                        name_zh=f"【{ev.ref_id}】{item_text}",
+                                        status="missing",
+                                        rounds=0
+                                    ))
+                        except Exception:
+                            pass
+    except Exception as e:
+        logger.debug(f"elements_json injection skipped: {e}")
+
     updated_elements, counsel_qs = await match_facts_and_elements(
-        state.elements, state.facts, state.materials, client=client
+        current_elements, state.facts, state.materials, client=client
     )
     similar_cases = extract_similar_cases(state.evidence, state.facts)
 

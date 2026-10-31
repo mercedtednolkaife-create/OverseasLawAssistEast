@@ -294,9 +294,19 @@ class HybridRetriever:
             for nid in top_norm_ids:
                 hot_cases = self.graph.get_hot_cases_for_norm(nid, limit=3)
                 for hcase in hot_cases:
-                    case_cid = f"CHUNK:CASE:{hcase}:0"
-                    if case_cid not in candidate_cids:
-                        candidate_cids.append(case_cid)
+                    hcase_no_p = hcase[5:] if hcase.startswith("CASE:") else hcase
+                    case_keys = [
+                        f"CHUNK:CASE:{hcase}:0",
+                        f"CHUNK:CASE:{hcase_no_p}:0",
+                        f"CHUNK:CASE:CASE:{hcase_no_p}:0"
+                    ]
+                    for ck in case_keys:
+                        if ck in self.bm25.chunk_metadata and ck not in candidate_cids:
+                            candidate_cids.append(ck)
+                            break
+                        elif ck not in candidate_cids and not self.bm25.chunk_metadata:
+                            candidate_cids.append(ck)
+                            break
 
             # 真正动态图扩展：通过 graph.expand 发现冲突法条、上位法与适用先例
             if top_norm_ids:
@@ -307,13 +317,24 @@ class HybridRetriever:
                         limit=5
                     )
                     for item in expanded_nodes:
-                        raw_node = item.get("node", "").replace("NORM:", "").replace("CASE:", "").strip()
-                        norm_cid = f"CHUNK:NORM:{raw_node}:0"
-                        case_cid = f"CHUNK:CASE:{raw_node}:0"
-                        if norm_cid in self.bm25.chunk_metadata and norm_cid not in candidate_cids:
-                            candidate_cids.append(norm_cid)
-                        elif case_cid in self.bm25.chunk_metadata and case_cid not in candidate_cids:
-                            candidate_cids.append(case_cid)
+                        raw = item.get("node", "").strip()
+                        raw_no_p = raw
+                        if raw_no_p.startswith("NORM:"):
+                            raw_no_p = raw_no_p[5:]
+                        elif raw_no_p.startswith("CASE:"):
+                            raw_no_p = raw_no_p[5:]
+
+                        candidate_keys = [
+                            f"CHUNK:NORM:{raw}:0",
+                            f"CHUNK:NORM:{raw_no_p}:0",
+                            f"CHUNK:CASE:{raw}:0",
+                            f"CHUNK:CASE:{raw_no_p}:0",
+                            f"CHUNK:CASE:CASE:{raw_no_p}:0",
+                        ]
+                        for ckey in candidate_keys:
+                            if ckey in self.bm25.chunk_metadata and ckey not in candidate_cids:
+                                candidate_cids.append(ckey)
+                                break
                 except Exception:
                     pass
 
@@ -546,7 +567,7 @@ class HybridRetriever:
             is_l1_fallback = False
             if not row:
                 # 跨层回退查询 L1 chunks 表
-                cur.execute("SELECT chunk_id, kind, norm_id AS ref_id, text FROM chunks WHERE chunk_id = ?", (cid,))
+                cur.execute("SELECT chunk_id, kind, ref_id, text FROM chunks WHERE chunk_id = ?", (cid,))
                 row = cur.fetchone()
                 is_l1_fallback = True
             if not row:

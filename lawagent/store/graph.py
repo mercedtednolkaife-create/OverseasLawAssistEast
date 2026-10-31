@@ -11,8 +11,10 @@ from typing import List, Dict, Any, Optional, Protocol, runtime_checkable
 DEFAULT_GRAPH_RELS = [
     "conflicts_with",
     "overrides",
+    "overrules",
     "interprets",
     "interpreted_by",
+    "INTERPRETS",
     "applied_in",
     "triggers_preservation",
     "CITES",
@@ -22,7 +24,14 @@ DEFAULT_GRAPH_RELS = [
     "DEFINES",
     "correlates_with",
     "references",
-    "governs"
+    "governs",
+    "complements",
+    "cross_references",
+    "distinguishes",
+    "exception_to",
+    "hierarchical_child",
+    "hierarchical_parent",
+    "PREREQUISITE_FOR"
 ]
 
 
