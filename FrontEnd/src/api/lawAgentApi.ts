@@ -25,6 +25,7 @@ import {
   StrategicAssessment,
   IntakeExtractResponse,
   AttachedArtifact,
+  CLAlignResult,
 } from '../types/lawAgent';
 
 export const lawAgentApi = {
@@ -161,6 +162,20 @@ export const lawAgentApi = {
         court: filters?.court,
         kind: filters?.kind,
         layer: filters?.layer,
+      },
+    });
+  },
+
+  /**
+   * CL-Align 跨法系多语种法学概念对齐接口
+   * 对应 GET /search/align
+   */
+  async alignConcept(query: string, jurisdiction?: string): Promise<CLAlignResult> {
+    return await request<CLAlignResult>('/search/align', {
+      method: 'GET',
+      params: {
+        q: query,
+        jurisdiction,
       },
     });
   },

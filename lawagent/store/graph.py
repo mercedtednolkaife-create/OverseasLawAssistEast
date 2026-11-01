@@ -55,6 +55,44 @@ class GraphStore(Protocol):
     ) -> List[Dict[str, Any]]: ...
 
 
+def _expand_id_aliases(nid: str) -> List[str]:
+    """生成节点 ID 的多种跨库别名变体，确保不同命名规范下的边节点均能无损互联"""
+    variants = [nid]
+    raw = nid
+    if raw.startswith("NORM:"):
+        raw = raw[5:]
+        variants.append(raw)
+    elif raw.startswith("CASE:"):
+        raw = raw[5:]
+        variants.append(raw)
+    else:
+        variants.append(f"NORM:{raw}")
+
+    # 针对东盟成文法常见异名规范映射
+    alias_rules = [
+        ("VN:Civil_Code_2015:", "Civil_Code_VN:"),
+        ("Civil_Code_VN:", "VN:Civil_Code_2015:"),
+        ("TH:CCC:", "Civil_Code_TH:"),
+        ("Civil_Code_TH:", "TH:CCC:"),
+        ("Civil and Commercial Code:", "TH:CCC:"),
+        ("ID:KUHPerdata:", "KUHPerdata:"),
+        ("KUHPerdata:", "ID:KUHPerdata:"),
+        ("MY:Contracts_Act_1950:", "Contracts_Act_MY:"),
+        ("Contracts_Act_MY:", "MY:Contracts_Act_1950:"),
+        ("PH:Civil_Code_RA386:", "Civil_Code_PH:"),
+        ("Civil_Code_PH:", "PH:Civil_Code_RA386:"),
+        ("BN:Constitution:Art84C_Absolute_Sovereign_Immunity", "BN:Constitution:Art84C"),
+        ("BN:Constitution:Art84C", "BN:Constitution:Art84C_Absolute_Sovereign_Immunity"),
+    ]
+    for src_pref, dst_pref in alias_rules:
+        if src_pref in raw:
+            alt = raw.replace(src_pref, dst_pref)
+            variants.append(alt)
+            variants.append(f"NORM:{alt}")
+            
+    return list(dict.fromkeys(variants))
+
+
 class SQLiteGraphStore:
     def __init__(self, db_path_or_conn: Any = "data/snapshots/20261021-asean-v2.2/law.sqlite"):
         if isinstance(db_path_or_conn, sqlite3.Connection):
@@ -78,16 +116,8 @@ class SQLiteGraphStore:
         direction: str = "out",
         limit: int = 20
     ) -> List[Dict[str, Any]]:
-        """获取直连邻居节点 (支持 out / in / both，同时兼容裸 ID 与带 NORM:/CASE: 前缀 ID)"""
-        # 构建节点 ID 的多重变体，确保无论库中是裸 ID 还是带前缀均可精准召回
-        id_variants = [node_id]
-        if node_id.startswith("NORM:"):
-            id_variants.append(node_id[5:])
-        else:
-            id_variants.append(f"NORM:{node_id}")
-        if node_id.startswith("CASE:"):
-            id_variants.append(node_id[5:])
-        id_variants = list(dict.fromkeys(id_variants))
+        """获取直连邻居节点 (支持 out / in / both，同时兼容裸 ID 与带 NORM:/CASE: 前缀 ID，并融合跨命名别名)"""
+        id_variants = _expand_id_aliases(node_id)
 
         conn = self._get_conn()
         cur = conn.cursor()
@@ -130,13 +160,8 @@ class SQLiteGraphStore:
 
         clean_starts = set()
         for sid in start_ids:
-            clean_starts.add(sid)
-            if sid.startswith("NORM:"):
-                clean_starts.add(sid[5:])
-            else:
-                clean_starts.add(f"NORM:{sid}")
-            if sid.startswith("CASE:"):
-                clean_starts.add(sid[5:])
+            for variant in _expand_id_aliases(sid):
+                clean_starts.add(variant)
         clean_starts_list = list(clean_starts)
 
         allowed_rels = rels or DEFAULT_GRAPH_RELS

@@ -119,3 +119,18 @@ Term_CN,Term_EN,Term_Local,Jurisdiction,Legal_Definition
 关联方借款利息扣除上限,Thin Capitalization Rules,Had Potongan Faedah Pinjaman Sekutu,asean_all,东盟税法规定的企业向境外母公司支付借贷利息在税前扣除的债资比(Debt-to-Equity)限制
 原住民祖传领地,Ancestral Domain,Lupaing Ninuno (CADT),asean_ph,受菲律宾宪法保护的原住民族依法享有的对其传统部落土地拥有的不可分割所有权与自治权
 特权留置顺位,Privileged Liens Priority,Keutamaan Hak Istimewa,asean_id,印尼民法典第1139条确立的仓储运输、设备维修及工程承包款优先于普通无担保债权的受偿顺位
+柬埔寨合格投资项目,Qualified Investment Project (QIP),គម្រោងវិនិយោគមានលក្ខណៈសម្បត្តិគ្រប់គ្រាន់,asean_kh,柬埔寨2021新投资法向CDC注册的最长9年免税与外汇自由汇出投资项目
+柬埔寨长期租赁权,Perpetual Lease (15-50 Years),សិទ្ធិជួលអចិន្ត្រៃយ៍,asean_kh,柬埔寨民法典第244条允许外资设立最长50年可续期物权并设定抵押融资的土地租赁形式
+建筑工程开工许可证,Construction Permit,លិខិតអនុញ្ញាតសាងសង់,asean_kh,柬埔寨2019建筑法第38条规定开工前必须取得的行政前置审批，无证施工面临停工拆除
+违约金不可增减原则,Inalterability of Liquidated Damages,ភាពមិនអាចកែប្រែប្រាក់ពិន័យបាន,asean_kh,柬埔寨民法典第403条规定法院原则上无权增减当事人约定的违约金金额
+老挝特许经营特许权,Concession Business (CA),ທຸລະກິດສໍາປະທານ,asean_la,老挝投资促进法第32条规定水电矿产大型基建须经MPI申报及政府国会审批的特许经营协议
+老挝央行外债核准证明,BOL Offshore Loan Approval,ໃບຢັ້ງຢືນການອະນຸມັດເງິນກູ້ຕ່າງປະເທດ,asean_la,老挝2022外汇管理法规定离岸股东借款必须事先获老挝央行(BOL)核准方能合法购汇还本付息
+老挝水电特许移交规程,Hydropower Concession and Handover,ການສໍາປະທານໄຟຟ້ານໍ້າຕົກ,asean_la,老挝电力法规定水电BOT项目特许期及期满向老挝政府无偿移交完好设施之法定规程
+缅甸投资委员会许可,MIC Permit,မြန်မာနိုင်ငံရင်းနှီးမြှုပ်နှံမှုကော်မရှင်ခွင့်ပြုမိန့်,asean_mm,缅甸2016投资法第36条针对战略基建自然资源向MIC申领的核心许可与70年租地背书
+缅甸央行强制结汇令,Mandatory Foreign Currency Conversion,နိုင်ငံခြားငွေမဖြစ်မနေလဲလှယ်ရေးအမိန့်,asean_mm,缅甸央行FEML与2022通知要求外币收入须在1个工作日内按官方价强制结汇为缅币
+合同受阻与落空,Doctrine of Frustration,သဘောတူစာချုပ်ပျက်ပြယ်ခြင်းသဘောတရား,asean_mm,缅甸1872合同法第56条与普通法下武装冲突或政局突变导致履约实质不可能的免责原则
+文莱绝对主权豁免,Absolute Sovereign Immunity,Kekebalan Mutlak Kedaulatan,asean_bn,文莱宪法第84C条规定文莱苏丹与政府部委享有绝对豁免，国内法院无权受理对政府诉讼
+文莱国际仲裁友好令,Brunei International Arbitration Order,Perintah Timbang Tara Antarabangsa,asean_bn,文莱对标新加坡国际仲裁法全面采纳纽约公约与示范法保障涉外仲裁裁决执行
+东帝汶事前核准签证,Prior Audit Visa (Visto),Fiscalização Prévia / Visto,asean_tl,东帝汶国家审计院法第9/2011号规定超50万美元公共合同未获审计院Visto前抢先施工无付款效力
+东帝汶建筑物五年瑕疵责任,5-Year Collapse Liability,Responsabilidade por Ruína 5 Anos,asean_tl,东帝汶民法典第1145条规定工程竣工移交后5年内主体结构倒塌由总包与建筑师承担法定连带赔偿
+东帝汶私人投资证书,Private Investment Certificate,Certificado de Investimento Privado,asean_tl,东帝汶2023私人投资法向TradeInvest申报获取的最长10年免税激励与土地承租保护

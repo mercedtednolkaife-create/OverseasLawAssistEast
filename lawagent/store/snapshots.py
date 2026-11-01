@@ -19,11 +19,15 @@ KNOWN_NORM_ALIASES = {
     "ID_UU_2_2017:ART57": "ID:UU_2_2017:Art57",
     "ID_SEMA:3_2023": "ID:SEMA_3_2023",
     "ID_SEMA_3_2023": "ID:SEMA_3_2023",
-    "VN_LAW135_2025:ART86_2": "VN:Law_135_2025:Art86.2",
-    "VN_LAW135_2025:ART86.2": "VN:Law_135_2025:Art86.2",
-    "VN_LAW_135_2025:ART86.2": "VN:Law_135_2025:Art86.2",
-    "VN_LAW135_2025:ART146": "VN:Law_135_2025:Art146",
-    "VN_DECREE210_2026:ART18": "VN:Decree_210_2026:Art18",
+    "VN_LAW135_2025:ART86_2": "VN:Construction_Law_2014_Amended_2020:Art146",
+    "VN_LAW135_2025:ART86.2": "VN:Construction_Law_2014_Amended_2020:Art146",
+    "VN_LAW_135_2025:ART86.2": "VN:Construction_Law_2014_Amended_2020:Art146",
+    "VN_LAW135_2025:ART146": "VN:Construction_Law_2014_Amended_2020:Art138",
+    "VN_DECREE210_2026:ART18": "VN:Decree_37_2015_ND_CP:Art18",
+    "CASE:ID_MA:WAIVE1266_TERMINATION:2018": "CASE:ID_MA:Putusan_MA_1582_K_Pdt_2018:2019",
+    "CASE:ID_MA:NOMINEE_SHAREHOLDING_VOID_UU25_ART33:2019": "CASE:ID_MA:Putusan_MA_3020_K_Pdt_2018_Nominee:2019",
+    "CASE:PH_SC:G.R.217590_MANILAWATER:2020": "CASE:PH_SC:PCAB_v_Manila_Water_2020",
+    "CASE:SG_HC:BSMOUNTSOPHIA:2016": "CASE:SG_CA:BS_Mount_Sophia:2012",
     "MY_CIPAA:SEC35": "MY:CIPAA_2012:Sec35",
     "MY_CIPAA:35": "MY:CIPAA_2012:Sec35",
     "MY_CIPAA_2012:SEC35": "MY:CIPAA_2012:Sec35",
@@ -342,6 +346,21 @@ class SnapshotManager:
             clean_input = clean_input[5:]
 
         # 0. 先尝试全字完全匹配 norm_id
+        if clean_input.startswith("CASE:") or clean_input.startswith("REF_CASE:"):
+            c_info = self.case_lookup(clean_input, snapshot_id=snapshot_id)
+            if c_info:
+                return {
+                    "norm_id": c_info["case_id"],
+                    "law": c_info.get("court", ""),
+                    "enbez": c_info.get("az", ""),
+                    "title": f"{c_info.get('court', '')} {c_info.get('az', '')}".strip(),
+                    "text_zh": c_info.get("leitsatz", ""),
+                    "text_en": c_info.get("tenor", ""),
+                    "text_de": c_info.get("gruende", ""),
+                    "is_case": True,
+                    **c_info,
+                }
+
         cur.execute(
             """SELECT * FROM norms
                WHERE norm_id = ? OR norm_id = ?
@@ -434,7 +453,24 @@ class SnapshotManager:
                     (norm_id, clean_input, law, spaced_enbez, clean_enbez)
                 )
                 row = cur.fetchone()
-        return dict(row) if row else None
+        if row:
+            return dict(row)
+
+        # 降级：检查是否为未加前缀的判例别名或案号
+        c_fallback = self.case_lookup(clean_input, snapshot_id=snapshot_id)
+        if c_fallback:
+            return {
+                "norm_id": c_fallback["case_id"],
+                "law": c_fallback.get("court", ""),
+                "enbez": c_fallback.get("az", ""),
+                "title": f"{c_fallback.get('court', '')} {c_fallback.get('az', '')}".strip(),
+                "text_zh": c_fallback.get("leitsatz", ""),
+                "text_en": c_fallback.get("tenor", ""),
+                "text_de": c_fallback.get("gruende", ""),
+                "is_case": True,
+                **c_fallback,
+            }
+        return None
 
     def get_kommentar(self, norm_id: str) -> Optional[Dict[str, Any]]:
         """按条文编号获取权威法典评注精要要旨"""

@@ -22,6 +22,7 @@ from lawagent.store.bm25 import BM25Engine
 from lawagent.store.vec import DenseVectorEngine
 from lawagent.store.rerank import Reranker
 from lawagent.store.graph import SQLiteGraphStore
+from lawagent.store.cl_align import CLAlignOperator, CLAlignResult
 
 RE_NORM_EXACT = re.compile(
     r"(UU_\d+_\d+|SEMA_\d+_\d+|CIPAA_\d+|SOPA_\d+|Law_\d+_\d+|RA_\d+|FIDIC|BIT|SASAC|CN_ID_BIT|CN_VN_BIT|CN_PH_BIT|SINOSURE|KUHPerdata|CCC|Act_\d+|MEMR_\d+|Decree_\d+)\s*(?:§|Art\.?|Section\s*|Sec\.?|Clause\s*)?\s*([0-9a-zA-Z\-\:\.]+)",
@@ -98,7 +99,28 @@ class HybridRetriever:
         else:
             self.graph = graph_store
 
-        self.reranker = reranker or Reranker(enabled=False)
+        # 读取 retrieval.yaml 配置初始化图扩展跳数与重排器
+        cfg_path = os.path.join(os.path.dirname(__file__), "..", "configs", "retrieval.yaml")
+        rerank_enabled = True
+        model_name = "BAAI/bge-reranker-v2-m3"
+        self.graph_max_hops = 2
+        if os.path.exists(cfg_path):
+            try:
+                import yaml
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f)
+                    rcfg = cfg.get("rerank", {})
+                    rerank_enabled = rcfg.get("enabled", True)
+                    model_name = rcfg.get("model_name", model_name)
+                    gcfg = cfg.get("graph_expansion", {})
+                    self.graph_max_hops = gcfg.get("max_hops", 2)
+            except Exception:
+                pass
+
+        if reranker is None:
+            self.reranker = Reranker(model_name=model_name, enabled=rerank_enabled)
+        else:
+            self.reranker = reranker
         self.glossary_path = glossary_path
         self._load_glossary()
 
@@ -150,8 +172,21 @@ class HybridRetriever:
             except Exception:
                 pass
 
-    def expand_query(self, query: str) -> str:
-        """利用术语库将中文工程法律问句扩充东盟法规及 FIDIC 核心对应用语"""
+        # 初始化 CL-Align 跨法系多语种法学概念对齐算子
+        self.cl_align = CLAlignOperator.get_instance()
+        self.last_cl_alignment: Optional[CLAlignResult] = None
+
+    def expand_query(self, query: str, jurisdiction: Optional[str] = None) -> str:
+        """CL-Align 算子：利用跨法系多语种法学概念对齐引擎扩充查询词"""
+        try:
+            if hasattr(self, "cl_align") and self.cl_align:
+                align_res = self.cl_align.align(query, jurisdiction=jurisdiction)
+                self.last_cl_alignment = align_res
+                if align_res.reformulated_query:
+                    return align_res.reformulated_query
+        except Exception:
+            pass
+
         extra_terms = []
         for zh_term, target_term in self.glossary_zh_to_de.items():
             if zh_term in query and target_term not in query:
@@ -198,7 +233,7 @@ class HybridRetriever:
                         text_original=norm.get("text_original"),
                         text_en=norm.get("text_en"),
                         text_zh=norm.get("text_zh"),
-                        language_mode=norm.get("language_mode", "bilingual"),
+                        language_mode=norm.get("language_mode") or "bilingual",
                         translation_source=norm.get("translation_source"),
                         source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                         stand=norm.get("stand"),
@@ -258,15 +293,22 @@ class HybridRetriever:
             return evidences[:top_k]
 
         # ---------------------------------------------------------
-        # 2. BM25 与 Dense 向量检索
+        # 2. BM25 与 Dense 向量检索 (结合 CL-Align 跨法系多语种对齐)
         # ---------------------------------------------------------
-        expanded_q = self.expand_query(query)
+        expanded_q = self.expand_query(query, jurisdiction=law_filter)
         bm25_res = self.bm25.search(expanded_q, top_k=50, kind_filter=kind_filter, law_filter=law_filter)
         vec_res = []
         l1_top_vec_score = 0.0
         if self.vec is not None:
             try:
-                vec_res = self.vec.search(query, top_k=50)
+                vec_q = expanded_q if len(expanded_q) <= 256 else query
+                vec_res = self.vec.search(
+                    vec_q,
+                    top_k=50,
+                    law_filter=law_filter,
+                    kind_filter=kind_filter,
+                    chunk_metadata=self.bm25.chunk_metadata
+                )
                 if vec_res:
                     l1_top_vec_score = float(vec_res[0][1])
             except Exception:
@@ -289,8 +331,15 @@ class HybridRetriever:
             top_norm_ids = [
                 self.bm25.chunk_metadata[cid]["ref_id"]
                 for cid in candidate_cids[:5]
-                if cid in self.bm25.chunk_metadata and self.bm25.chunk_metadata[cid]["kind"] == "norm"
+                if cid in self.bm25.chunk_metadata and self.bm25.chunk_metadata[cid].get("kind") in ("norm", "reference_norm")
             ]
+            top_case_ids = [
+                self.bm25.chunk_metadata[cid]["ref_id"]
+                for cid in candidate_cids[:5]
+                if cid in self.bm25.chunk_metadata and self.bm25.chunk_metadata[cid].get("kind") in ("case", "reference_case")
+            ]
+
+            # 4.1 从 Norm 节点正向拓扑扩展关联判例 (hot_norm_cases)
             for nid in top_norm_ids:
                 hot_cases = self.graph.get_hot_cases_for_norm(nid, limit=3)
                 for hcase in hot_cases:
@@ -298,7 +347,7 @@ class HybridRetriever:
                     case_keys = [
                         f"CHUNK:CASE:{hcase}:0",
                         f"CHUNK:CASE:{hcase_no_p}:0",
-                        f"CHUNK:CASE:CASE:{hcase_no_p}:0"
+                        f"CHUNK:CASE:{hcase_no_p}:1",
                     ]
                     for ck in case_keys:
                         if ck in self.bm25.chunk_metadata and ck not in candidate_cids:
@@ -308,13 +357,40 @@ class HybridRetriever:
                             candidate_cids.append(ck)
                             break
 
-            # 真正动态图扩展：通过 graph.expand 发现冲突法条、上位法与适用先例
+            # 4.2 从 Case 节点反向拓扑扩展其适用与解释的成文法 (双向 GraphRAG)
+            if top_case_ids:
+                try:
+                    conn_g = self.snapshot_mgr.get_connection(snapshot_id)
+                    if conn_g:
+                        cur_g = conn_g.cursor()
+                        c_ph = ",".join("?" for _ in top_case_ids)
+                        cur_g.execute(
+                            f"""SELECT norm_id FROM hot_norm_cases WHERE case_id IN ({c_ph})
+                                UNION
+                                SELECT dst AS norm_id FROM edges WHERE src IN ({c_ph}) AND rel IN ('applies', 'interprets', 'cites', 'governs')
+                                UNION
+                                SELECT src AS norm_id FROM edges WHERE dst IN ({c_ph}) AND rel IN ('applied_by', 'interpreted_by')
+                                LIMIT 6""",
+                            [*top_case_ids, *top_case_ids, *top_case_ids]
+                        )
+                        for r_row in cur_g.fetchall():
+                            nid = r_row[0] if not isinstance(r_row, sqlite3.Row) else r_row["norm_id"]
+                            nid_no_p = nid[5:] if nid.startswith("NORM:") else nid
+                            n_keys = [f"CHUNK:NORM:{nid}:0", f"CHUNK:NORM:{nid_no_p}:0", f"CHUNK:{nid}:0"]
+                            for nk in n_keys:
+                                if nk in self.bm25.chunk_metadata and nk not in candidate_cids:
+                                    candidate_cids.append(nk)
+                                    break
+                except Exception:
+                    pass
+
+            # 4.3 真正动态图扩展：通过 graph.expand 发现冲突法条、上位法与适用先例 (支持配置驱动 2-Hop 深度扩展)
             if top_norm_ids:
                 try:
                     expanded_nodes = self.graph.expand(
                         top_norm_ids,
-                        max_hops=1,
-                        limit=5
+                        max_hops=self.graph_max_hops if hasattr(self, "graph_max_hops") else 2,
+                        limit=10
                     )
                     for item in expanded_nodes:
                         raw = item.get("node", "").strip()
@@ -329,7 +405,7 @@ class HybridRetriever:
                             f"CHUNK:NORM:{raw_no_p}:0",
                             f"CHUNK:CASE:{raw}:0",
                             f"CHUNK:CASE:{raw_no_p}:0",
-                            f"CHUNK:CASE:CASE:{raw_no_p}:0",
+                            f"CHUNK:CASE:{raw_no_p}:1",
                         ]
                         for ckey in candidate_keys:
                             if ckey in self.bm25.chunk_metadata and ckey not in candidate_cids:
@@ -382,7 +458,7 @@ class HybridRetriever:
                         text_original=norm.get("text_original"),
                         text_en=norm.get("text_en"),
                         text_zh=norm.get("text_zh"),
-                        language_mode=norm.get("language_mode", "bilingual"),
+                        language_mode=norm.get("language_mode") or "bilingual",
                         translation_source=norm.get("translation_source"),
                         source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                         stand=norm.get("stand"),
@@ -480,7 +556,7 @@ class HybridRetriever:
         evidences: List[Evidence] = []
         seen_refs = set()
 
-        expanded_q = self.expand_query(query)
+        expanded_q = self.expand_query(query, jurisdiction=law_filter)
         bm25_res = []
         if self.bm25_l2 is not None:
             try:
@@ -491,7 +567,14 @@ class HybridRetriever:
         vec_res = []
         if self.vec_l2 is not None:
             try:
-                vec_res = self.vec_l2.search(query, top_k=30)
+                vec_q = expanded_q if len(expanded_q) <= 256 else query
+                vec_res = self.vec_l2.search(
+                    vec_q,
+                    top_k=30,
+                    law_filter=law_filter,
+                    kind_filter=kind_filter,
+                    chunk_metadata=self.bm25_l2.chunk_metadata
+                )
             except Exception:
                 vec_res = []
 
@@ -535,12 +618,18 @@ class HybridRetriever:
                     )
                     linked_nodes = [row[0] for row in cur.fetchall()]
                     for node in linked_nodes:
+                        # 1. 优先根据 ref_id 查询关联的 reference_chunks
+                        cur.execute("SELECT chunk_id FROM reference_chunks WHERE ref_id = ? LIMIT 2", (node,))
+                        matched_cids = [r[0] for r in cur.fetchall()]
+                        if matched_cids:
+                            for cid in matched_cids:
+                                if cid not in candidate_cids:
+                                    candidate_cids.append(cid)
+                            continue
+
+                        # 2. 精确 chunk_id 匹配
                         norm_cid = f"CHUNK:REF_NORM:{node}:0"
                         case_cid = f"CHUNK:REF_CASE:{node}:0"
-                        l1_norm_cid = f"CHUNK:NORM:{node}:0"
-                        l1_case_cid = f"CHUNK:CASE:{node}:0"
-
-                        # 优先在 reference_chunks 中查找
                         found = False
                         for cid in (norm_cid, case_cid):
                             if cid not in candidate_cids:
@@ -549,14 +638,39 @@ class HybridRetriever:
                                     candidate_cids.append(cid)
                                     found = True
                                     break
-                        # 若 reference_chunks 未命中，跨层回退查询 L1 chunks 表
-                        if not found:
-                            for cid in (l1_norm_cid, l1_case_cid, norm_cid, case_cid):
+                        if found:
+                            continue
+
+                        # 3. 检查 reference_norms 或 reference_cases 主表，若存在则加入
+                        cur.execute("SELECT 1 FROM reference_norms WHERE norm_id = ?", (node,))
+                        if cur.fetchone():
+                            if norm_cid not in candidate_cids:
+                                candidate_cids.append(norm_cid)
+                            continue
+
+                        cur.execute("SELECT 1 FROM reference_cases WHERE case_id = ?", (node,))
+                        if cur.fetchone():
+                            if case_cid not in candidate_cids:
+                                candidate_cids.append(case_cid)
+                            continue
+
+                        # 4. 若 L2 均未命中，跨层回退查询 L1 chunks 表 (优先查 ref_id，再查 chunk_id)
+                        cur.execute("SELECT chunk_id FROM chunks WHERE ref_id = ? LIMIT 2", (node,))
+                        l1_matched = [r[0] for r in cur.fetchall()]
+                        if l1_matched:
+                            for cid in l1_matched:
                                 if cid not in candidate_cids:
-                                    cur.execute("SELECT 1 FROM chunks WHERE chunk_id = ?", (cid,))
-                                    if cur.fetchone():
-                                        candidate_cids.append(cid)
-                                        break
+                                    candidate_cids.append(cid)
+                            continue
+
+                        l1_norm_cid = f"CHUNK:NORM:{node}:0"
+                        l1_case_cid = f"CHUNK:CASE:{node}:0"
+                        for cid in (l1_norm_cid, l1_case_cid):
+                            if cid not in candidate_cids:
+                                cur.execute("SELECT 1 FROM chunks WHERE chunk_id = ?", (cid,))
+                                if cur.fetchone():
+                                    candidate_cids.append(cid)
+                                    break
                 except Exception:
                     pass
 
@@ -592,7 +706,7 @@ class HybridRetriever:
                         text_original=norm.get("text_original"),
                         text_en=norm.get("text_en"),
                         text_zh=norm.get("text_zh"),
-                        language_mode=norm.get("language_mode", "bilingual"),
+                        language_mode=norm.get("language_mode") or "bilingual",
                         translation_source=norm.get("translation_source") or "MOJ_FATONG_2026",
                         source_url=norm.get("source_url") or "https://www.fatong.gov.cn",
                         stand=norm.get("stand"),

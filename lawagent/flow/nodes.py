@@ -22,7 +22,7 @@ from lawagent.llm.client import LLMClient
 from lawagent.store.retriever import HybridRetriever
 from lawagent.store.snapshots import SnapshotManager
 from lawagent.flow.checks import generate_entry_checks, timepoint_level
-from lawagent.flow.sufficiency import evaluate_sufficiency_rule, evaluate_sufficiency_llm
+from lawagent.flow.sufficiency import evaluate_sufficiency_rule, evaluate_sufficiency_llm, compute_sufficiency_score
 from lawagent.flow.matcher import match_facts_and_elements, extract_similar_cases
 from lawagent.flow.critic import run_critic_checks, FORBIDDEN_PREDICTIVE_WORDS
 from lawagent.flow.strategist import generate_strategic_assessment
@@ -552,15 +552,54 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
         elements = await evaluate_sufficiency_llm(q, elements, evidence_dict, is_pre_investment=is_pre_inv, client=client)
 
 
-        # 5. 针对 missing/partial 要素尝试至多 1 次改写深潜检索
+        # 4. CRAG 自省式充分性门禁与跨层补偿循环 (Corrective Agentic RAG)
+        pre_tau, cov, par, mis = compute_sufficiency_score(elements)
+        crag_threshold = 0.75
+        jur = state.meta.jurisdiction or "asean_id"
+        crag_trace = {
+            "triggered": False,
+            "threshold": crag_threshold,
+            "pre_tau": pre_tau,
+            "post_tau": pre_tau,
+            "pre_metrics": {"covered": cov, "partial": par, "missing": mis},
+            "post_metrics": {"covered": cov, "partial": par, "missing": mis},
+            "reformulated_queries": [],
+            "compensated_eids": [],
+            "l2_compensated_refs": [],
+            "graph_1hop_refs": [],
+            "summary": f"CRAG 门禁通过：要件证据覆盖率达到 {pre_tau * 100:.1f}% (>= {crag_threshold * 100:.0f}%)，首轮 L1 强行法源充分，无需跨层补偿",
+            "timestamp": _now()
+        }
+
+        # 门禁触发条件：覆盖率不足 0.75 或存在未覆盖的核心法定要件 (missing) 或存在 partial 瑕疵且覆盖度未达极高标准 (<= 0.80)
+        needs_compensation = (pre_tau < crag_threshold) or (mis > 0) or (par > 0 and pre_tau <= 0.80)
         missing_elems = [el for el in elements if el.status in ("missing", "partial") and el.rounds < 2]
-        if missing_elems:
+
+        if needs_compensation and missing_elems:
+            crag_trace["triggered"] = True
+            reformulated_queries = []
+            compensated_eids = []
+            l2_compensated_refs = []
+            graph_1hop_refs = []
+
             for el in missing_elems:
                 el.rounds += 1
                 gap_kw = f" {el.gap_note}" if el.gap_note else ""
-                reformulated = f"{el.name_zh}{gap_kw} {state.meta.jurisdiction or 'asean'} contract statute law".strip()
-                sub_results = retriever.search(reformulated, top_k=4)
-                for res in sub_results:
+                reformulated = f"{el.name_zh}{gap_kw} {jur} contract dispute statute law".strip()
+                # 结合 CL-Align 获得法系对齐后的精准多语种检索词
+                aligned_q = retriever.expand_query(reformulated, jurisdiction=jur)
+                reformulated_queries.append(aligned_q)
+
+                # 4.1 L1 核心层深潜补查
+                l1_sub_results = retriever.search(aligned_q, top_k=4, law_filter=jur)
+                # 4.2 L2 广覆盖参考层跨层补偿 (双边条约/海牙送达取证/PAM/PSSCOC/FIDIC/投资仲裁先例)
+                l2_sub_results = retriever.search_l2(aligned_q, top_k=4, law_filter=jur)
+                if len(l2_sub_results) < 2:
+                    # 全局条约与行业标准兜底补偿
+                    l2_sub_results.extend(retriever.search_l2(aligned_q, top_k=3, law_filter=None))
+
+                all_candidates = l1_sub_results + l2_sub_results
+                for res in all_candidates:
                     if any(k in res.ref_id for k in ["BGH", "BGB", "HGB", "ZPO", "UCC", "USC", "SCOTUS", "CIR"]):
                         continue
                     if not any(ev.ref_id == res.ref_id for ev in evidence_dict.values()):
@@ -568,7 +607,8 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
                         source_url = res.source_url or (
                             "https://fidic.org" if "FIDIC" in res.ref_id else "https://www.fatong.gov.cn"
                         )
-                        evidence_dict[eid] = Evidence(
+                        is_l2 = "TREATY:" in res.ref_id or "STD:" in res.ref_id or "DTA:" in res.ref_id or "INTL:" in res.ref_id or getattr(res, "layer", "") == "L2"
+                        new_ev = Evidence(
                             eid=eid,
                             kind="case" if "CASE:" in res.ref_id or "SC:" in res.ref_id or "Sophia" in res.ref_id or "Manila" in res.ref_id else "norm",
                             ref_id=res.ref_id,
@@ -577,10 +617,61 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
                             source_url=source_url,
                             stand=res.stand or "2026-10-18",
                             fetched_at=_now(),
-                            grade="B"
+                            grade="B" if is_l2 else "A"
                         )
-            # 二次评估
+                        evidence_dict[eid] = new_ev
+                        compensated_eids.append(eid)
+                        if is_l2:
+                            l2_compensated_refs.append(res.ref_id)
+
+                # 4.3 1-Hop 拓扑图聚拢 (Graph 1-Hop Topological Expansion)
+                try:
+                    conn = retriever.snapshot_mgr.get_connection()
+                    if conn:
+                        cur = conn.cursor()
+                        check_refs = [res.ref_id.replace("NORM:", "").replace("CASE:", "") for res in all_candidates[:2]]
+                        for cref in check_refs:
+                            cur.execute(
+                                "SELECT dst FROM edges WHERE src = ? "
+                                "UNION SELECT dst FROM reference_edges WHERE src = ? "
+                                "UNION SELECT src FROM edges WHERE dst = ? "
+                                "UNION SELECT src FROM reference_edges WHERE dst = ? LIMIT 2",
+                                (cref, cref, cref, cref)
+                            )
+                            for row in cur.fetchall():
+                                neighbor_ref = row[0]
+                                if not any(ev.ref_id == neighbor_ref for ev in evidence_dict.values()):
+                                    norm_row = retriever.snapshot_mgr.norm_lookup(neighbor_ref)
+                                    if norm_row:
+                                        eid = f"E{len(evidence_dict) + 1}"
+                                        evidence_dict[eid] = Evidence(
+                                            eid=eid,
+                                            kind="norm",
+                                            ref_id=norm_row["norm_id"],
+                                            text_original=norm_row.get("text_original"),
+                                            text_de=(norm_row.get("text_zh") or norm_row.get("text_en") or "")[:1200],
+                                            source_url=norm_row.get("source_url") or "https://www.fatong.gov.cn",
+                                            stand=norm_row.get("stand"),
+                                            fetched_at=_now(),
+                                            grade="A"
+                                        )
+                                        compensated_eids.append(eid)
+                                        graph_1hop_refs.append(norm_row["norm_id"])
+                except Exception as e:
+                    logger.debug(f"CRAG 1-Hop 图聚拢跳过: {e}")
+
+            # 4.4 二次充分性核验评估
             elements = evaluate_sufficiency_rule(q, elements, evidence_dict, is_pre_investment=is_pre_inv)
+            post_tau, post_cov, post_par, post_mis = compute_sufficiency_score(elements)
+            crag_trace.update({
+                "post_tau": post_tau,
+                "post_metrics": {"covered": post_cov, "partial": post_par, "missing": post_mis},
+                "reformulated_queries": reformulated_queries[:6],
+                "compensated_eids": compensated_eids,
+                "l2_compensated_refs": list(dict.fromkeys(l2_compensated_refs))[:6],
+                "graph_1hop_refs": list(dict.fromkeys(graph_1hop_refs))[:6],
+                "summary": f"CRAG 门禁触发：要素证据覆盖率从 {pre_tau * 100:.1f}% 提升至 {post_tau * 100:.1f}%，跨层引入 {len(l2_compensated_refs)} 项 L2 国际/行业法源与 {len(graph_1hop_refs)} 项拓扑关联先例"
+            })
 
         q.done = True
 
@@ -588,6 +679,7 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
         "evidence": evidence_dict,
         "elements": elements,
         "questions": state.questions,
+        "crag_trace": crag_trace,
         "current_node": "researcher",
         "updated_at": _now()
     }

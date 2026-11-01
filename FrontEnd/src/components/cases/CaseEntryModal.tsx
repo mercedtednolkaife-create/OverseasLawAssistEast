@@ -447,7 +447,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 const f = e.dataTransfer.files?.[0];
                 if (f) handleDocUpload(f);
               }}
-              placeholder="在此粘贴原始英文/中文往来邮件、索赔通知函，或直接拖拽 .docx / .txt 文件至此 (例如: Dear Contractor, progress is delayed by 45 days. Under FIDIC Silver 20.1...)"
+              placeholder="支持直接输入口语化大白话（例如：'我们是中资企业在印尼做电站，外部电网延迟导致并网拖延，业主不仅拒批延期还扣留300万进度款并威胁没收保函，如何应对'），或粘贴往来邮件、索赔通知函、拖拽 .docx / .txt 文件"
               className="w-full p-3 rounded-xl border border-blue-200/80 text-xs font-mono text-slate-800 bg-white/95 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 resize-none leading-relaxed"
             />
 
@@ -459,7 +459,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                     <span>✓ 已自动预填法域、阶段、事实与订立日等全部必填项，可直接启动研判</span>
                   </span>
                 ) : (
-                  '支持自动识别东盟各法域项目、阶段、合同订立日与争议索赔要素'
+                  '基于 qwen3.7-flash 智能提炼专业案由、三段式结构化事实与法学诉求，自动填入参数'
                 )}
               </span>
 

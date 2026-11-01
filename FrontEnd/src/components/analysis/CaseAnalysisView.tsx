@@ -99,6 +99,8 @@ export const CaseAnalysisView: React.FC = () => {
   const [showViabilityModal, setShowViabilityModal] = useState<boolean>(false);
   // 法源因果拓扑图谱全屏弹窗开关
   const [showGraphModal, setShowGraphModal] = useState<boolean>(false);
+  // CRAG 自省门禁补偿轨迹展开开关
+  const [showCragDetails, setShowCragDetails] = useState<boolean>(false);
 
   // 当案件变更时同步沙盘滑块数值 (仅在切换不同案件 ID 时初始化，不重复触发自旋重算)
   const userInteractedRef = useRef<boolean>(false);
@@ -1364,7 +1366,79 @@ export const CaseAnalysisView: React.FC = () => {
 
               {/* 要件四态比对列表 (三列分区卡片：法定要件 & 法条徽章 -> 在卷事实涵摄 -> 缺口与补强) */}
               <div className="space-y-4">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                {/* CRAG 自省式检索充分性门禁与跨层补偿循环看板 */}
+                {currentCase?.crag_trace && (
+                  <div className={`p-4 rounded-2xl border transition-all text-xs space-y-2.5 ${
+                    currentCase.crag_trace.triggered
+                      ? 'bg-amber-50/70 border-amber-200/80 text-amber-900 shadow-2xs'
+                      : 'bg-emerald-50/70 border-emerald-200/80 text-emerald-900 shadow-2xs'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                          currentCase.crag_trace.triggered ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'
+                        }`}>
+                          CRAG 自省门禁
+                        </span>
+                        <span className="font-semibold text-slate-900">
+                          {currentCase.crag_trace.triggered ? '已触发跨层补偿循环 (Corrective RAG)' : '首轮 L1 核心强行法充分覆盖'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 font-mono text-[11px]">
+                        <span>覆盖率 τ: {(currentCase.crag_trace.pre_tau * 100).toFixed(0)}%</span>
+                        {currentCase.crag_trace.triggered && (
+                          <span className="text-emerald-700 font-bold"> → {(currentCase.crag_trace.post_tau * 100).toFixed(0)}%</span>
+                        )}
+                        <span className="text-slate-400">(门禁阈值: {(currentCase.crag_trace.threshold * 100).toFixed(0)}%)</span>
+                        <button
+                          type="button"
+                          onClick={() => setShowCragDetails(!showCragDetails)}
+                          className="text-[10px] text-blue-600 hover:text-blue-800 underline font-sans ml-1 cursor-pointer"
+                        >
+                          {showCragDetails ? '收起自省轨迹' : '查看自省轨迹'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] leading-relaxed text-slate-600">
+                      {currentCase.crag_trace.summary}
+                    </p>
+
+                    {showCragDetails && (
+                      <div className="pt-2.5 border-t border-slate-200/60 space-y-2 font-mono text-[10px]">
+                        {currentCase.crag_trace.reformulated_queries && currentCase.crag_trace.reformulated_queries.length > 0 && (
+                          <div>
+                            <span className="text-slate-400">改写补偿查询: </span>
+                            <span className="text-slate-700">{currentCase.crag_trace.reformulated_queries.join(' | ')}</span>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {currentCase.crag_trace.l2_compensated_refs && currentCase.crag_trace.l2_compensated_refs.length > 0 && (
+                            <span className="bg-white px-2 py-0.5 rounded border border-amber-300 text-amber-800">
+                              L2 国际条约/行业合同: {currentCase.crag_trace.l2_compensated_refs.join(', ')}
+                            </span>
+                          )}
+                          {currentCase.crag_trace.graph_1hop_refs && currentCase.crag_trace.graph_1hop_refs.length > 0 && (
+                            <span className="bg-white px-2 py-0.5 rounded border border-blue-300 text-blue-800">
+                              1-Hop 拓扑图聚拢: {currentCase.crag_trace.graph_1hop_refs.join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* CL-Align 跨法系多语种概念对齐提示条 */}
+                <div className="flex items-center justify-between px-3 py-2 bg-blue-50/50 rounded-xl border border-blue-100 text-[11px]">
+                  <span className="text-blue-700 font-medium flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                    <span>CL-Align 跨法系概念对齐：已自动对齐东盟【{jurConfig?.name || hostJur}】法系教义及属地母语关键词</span>
+                  </span>
+                  <span className="font-mono text-slate-400 text-[10px]">中·英·属地语三语映射</span>
+                </div>
+
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between pt-1">
                   <span>法定要件审查与在案事实涵摄</span>
                   <span className="font-normal font-sans text-slate-500">
                     点击法条可直接在右侧辅助面板对照中英双语原文

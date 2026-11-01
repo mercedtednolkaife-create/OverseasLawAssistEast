@@ -107,10 +107,16 @@ class BM25Engine:
             cid = self.chunk_ids[idx]
             meta = self.chunk_metadata.get(cid, {})
 
-            if kind_filter and meta.get("kind") != kind_filter:
-                continue
-            if law_filter and meta.get("law") != law_filter:
-                continue
+            if kind_filter:
+                raw_k = meta.get("kind", "")
+                norm_k = "norm" if raw_k in ("norm", "reference_norm") else ("case" if raw_k in ("case", "reference_case") else raw_k)
+                if norm_k != kind_filter and raw_k != kind_filter:
+                    continue
+            if law_filter:
+                doc_law = meta.get("law", "")
+                clean_law = law_filter.replace("asean_", "").upper()
+                if doc_law != law_filter and not (clean_law and (doc_law.upper().startswith(clean_law) or f":{clean_law}" in cid or f"{clean_law}:" in cid)):
+                    continue
 
             scored_pairs.append((cid, float(score)))
 

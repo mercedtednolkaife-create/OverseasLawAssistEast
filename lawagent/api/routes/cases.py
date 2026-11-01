@@ -1403,8 +1403,8 @@ class AttachArtifactPayload(BaseModel):
 
 
 @router.post("/extract-intake", response_model=IntakeExtractResponse)
-def extract_case_intake(payload: ExtractIntakePayload):
-    """建案前原始往来邮件/索赔通知函/投资备忘录一键智能要素抽提接口"""
+async def extract_case_intake(payload: ExtractIntakePayload):
+    """建案前原始往来邮件/索赔通知函/口语化案情智能要素深度提取与重塑接口 (支持 qwen3.7-flash)"""
     text = payload.raw_text.strip()
     hint_jur = payload.hint_jurisdiction
 
@@ -1415,7 +1415,11 @@ def extract_case_intake(payload: ExtractIntakePayload):
         "asean_sg": ["新加坡", "Singapore", "SIAC", "SOPA", "Mount Sophia", "JBE", "SICC", "SCMA"],
         "asean_th": ["泰国", "Thailand", "Thai", "Bangkok", "曼谷", "Chonburi", "春武里", "FBA", "BOI", "CCC 596", "TAI"],
         "asean_ph": ["菲律宾", "Philippines", "Philippine", "Manila", "马尼拉", "Cebu", "宿务", "PCAB", "RA 11966", "CIAC"],
-        "asean_id": ["印尼", "印度尼西亚", "Jakarta", "雅加达", "Indonesia", "Indonesian", "Bandung", "万隆", "Surabaya", "泗水", "PLN", "TKDN", "SEMA", "KUHPerdata", "BANI", "IKN", "努山塔拉"]
+        "asean_id": ["印尼", "印度尼西亚", "Jakarta", "雅加达", "Indonesia", "Indonesian", "Bandung", "万隆", "Surabaya", "泗水", "PLN", "TKDN", "SEMA", "KUHPerdata", "BANI", "IKN", "努山塔拉"],
+        "asean_la": ["老挝", "Laos", "Lao", "万象", "Vientiane", "中老铁路", "南塔", "磨丁", "琅勃拉邦"],
+        "asean_kh": ["柬埔寨", "Cambodia", "Cambodian", "金边", "Phnom Penh", "西港", "Sihanoukville", "暹粒", "Siem Reap"],
+        "asean_mm": ["缅甸", "Myanmar", "Burma", "仰光", "Yangon", "内比都", "Naypyidaw", "曼德勒", "Mandalay"],
+        "asean_bn": ["文莱", "Brunei", "斯里巴加湾", "Bandar Seri Begawan"]
     }
 
     # 计算各法域在文本中的命中权重（核心国名权重 5，主要城市/法规/机构权重 3）
@@ -1423,7 +1427,7 @@ def extract_case_intake(payload: ExtractIntakePayload):
     for code, kws in jur_keywords.items():
         for kw in kws:
             if kw in text:
-                weight = 5 if kw in ["马来西亚", "Malaysia", "越南", "Vietnam", "新加坡", "Singapore", "泰国", "Thailand", "菲律宾", "Philippines", "印尼", "印度尼西亚", "Indonesia"] else 3
+                weight = 5 if kw in ["马来西亚", "Malaysia", "越南", "Vietnam", "新加坡", "Singapore", "泰国", "Thailand", "菲律宾", "Philippines", "印尼", "印度尼西亚", "Indonesia", "老挝", "Laos", "柬埔寨", "Cambodia", "缅甸", "Myanmar", "文莱", "Brunei"] else 3
                 scores[code] += weight
 
     best_jur, best_score = max(scores.items(), key=lambda x: x[1])
@@ -1608,7 +1612,8 @@ def extract_case_intake(payload: ExtractIntakePayload):
 
     country_map = {
         "asean_id": "印尼", "asean_vn": "越南", "asean_my": "马来西亚",
-        "asean_sg": "新加坡", "asean_th": "泰国", "asean_ph": "菲律宾"
+        "asean_sg": "新加坡", "asean_th": "泰国", "asean_ph": "菲律宾",
+        "asean_la": "老挝", "asean_kh": "柬埔寨", "asean_mm": "缅甸", "asean_bn": "文莱"
     }
     c_name = country_map.get(jur, "东盟")
     first_line = text.split("\n")[0].strip()
@@ -1620,6 +1625,113 @@ def extract_case_intake(payload: ExtractIntakePayload):
 
     facts = text[:1500] if len(text) > 1500 else text
     claims = "依法防范履约违约风险，主张工期顺延与费用赔偿，化解保函索兑与强行法违约敞口。" if stage == "execution_dispute" else "完成东道国投资准入负面清单穿透核查，优化跨境投资SPV架构，履行国资委35号令事前合规论证。"
+
+    # 9. 借助 qwen3.7-flash 进行案情智能要素深度提取与意图结构化重塑
+    # 针对用户提交的非结构化、口语化陈述（“我做了哪些，域外国发生了什么做了什么，如何应对”）进行法理提炼
+    if len(text) >= 15:
+        try:
+            from lawagent.llm.client import LLMClient
+            llm = LLMClient()
+            system_prompt = """你是一名精通东盟成员国法律体系（包括新加坡、马来西亚、印度尼西亚、越南、泰国、菲律宾、老挝、柬埔寨、缅甸、文莱）的资深涉外商事合规与建设工程法务专家。
+用户正在提交涉外工程、投资或商事纠纷的原始材料（可能包含口语化的陈述、往来邮件、索赔通知函或会议备忘录）。
+用户输入的内容通常是非结构化的日常工作表述（例如：'我方做了哪些'、'域外国/对方发生了什么或做了什么'、'我方的困境与如何应对'）。
+
+你的任务是进行专业法律意图解构与结构化重塑，输出符合以下 JSON Schema 的严格 JSON 对象：
+{
+  "title": "精炼专业的法律案由标题（20-40字，包含当事主体特征、属地国别、项目类别及核心争议焦点，如'中资总包商诉印尼电网接入延误与履约保函紧急止付争议案'）",
+  "facts": "结构化重塑的基本事实陈述（中文，彻底消除口语化大白话，按法学事实要件分段提炼）：\\n1. 【履约背景与我方进展】：工程/投资背景、合同履行阶段及我方已完成工作；\\n2. 【对方违约行为与争议事件】：对方或东道国机构的具体争议行为（如拒不顺延工期、拒绝支付到期款项、违规申请索兑保函、强行要求停工/解约等）及时间因果链条；\\n3. 【争议标的与当前处境】：涉案款项、保函金额、现场受阻情况及法律风险敞口。",
+  "claims": "专业提炼的我方核心主张与法律救济诉求（中文，按法学诉求要件条目化罗列，如申请司法止付禁令、主张不可抗力/业主违约顺延工期并索赔赶工窝工费用、抗辩单方解除合同之效力、要求返还履约担保等）",
+  "parties": "结构化的涉案当事各方（例如：'申请人（我方）：中资联合体总承包商；被申请人（对方）：印尼某国家电力公司；相关方：某开证银行'）",
+  "suggested_jurisdiction": "适用的东盟属地法域代码，仅限：asean_id, asean_vn, asean_my, asean_sg, asean_th, asean_ph, asean_la, asean_kh, asean_mm, asean_bn之一",
+  "governing_law": "适用的合同准据法法域代码（选项同上，若未特别约定一般与属地法域一致）",
+  "lifecycle_stage": "业务生命周期阶段，仅限：'execution_dispute'（履约索赔与争议）或 'pre_investment'（投前准入与投资并购）",
+  "project_archetype": "工程或投资业态，仅限：'EPC_CONTRACTING', 'PPP_CONCESSION', 'CROSS_BORDER_MA', 'JV_CONSORTIUM'",
+  "contract_date": "合同签订日期（格式YYYY-MM-DD，若材料中未明确提及则填null）",
+  "event_date": "核心争议/出险/通知发生日期（格式YYYY-MM-DD，若材料中未明确提及则填null）",
+  "dispute_resolution": "约定的争议解决方式，仅限：'SIAC', 'LOCAL_ARBITRATION', 'LITIGATION', 'STATUTORY_ADJUDICATION', 'ICC_HKIAC'"
+}
+注意：必须严格输出有效 JSON 格式，不要包含任何 markdown 解释或多余文本。"""
+
+            ai_data = await llm.chat_json(
+                task="intake_extract",
+                system_prompt=system_prompt,
+                user_prompt=f"【用户提供的案情材料】：\n{text}\n\n【用户界面当前选中的参考法域】：{hint_jur or '无'}"
+            )
+
+            if isinstance(ai_data, dict):
+                # 采纳高质量结构化事实与诉求
+                ai_title = str(ai_data.get("title") or "").strip()
+                if len(ai_title) >= 5:
+                    title = ai_title
+
+                # 格式化并采纳结构化事实
+                ai_facts_raw = ai_data.get("facts")
+                if isinstance(ai_facts_raw, list):
+                    ai_facts = "\n".join(str(x).strip() for x in ai_facts_raw if str(x).strip())
+                else:
+                    ai_facts = str(ai_facts_raw or "").strip()
+                if len(ai_facts) >= 20:
+                    facts = ai_facts
+
+                # 格式化并采纳结构化诉求（支持数组或文本，自动规整序号）
+                ai_claims_raw = ai_data.get("claims")
+                if isinstance(ai_claims_raw, list):
+                    formatted_claims = []
+                    for i, x in enumerate(ai_claims_raw):
+                        item_str = str(x).strip()
+                        if not item_str:
+                            continue
+                        if re.match(r'^\d+[\.、]', item_str):
+                            formatted_claims.append(item_str)
+                        else:
+                            formatted_claims.append(f"{i+1}. {item_str}")
+                    ai_claims = "\n".join(formatted_claims)
+                else:
+                    ai_claims = str(ai_claims_raw or "").strip()
+                if len(ai_claims) >= 10:
+                    claims = ai_claims
+
+                ai_parties = str(ai_data.get("parties") or "").strip()
+                if len(ai_parties) >= 4:
+                    parties = ai_parties
+
+                valid_jurs = {
+                    "asean_id", "asean_vn", "asean_my", "asean_sg", "asean_th",
+                    "asean_ph", "asean_la", "asean_kh", "asean_mm", "asean_bn"
+                }
+                ai_jur = str(ai_data.get("suggested_jurisdiction") or "").strip()
+                if ai_jur in valid_jurs:
+                    # 如果规则打分不高，或者 AI 识别出了更明确的法域，采纳 AI
+                    if best_score < 5 or jur not in valid_jurs:
+                        jur = ai_jur
+
+                ai_gov = str(ai_data.get("governing_law") or "").strip()
+                if ai_gov in valid_jurs:
+                    gov_law = ai_gov
+
+                ai_stage = str(ai_data.get("lifecycle_stage") or "").strip()
+                if ai_stage in ["execution_dispute", "pre_investment"]:
+                    stage = ai_stage
+
+                ai_arch = str(ai_data.get("project_archetype") or "").strip()
+                if ai_arch in ["EPC_CONTRACTING", "PPP_CONCESSION", "CROSS_BORDER_MA", "JV_CONSORTIUM"]:
+                    archetype = ai_arch
+                    contract_type = contract_type_map.get(archetype, contract_type)
+
+                ai_disp = str(ai_data.get("dispute_resolution") or "").strip()
+                if ai_disp in ["SIAC", "LOCAL_ARBITRATION", "LITIGATION", "STATUTORY_ADJUDICATION", "ICC_HKIAC"]:
+                    dispute_resolution = ai_disp
+
+                ai_cdate = str(ai_data.get("contract_date") or "").strip()
+                if re.match(r'^\d{4}-\d{2}-\d{2}$', ai_cdate):
+                    contract_date = ai_cdate
+
+                ai_edate = str(ai_data.get("event_date") or "").strip()
+                if re.match(r'^\d{4}-\d{2}-\d{2}$', ai_edate):
+                    event_date = ai_edate
+
+        except Exception as e:
+            logger.warning(f"智能要素抽取大模型调用失败，已平滑降级至规则提取: {e}")
 
     lex_loci_conflict = (jur != gov_law)
 

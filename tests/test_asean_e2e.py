@@ -50,9 +50,13 @@ def test_e2e_db_purity():
     all_norms = mgr.get_all_norms()
     all_cases = mgr.get_all_cases()
 
-    # 1. 成文法规范全量属于东盟 6 国、FIDIC、BIT 或央企合规法源
+    # 1. 成文法规范全量属于东盟 10+1 国、FIDIC、BIT 或央企合规法源
     assert len(all_norms) >= 20
-    allowed_prefixes = ("ID:", "VN:", "MY:", "SG:", "TH:", "PH:", "FIDIC:", "BIT:", "CN:", "TREATY:", "SINOSURE:")
+    allowed_prefixes = (
+        "ID:", "VN:", "MY:", "SG:", "TH:", "PH:",
+        "KH:", "LA:", "MM:", "BN:", "TL:",
+        "FIDIC:", "BIT:", "CN:", "TREATY:", "SINOSURE:"
+    )
     for n in all_norms:
         norm_id = n["norm_id"]
         assert norm_id.startswith(allowed_prefixes), f"Unexpected non-ASEAN norm: {norm_id}"
@@ -64,7 +68,11 @@ def test_e2e_db_purity():
     for c in all_cases:
         case_id = c["case_id"]
         assert not case_id.startswith(("BGH:", "OLG:", "LG:", "SCOTUS:", "CIR:", "DEL-CH:"))
-        assert case_id.startswith(("CASE:ID_", "CASE:SG_", "CASE:MY_", "CASE:VN_", "CASE:TH_", "CASE:PH_", "CASE:ICSID:", "CASE:SIAC:", "REF_CASE:")) or any(k in case_id for k in ("BSMountSophia", "ManilaWater", "ArbitrationEnforcement", "SEMA", "CIPAA", "JBE", "Hopewell"))
+        assert case_id.startswith((
+            "CASE:ID_", "CASE:SG_", "CASE:MY_", "CASE:VN_", "CASE:TH_", "CASE:PH_",
+            "CASE:KH_", "CASE:LA_", "CASE:MM_", "CASE:BN_", "CASE:TL_",
+            "CASE:ICSID:", "CASE:SIAC:", "CASE:PCA:", "CASE:ASEAN_ID:", "CASE:UK_PC:", "REF_CASE:"
+        )) or any(k in case_id for k in ("BSMountSophia", "ManilaWater", "ArbitrationEnforcement", "SEMA", "CIPAA", "JBE", "Hopewell"))
 
 
 def test_e2e_jurisdiction_registry():

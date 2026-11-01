@@ -26,8 +26,8 @@ class Reranker:
     def _load_model(self):
         if self._model is None and self.enabled:
             try:
-                from sentence_transformers import CrossEncoder
-                self._model = CrossEncoder(self.model_name, device=self.device)
+                from lawagent.store.models_loader import load_cross_encoder
+                self._model = load_cross_encoder(self.model_name, max_length=512, device=self.device)
             except Exception as e:
                 logger.warning(f"无法初始化重排模型 {self.model_name}，将平滑回退至融合加权得分: {e}")
                 self.enabled = False
@@ -57,7 +57,7 @@ class Reranker:
         trunc_query = query[:256]
         pairs = [[trunc_query, (c.get("text") or "")[:1024]] for c in candidates]
         try:
-            scores = self._model.predict(pairs, show_progress_bar=False, max_length=512)
+            scores = self._model.predict(pairs, show_progress_bar=False)
             scored = list(zip(candidates, [float(s) for s in scores]))
             scored.sort(key=lambda x: x[1], reverse=True)
             return scored[:top_k]

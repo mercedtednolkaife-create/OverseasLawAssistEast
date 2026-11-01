@@ -37,6 +37,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("系统启动自愈检查发生异常: %s", e)
 
+    # 检索单例与深度模型预热（Warmup），消除冷启动首呼延迟
+    try:
+        from lawagent.api.deps import get_retriever
+        retriever = get_retriever()
+        logger.info("系统启动预热: 执行微型跨层检索与重排预热...")
+        retriever.search("ASEAN construction contract dispute", top_k=1)
+        logger.info("系统启动预热完成: 检索索引与深度模型已就绪")
+    except Exception as e:
+        logger.warning("系统启动检索预热跳过: %s", e)
+
     yield
 
 

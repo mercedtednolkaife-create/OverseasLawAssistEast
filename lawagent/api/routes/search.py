@@ -383,3 +383,15 @@ def search_norms_and_cases(
             pass
 
     return items
+
+
+@router.get("/align", response_model=Dict[str, Any])
+def align_legal_concept(
+    q: str = Query(..., description="待对齐法学概念、案情描述或中文法律诉求"),
+    jurisdiction: Optional[str] = Query(None, description="法域代码，如 asean_sg, asean_vn, asean_my, asean_id 等")
+):
+    """CL-Align 跨法系多语种法学概念对齐接口 (返回对齐张量、法系教义释明、扩展检索词与概念标签)"""
+    from lawagent.store.cl_align import CLAlignOperator
+    op = CLAlignOperator.get_instance()
+    res = op.align(q, jurisdiction=jurisdiction)
+    return res.to_dict()

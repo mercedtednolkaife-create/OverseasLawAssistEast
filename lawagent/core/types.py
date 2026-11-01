@@ -161,7 +161,7 @@ class Evidence(BaseModel):
     text_de: str = ""                    # 兼容性镜像：自动同步自 text_original
     text_en: Optional[str] = None        # 英文对照
     text_zh: Optional[str] = None        # 权威中文释义
-    language_mode: Literal["bilingual", "trilingual"] = "bilingual"
+    language_mode: Optional[Literal["original_only", "bilingual", "trilingual"]] = "bilingual"
     translation_source: Optional[str] = "MOJ_FATONG_2026"
     fidic_tier: Optional[str] = None
     fidic_edition: Optional[str] = None
@@ -170,15 +170,26 @@ class Evidence(BaseModel):
     fetched_at: Optional[str] = ""
     grade: Literal["A", "B", "C", "D"] = "A"
 
+    @property
+    def norm_id(self) -> str:
+        return self.ref_id
+
     def __init__(self, **data):
-        if "text_original" not in data and "text_de" in data:
+        if not data.get("text_original") and data.get("text_de"):
             data["text_original"] = data["text_de"]
-        elif "text_de" not in data and "text_original" in data:
+        elif not data.get("text_de") and data.get("text_original"):
             data["text_de"] = data["text_original"]
+        if data.get("text_original") is None:
+            data["text_original"] = ""
+        if data.get("text_de") is None:
+            data["text_de"] = ""
         if data.get("source_url") is None:
             data["source_url"] = ""
         if data.get("fetched_at") is None:
             data["fetched_at"] = ""
+        lm = data.get("language_mode")
+        if lm not in ("original_only", "bilingual", "trilingual"):
+            data["language_mode"] = "bilingual"
         super().__init__(**data)
 
 
@@ -352,6 +363,7 @@ class CaseState(BaseModel):
     tactical_guidance: Optional[Dict[str, Any]] = None  # 动态谈判话术卡与紧急发函清单 (重构新版)
     attached_artifacts: List[Dict[str, Any]] = Field(default_factory=list)  # 挂载的合同红线扫描、重点法条引证、专家避冲记录
     compared_jurisdictions: List[str] = Field(default_factory=list)  # 多国横向比选案卷国别列表
+    crag_trace: Optional[Dict[str, Any]] = None  # CRAG 自省式检索充分性门禁与跨层补偿轨迹
     status: CaseWorkflowStatus = "draft"
     created_at: str = ""
     updated_at: str = ""

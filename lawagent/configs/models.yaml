@@ -7,58 +7,65 @@ providers:
     api_key_env: "OPENAI_API_KEY"
 
 tasks:
+  intake_extract:
+    provider: dashscope
+    model: "qwen3.7-flash"
+    fallback_model: "qwen-flash"
+    temperature: 0.1
+    timeout: 75
+
   extract:
     provider: dashscope
-    model: "qwen3.8-max"
-    fallback_model: "qwen3.7-flash"
+    model: "qwen-plus"
+    fallback_model: "qwen-max"
     temperature: 0.0
-    timeout: 25
+    timeout: 45
 
   reformulate:
     provider: dashscope
-    model: "qwen3.8-max"
-    fallback_model: "qwen3.7-flash"
+    model: "qwen-flash"
+    fallback_model: "qwen-plus"
     temperature: 0.2
-    timeout: 25
+    timeout: 45
 
   translate:
     provider: dashscope
-    model: "qwen3.8-max"
-    fallback_model: "qwen3.7-flash"
+    model: "qwen-flash"
+    fallback_model: "qwen-plus"
     temperature: 0.0
-    timeout: 20
+    timeout: 45
 
   generate:
     provider: dashscope
-    model: "qwen3.8-max"
-    fallback_model: "qwen3.7-flash"
+    model: "qwen-plus"
+    fallback_model: "qwen-max"
     temperature: 0.1
-    timeout: 30
+    timeout: 60
 
   matcher:
     provider: dashscope
-    model: "qwen3.8-max"
-    fallback_model: "qwen3.7-flash"
+    model: "qwen-plus"
+    fallback_model: "qwen-max"
     temperature: 0.0
-    timeout: 25
+    timeout: 45
 
   judge: # 独立裁判模型，校验质量门禁与蕴含性
     provider: dashscope
-    model: "qwen3.7-flash"
-    fallback_model: "qwen3.8-max"
+    model: "qwen-flash"
+    fallback_model: "qwen-plus"
     temperature: 0.0
-    timeout: 30
+    timeout: 40
 
   critic:
     provider: dashscope
-    model: "qwen3.7-flash"
-    fallback_model: "qwen3.8-max"
+    model: "qwen-flash"
+    fallback_model: "qwen-plus"
     temperature: 0.0
-    timeout: 30
+    timeout: 40
 
   strategist:
     provider: dashscope
-    model: "qwen3.8-max"
-    fallback_model: "qwen3.7-flash"
+    model: "qwen-plus"
+    fallback_model: "qwen-max"
     temperature: 0.2
-    timeout: 30
+    timeout: 45

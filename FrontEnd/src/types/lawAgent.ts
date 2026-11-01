@@ -270,10 +270,44 @@ export interface CaseState {
   tactical_guidance?: TacticalGuidance;
   attached_artifacts?: AttachedArtifact[];
   compared_jurisdictions?: string[];
+  crag_trace?: CRAGTrace;
   status: CaseWorkflowStatus;
   created_at: string;
   updated_at: string;
   current_node?: string;
+}
+
+export interface CRAGTrace {
+  triggered: boolean;
+  threshold: number;
+  pre_tau: number;
+  post_tau: number;
+  pre_metrics?: { covered: number; partial: number; missing: number };
+  post_metrics?: { covered: number; partial: number; missing: number };
+  reformulated_queries?: string[];
+  compensated_eids?: string[];
+  l2_compensated_refs?: string[];
+  graph_1hop_refs?: string[];
+  summary?: string;
+  timestamp?: string;
+}
+
+export interface CLAlignedConceptTag {
+  term_cn: string;
+  term_en: string;
+  term_local: string;
+  jurisdiction: string;
+  label: string;
+}
+
+export interface CLAlignResult {
+  original_query: string;
+  jurisdiction?: string;
+  matched_concepts_count: number;
+  concept_tags: CLAlignedConceptTag[];
+  expanded_tokens: string[];
+  cross_legal_system_doctrines: string[];
+  reformulated_query: string;
 }
 
 export interface CaseSummary {
