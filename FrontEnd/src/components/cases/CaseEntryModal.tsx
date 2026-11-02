@@ -9,7 +9,7 @@ import {
   Plus,
   Trash2,
   ArrowRight,
-  Bot,
+  FileText,
   Layers,
   Building2,
   GitMerge,
@@ -54,7 +54,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
   ]);
   const [submitting, setSubmitting] = useState(false);
 
-  // AI 智能要素抽提状态
+  // 案情材料结构化提取状态
   const [rawEmailText, setRawEmailText] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [extractedSuccess, setExtractedSuccess] = useState(false);
@@ -79,6 +79,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
   const handleExtractIntake = async () => {
     if (!rawEmailText.trim() || extracting) return;
     setExtracting(true);
+    showToast('正在解析案情并按东盟法域结构化提炼要素，请稍候...', 'info');
     try {
       const res = await lawAgentApi.extractCaseIntake({
         raw_text: rawEmailText,
@@ -111,10 +112,10 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
       setExtractedSuccess(true);
       const jurCfg = res.jurisdiction ? getJurisdictionConfig(res.jurisdiction) : null;
       const jurName = jurCfg ? `【${jurCfg.name_zh}】` : '';
-      showToast(`✓ AI 要素抽提成功，已自动识别并切换至${jurName}法域，参数已填入`, 'success');
+      showToast(`✓ 要素提取成功，已自动识别并切换至${jurName}法域，参数已填入`, 'success');
       setTimeout(() => setExtractedSuccess(false), 4000);
     } catch (e: any) {
-      showToast(e.message || '要素抽提失败，请手动录入', 'error');
+      showToast(e.message || '要素提取失败，请手动录入', 'error');
     } finally {
       setExtracting(false);
     }
@@ -129,7 +130,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
       showToast(`正在解析文件【${file.name}】...`, 'info');
       const res = await lawAgentApi.parseDocument(file);
       setRawEmailText(res.text);
-      showToast(`已提取【${file.name}】正文（${res.char_count} 字符），正在智能抽提要素...`, 'success');
+      showToast(`已提取【${file.name}】正文（${res.char_count} 字符），正在结构化提炼要素...`, 'success');
 
       // 自动触发要素抽提
       const intakeRes = await lawAgentApi.extractCaseIntake({
@@ -350,7 +351,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 新建涉外工程与投资查明案件
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                录入专案基本信息、客观事实与审查诉求，启动智能研判与合规查明
+                录入专案基本信息、客观事实与审查诉求，启动合规查明与实务研判
               </p>
             </div>
           </div>
@@ -397,16 +398,16 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
 
         {/* 表单主体内容 */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* AI 智能要素抽提舱 (Smart Ingestion Box) */}
+          {/* 案情材料结构化解析 (Smart Ingestion Box) */}
           <div className="rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/60 via-indigo-50/30 to-white p-4.5 space-y-3 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-2xs shrink-0">
-                  <Bot className="w-3.5 h-3.5" />
+                  <FileText className="w-3.5 h-3.5" />
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-slate-900">
-                    AI 智能要素抽提 (可选)
+                    案情材料结构化提取 (可选)
                   </h3>
                   <p className="text-[11px] text-slate-500">
                     支持粘贴中英文往来函件、索赔通知 (Claim Notice) 或招标文件，快速提取建案要素
@@ -447,7 +448,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 const f = e.dataTransfer.files?.[0];
                 if (f) handleDocUpload(f);
               }}
-              placeholder="支持直接输入口语化大白话（例如：'我们是中资企业在印尼做电站，外部电网延迟导致并网拖延，业主不仅拒批延期还扣留300万进度款并威胁没收保函，如何应对'），或粘贴往来邮件、索赔通知函、拖拽 .docx / .txt 文件"
+              placeholder="支持直接输入口语化描述（例如：'我们是中资企业在印尼做电站，外部电网延迟导致并网拖延，业主不仅拒批延期还扣留300万进度款并威胁没收保函，如何应对'），或粘贴往来邮件、索赔通知函、拖拽 .docx / .txt 文件"
               className="w-full p-3 rounded-xl border border-blue-200/80 text-xs font-mono text-slate-800 bg-white/95 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 resize-none leading-relaxed"
             />
 
@@ -459,7 +460,7 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                     <span>✓ 已自动预填法域、阶段、事实与订立日等全部必填项，可直接启动研判</span>
                   </span>
                 ) : (
-                  '基于 qwen3.7-flash 智能提炼专业案由、三段式结构化事实与法学诉求，自动填入参数'
+                  '自动提取专业案由、客观事实与诉求要点，并填入参数'
                 )}
               </span>
 
@@ -472,12 +473,12 @@ export const CaseEntryModal: React.FC<CaseEntryModalProps> = ({ isOpen, onClose 
                 {extracting ? (
                   <>
                     <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>要素抽提中...</span>
+                    <span>正在结构化提炼要素...</span>
                   </>
                 ) : (
                   <>
                     <ArrowRight className="w-3.5 h-3.5 text-white" />
-                    <span>一键智能解析并预填</span>
+                    <span>自动解析并预填</span>
                   </>
                 )}
               </button>

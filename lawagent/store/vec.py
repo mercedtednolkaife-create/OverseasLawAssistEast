@@ -35,15 +35,17 @@ class DenseVectorEngine:
             try:
                 from lawagent.store.models_loader import load_sentence_transformer
                 self.model = load_sentence_transformer(self.model_name, device=self.device)
+                if self.model:
+                    self.model.max_seq_length = 512
             except Exception as e:
-                logger.warning(f"Dense 向量模型 {self.model_name} 载入异常: {e}")
-                raise RuntimeError(f"Dense model {self.model_name} is not available: {e}")
-            self.model.max_seq_length = 512
-
+                logger.warning(f"Dense 向量模型 {self.model_name} 载入异常或处于离线环境，平滑回退至 BM25+图检索: {e}")
+                self.model = None
 
     def build_from_chunks(self, chunks: List[Dict[str, Any]], batch_size: int = 12):
         """批量编码分块文本并建立 FAISS 索引"""
         self._ensure_model()
+        if self.model is None:
+            return
         texts = [c["text"] for c in chunks]
         self.chunk_ids = [c["chunk_id"] for c in chunks]
         self.chunk_metadata = {
@@ -116,7 +118,10 @@ class DenseVectorEngine:
                 return []
 
         self._ensure_model()
-        q_emb = self.model.encode([query], normalize_embeddings=True, device=self.device)
+        if self.model is None:
+            return []
+        with torch.inference_mode():
+            q_emb = self.model.encode([query], normalize_embeddings=True, device=self.device)
         q_emb = np.array(q_emb, dtype=np.float32)
 
         meta_source = chunk_metadata or self.chunk_metadata
@@ -151,8 +156,8 @@ class DenseVectorEngine:
                     m_ref = str(meta_source[cid].get("ref_id") or "").upper()
                     if clean_law in m_law or clean_law in m_ref:
                         matched = True
-                # TREATY, FIDIC, INTL, ICSID 等通用规则不应被排除
-                if any(common_p in cid_upper for common_p in (":FIDIC:", ":TREATY:", ":ACIA:", ":CAFTA:", ":RCEP:", ":ICSID:", ":PCA:", ":SIAC:")):
+                # TREATY, FIDIC, INTL, ICSID, CN母国监管与双边协定等通用规则不应被排除
+                if any(common_p in cid_upper for common_p in (":FIDIC:", ":TREATY:", ":ACIA:", ":CAFTA:", ":RCEP:", ":ICSID:", ":PCA:", ":SIAC:", ":CN:", ":SINOSURE:", ":DTA:", ":MDB:", ":INTL:")):
                     matched = True
                 if not matched:
                     continue

@@ -48,6 +48,15 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [activeInspectorNode, setActiveInspectorNode] = useState<any>(null);
 
+  // GraphRAG 真实图谱邻域 (SQLite unified_edges) 拓扑状态
+  const [neighborhoodData, setNeighborhoodData] = useState<{
+    center_node: string;
+    hops: number;
+    nodes: any[];
+    edges: any[];
+  } | null>(null);
+  const [loadingNeighborhood, setLoadingNeighborhood] = useState<boolean>(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -1167,6 +1176,40 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
     return normsList[0] || issuesList[0] || factsList[0];
   }, [activeInspectorNode, activeFilter, normsList, issuesList, factsList]);
 
+  // 当选定或激活节点变化时，实时向后端 GraphRAG 拓扑接口检索真实 SQLite unified_edges 关联边
+  useEffect(() => {
+    const targetNode = activeInspectorNode || (selectedNodeId ? [...normsList, ...issuesList, ...factsList, ...precedentsList].find(n => n.id === selectedNodeId) : null);
+    const searchId = targetNode?.ref_id || targetNode?.code || targetNode?.id;
+    if (!searchId || searchId.length < 2) {
+      setNeighborhoodData(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingNeighborhood(true);
+    lawAgentApi
+      .getGraphNeighborhood(searchId, 1, 'ALL')
+      .then((res) => {
+        if (isMounted) {
+          setNeighborhoodData(res);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setNeighborhoodData(null);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoadingNeighborhood(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeInspectorNode, selectedNodeId, normsList, issuesList, factsList, precedentsList]);
+
   return (
     <div
       ref={containerRef}
@@ -1714,6 +1757,35 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
                 <span>虚线：交叉涵摄</span>
               </span>
             </div>
+
+            {/* GraphRAG 真实图谱邻域穿透 (SQLite unified_edges) */}
+            {(loadingNeighborhood || (neighborhoodData && neighborhoodData.edges.length > 0)) && (
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="inline-flex items-center gap-1 font-mono text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                  <Share2 className="w-3 h-3 text-indigo-600" />
+                  <span>GraphRAG 拓扑: {neighborhoodData?.edges.length || 0} 关联边</span>
+                </span>
+                {loadingNeighborhood ? (
+                  <span className="text-[10px] text-slate-400 font-mono animate-pulse">查询拓扑中...</span>
+                ) : (
+                  <div className="flex items-center gap-1 max-w-[280px] overflow-x-auto no-scrollbar">
+                    {neighborhoodData?.edges.slice(0, 3).map((edge: any, eIdx: number) => {
+                      const isOut = edge.source === neighborhoodData.center_node;
+                      const neighborId = isOut ? edge.target : edge.source;
+                      return (
+                        <span
+                          key={eIdx}
+                          className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[9px] font-mono text-slate-700 shrink-0"
+                          title={`${edge.source} --[${edge.relation}]--> ${edge.target} (${edge.layer || 'ALL'})`}
+                        >
+                          <strong className="text-indigo-600">{edge.relation}</strong>: {neighborId}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {activeInspector?.ref_id && (
               <button

@@ -4,7 +4,6 @@ import {
   ChevronDown,
   PanelLeft,
   GitBranch,
-  Bot,
   BookOpen,
   Compass,
   Download,
@@ -181,10 +180,10 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
                   ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs'
                   : 'border-slate-200/80 bg-slate-50 hover:bg-slate-100 text-slate-700'
               }`}
-              title={isRightDockOpen ? "收起法律辅助面板" : "展开 AI 法律助手"}
+              title={isRightDockOpen ? "收起法律辅助面板" : "展开案卷法务问询"}
             >
-              <Bot className="w-3.5 h-3.5 text-blue-600" />
-              <span>AI 法律助手</span>
+              <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+              <span>案卷法务问询</span>
             </button>
           </div>
         </>
@@ -216,10 +215,10 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
                   ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-xs'
                   : 'border-slate-200/80 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs'
               }`}
-              title={isRightDockOpen ? "收起法律辅助面板" : "展开 AI 法律助手"}
+              title={isRightDockOpen ? "收起法律辅助面板" : "展开案卷法务问询"}
             >
-              <Bot className="w-3.5 h-3.5 text-blue-600" />
-              <span>AI 法律助手</span>
+              <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+              <span>案卷法务问询</span>
             </button>
           </div>
         </>

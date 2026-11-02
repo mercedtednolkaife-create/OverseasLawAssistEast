@@ -23,6 +23,8 @@ export interface SecurityAlertItem {
     | 'resource_nationalism_tkdn'
     | 'creeping_expropriation'
     | 'sanctions_debarment_risk'
+    | 'mdb_debarment_risk'
+    | 'unilateral_sanctions_long_arm'
     | 'cross_border_data_art36'
     | 'sasac_supervision_redline';
   title_zh: string;
@@ -32,6 +34,37 @@ export interface SecurityAlertItem {
   sinosure_preservation_guide?: string;
   mandatory_human_checklist: string[];
   mitigation_actions: string[];
+}
+
+export interface DualComplianceItem {
+  dimension: string;
+  side: 'prc_outbound' | 'host_country' | 'bidirectional_conflict';
+  status: 'pass' | 'warning' | 'violation' | 'collision';
+  rule_code: string;
+  title_zh: string;
+  prc_statute?: string;
+  host_statute?: string;
+  collision_desc?: string;
+  mitigation_clause_zh?: string;
+  action_guidance?: string;
+}
+
+export interface DualComplianceApprovalStep {
+  step: string;
+  authority: string;
+  item?: string;
+  timing: string;
+  risk_consequence: string;
+  status?: string;
+}
+
+export interface DualComplianceAudit {
+  prc_score: number;
+  host_score: number;
+  collision_count: number;
+  items: DualComplianceItem[];
+  approval_chain: DualComplianceApprovalStep[];
+  summary_zh: string;
 }
 
 export interface CaseMeta {
@@ -266,6 +299,7 @@ export interface CaseState {
   unparsed_refs: { raw: string; span?: [number, number] }[];
   parent_case_id?: string;
   security_alerts?: SecurityAlertItem[];
+  dual_compliance_audit?: DualComplianceAudit;
   engineering_audit?: Record<string, any>;
   tactical_guidance?: TacticalGuidance;
   attached_artifacts?: AttachedArtifact[];

@@ -9,6 +9,7 @@
 """
 
 import re
+import threading
 from datetime import datetime
 from collections import defaultdict
 from typing import List, Dict, Any, Optional, Tuple
@@ -23,6 +24,24 @@ from lawagent.store.vec import DenseVectorEngine
 from lawagent.store.rerank import Reranker
 from lawagent.store.graph import SQLiteGraphStore
 from lawagent.store.cl_align import CLAlignOperator, CLAlignResult
+
+_RETRIEVER_CACHE: Dict[str, "HybridRetriever"] = {}
+_RETRIEVER_LOCK = threading.Lock()
+
+
+def get_cached_retriever(snapshot_id: Optional[str] = None) -> "HybridRetriever":
+    """获取指定快照的单例检索器，避免重复构建 FAISS 索引与重复加载深度模型 (560M 参数)"""
+    global _RETRIEVER_CACHE
+    sm = SnapshotManager()
+    snap_id = snapshot_id or sm.get_current_snapshot_id()
+    if snap_id in _RETRIEVER_CACHE:
+        return _RETRIEVER_CACHE[snap_id]
+    with _RETRIEVER_LOCK:
+        if snap_id in _RETRIEVER_CACHE:
+            return _RETRIEVER_CACHE[snap_id]
+        retriever = HybridRetriever(snapshot_mgr=sm, snapshot_id=snap_id)
+        _RETRIEVER_CACHE[snap_id] = retriever
+        return retriever
 
 RE_NORM_EXACT = re.compile(
     r"(UU_\d+_\d+|SEMA_\d+_\d+|CIPAA_\d+|SOPA_\d+|Law_\d+_\d+|RA_\d+|FIDIC|BIT|SASAC|CN_ID_BIT|CN_VN_BIT|CN_PH_BIT|SINOSURE|KUHPerdata|CCC|Act_\d+|MEMR_\d+|Decree_\d+)\s*(?:§|Art\.?|Section\s*|Sec\.?|Clause\s*)?\s*([0-9a-zA-Z\-\:\.]+)",
@@ -131,7 +150,7 @@ class HybridRetriever:
         base_dir: str = "data/snapshots",
         enable_vec: bool = True
     ) -> "HybridRetriever":
-        return cls(snapshot_id=snapshot_id)
+        return get_cached_retriever(snapshot_id=snapshot_id)
 
     def _load_glossary(self):
         self.glossary_zh_to_de: Dict[str, str] = {
@@ -367,10 +386,10 @@ class HybridRetriever:
                         cur_g.execute(
                             f"""SELECT norm_id FROM hot_norm_cases WHERE case_id IN ({c_ph})
                                 UNION
-                                SELECT dst AS norm_id FROM edges WHERE src IN ({c_ph}) AND rel IN ('applies', 'interprets', 'cites', 'governs')
+                                SELECT dst AS norm_id FROM unified_edges WHERE src IN ({c_ph}) AND rel IN ('applies', 'interprets', 'cites', 'governs')
                                 UNION
-                                SELECT src AS norm_id FROM edges WHERE dst IN ({c_ph}) AND rel IN ('applied_by', 'interpreted_by')
-                                LIMIT 6""",
+                                SELECT src AS norm_id FROM unified_edges WHERE dst IN ({c_ph}) AND rel IN ('applied_by', 'interpreted_by', 'applied_in', 'complements', 'overrides', 'conflicts_with', 'interprets', 'applies')
+                                LIMIT 10""",
                             [*top_case_ids, *top_case_ids, *top_case_ids]
                         )
                         for r_row in cur_g.fetchall():

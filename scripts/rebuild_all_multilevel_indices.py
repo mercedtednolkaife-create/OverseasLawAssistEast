@@ -85,7 +85,18 @@ def main():
     cur.execute("""
         INSERT INTO edges_top (src, dst, rel, source, reviewed, rk)
         SELECT src, dst, rel, source, reviewed,
-               ROW_NUMBER() OVER (PARTITION BY src ORDER BY confidence DESC) as rk
+               ROW_NUMBER() OVER (
+                   PARTITION BY src 
+                   ORDER BY 
+                       CASE 
+                           WHEN rel IN ('overrides', 'conflicts_with', 'exception_to', 'triggers_preservation') THEN 1
+                           WHEN rel IN ('applied_in', 'applied_by', 'applies', 'interprets', 'interpreted_by', 'distinguishes') THEN 2
+                           WHEN rel IN ('governs', 'hierarchical_parent', 'upgrades_to_treaty') THEN 3
+                           ELSE 4
+                       END,
+                       confidence DESC,
+                       dst ASC
+               ) as rk
         FROM edges;
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_top_src ON edges_top(src, rel);")

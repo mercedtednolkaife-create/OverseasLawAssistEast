@@ -62,7 +62,7 @@
 | 维度指标 | L1 核心强行法层 (`law.sqlite`) | L2 广覆盖参考层 (`law.sqlite`) | 机制说明 |
 | :--- | :--- | :--- | :--- |
 | **定位与权威级** | 属地成文法中当事人不得协议排除的**强行性规范**及最高司法裁判先例 (Grade A) | 区域多边条约、双边投资协定、FIDIC 标准合同条件、参考判例 (Grade B) | 双层严格物理隔离，支持独立与级联检索 |
-| **典型代表法源** | 印尼《国语法》第 31 条、越南建设法 12% 违约金封顶、马来 CIPAA 第 35 条禁止背靠背、新加坡 15 年潜伏缺陷时效、泰国 2 年承揽时效、菲律宾 RA 8975 基建停工令豁免、柬埔寨民法典 403 条不可调减违约金、老挝外汇法外债审批、文莱宪法 84C 绝对主权豁免、东帝汶审计法院事前 Visto 签证 | 《东盟全面投资协定》(ACIA)、中国-东盟投资协议 (CAFTA)、双边投资保护协定 (BIT)、FIDIC 1999/2017 黄金条款、CISG 联合国国际货物销售公约、CRW 案 DAAB 决定即时执行力先例 | 确立实体法律权利义务边界，提供上位条约与国际商事仲裁法理补充 |
+| **典型代表法源** | 印尼《国语法》第 31 条、越南建设工程法定违约金（商贸法第 301 条 8% 罚金上限 / 建设法第 146 条 12% 罚金上限，严格区别实际损失赔偿）、马来 CIPAA 第 35 条禁止背靠背、新加坡 15 年潜伏缺陷时效、泰国 2 年承揽时效、菲律宾 RA 8975 基建停工令豁免、柬埔寨民法典 403 条不可调减违约金、老挝外汇法外债审批、文莱宪法 84C 绝对主权豁免、东帝汶审计法院事前 Visto 签证 | 《东盟全面投资协定》(ACIA)、中国-东盟投资协议 (CAFTA)、双边投资保护协定 (BIT)、FIDIC 1999/2017 黄金条款、CISG 联合国国际货物销售公约、CRW 案 DAAB 决定即时执行力先例 | 确立实体法律权利义务边界，提供上位条约与国际商事仲裁法理补充 |
 | **检索索引配置** | 独立 1024 维 BGE-M3 FAISS 向量索引 + 独立 BM25 词法倒排索引 | 独立 1024 维 BGE-M3 FAISS 向量索引 + 独立 BM25 词法倒排索引 | 支持稠密语义与条号、判例案号精确检索 |
 | **图谱关联结构** | 因果关系拓扑网络（严格零悬空边） | 1-Hop 拓扑语义扩散与跨层补偿机制 | 支撑多跳推理与上位法追溯 |
 
@@ -83,7 +83,35 @@
 当项目履行地与合同约定的准据法脱钩时，自动启动公私法分流判定：公法强行性规范（属地资质、本地化配额、国语法强制令、土地征收、法定裁决）具有属地排他穿透力，不可约定排除；私法商事争议则交由当事人约定准据法审理。
 
 ### 5. Critic V1~V12 刚性质量门禁与安全守则
-严格运行 12 项合规核验门禁：规范存在性（杜绝虚构法条）、无幻觉引述（陈述必绑定证据 EID）、事实溯源（分析必回溯 F# 事实编号）、司法中立防线（严禁出现“必胜”、“毫无疑问违约”等绝对预测词汇）、时点新旧法溯及力核验及央国企国家安全合规门禁。
+严格运行 12 项合规核验门禁：规范存在性（杜绝虚构法条）、无幻觉引述（陈述必绑定证据 EID）、事实溯源（分析必回溯 F# 事实编号）、司法中立防线（严禁出现“必胜”、“毫无疑问违约”等绝对预测词汇）、时点新旧法溯及力核验、央国企国家安全合规门禁及阻断令对冲防御。
+
+### 6. 中-东盟双向合规审查与法域冲突消解引擎 (Dual Compliance Engine)
+核心模块位于 [`lawagent/flow/dual_compliance.py`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/lawagent/flow/dual_compliance.py)，内设五大跨国业务域确定性双向核验算子：
+- **投资准入与双边审批互锁算子**：对标中方发改委 11 号令、商务部 3 号令、国资委 35 号令 vs 东道国外资准入清单/OSS-RBA，输出《附双方法定审批生效先决条件条款》；
+- **跨境融资担保与外汇闭环算子**：对标国资委 75 号文超股比担保禁止、外管局 29 号文内保外贷登记 vs 印尼 UU 2/2017 联营体连带责任、老挝外债 BOL 审批、缅甸 1 日强制结汇令，输出按股比分割保函与反担保结构；
+- **数据跨境与技术出口管制算子**：对标《数据安全法》第 36 条、《出口管制法》两用物项清单 vs 境外法院/SIAC 证据开示令（新加坡 IAA 第 12A 条），输出脱敏处理与主管机关前置审批操作流；
+- **工程分包与本地化配额算子**：对标央企分包审查 vs 马来 CIPAA 第 35 条 / 新加坡 SOPA 第 9 条背靠背付款绝对无效令、印尼 MEMR 11/2024 TKDN 配额；
+- **出险保全与争端救济联动算子**：对标中国信保 30 日出险报损窗口期 vs FIDIC 28 天索赔通知时效与 BIT 180 天前置磋商期。
+流水线中，`s2_precheck` 评估并生成 `dual_compliance_audit`；`s3_decompose` 自动注入冲突争点与强行法源；`drafter` 与 [`lawagent/api/export.py`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/lawagent/api/export.py) 输出专章及 5 级集团审批链条。
+
+### 7. “反制裁、反干预、反长臂管辖”（三反）体系化防线
+针对美欧对华次级制裁与域外长臂管辖冲击建立专项防线：
+- **法源基座**：入库《反外国制裁法》（第 3、4、6、12、15 条）、2025 年国务院《实施〈反外国制裁法〉的规定》、商务部令 2021 年第 1 号《阻断外国法律与措施不当域外适用办法》（第 5、7、9 条）、《不可靠实体清单规定》、《出口管制法》与《外国国家豁免法》；L2 收录新加坡 MAS 2022 金融制裁指令（Sec 27A）及普通法 *Lamesa* 先例；
+- **哨兵架构拆分**：在 [`lawagent/flow/security_sentinel.py`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/lawagent/flow/security_sentinel.py) 严格区分多边开发银行（世行/亚行）合规除名（`mdb_debarment_risk`）与美欧单边次级制裁（`unilateral_sanctions_long_arm`）；
+- **30 日双边行动方案**：【3日内】启动合同替代币种（RMB/CIPS 或东道国本币）结算；【7日内】向业主出具属地大律师（Local Counsel）无域外效力意见函；【14日内】对配合制裁的外方依据《反外国制裁法》第 12 条向国内法院提起损害赔偿与财产保全；【30日内】向商务部履行阻断报告义务并向中信保报损；
+- **合同毒丸红线审查**：在 [`lawagent/api/routes/verify.py`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/lawagent/api/routes/verify.py) 强制阻断“宽泛单边制裁无偿解约与保函没收条款”及“绕过主权审批的域外长臂调证条款”。
+
+### 8. GraphRAG 跨层拓扑网络与统一视图 (`unified_edges`)
+彻底解决传统单层图检索孤立缺陷：
+- **统一跨层拓扑视图**：在 `law.sqlite` 建立 `unified_edges` 视图，打通 L1 属地强行法与 L2 国际条约，注入 120+ 跨层桥接边（涵盖东盟成文法 $\leftrightarrow$ CAFTA/ACIA/BIT $\leftrightarrow$ FIDIC 银皮书 $\leftrightarrow$ 中国母国强行法）；
+- **语义优先级加权**：消除 35 组重复边，建立唯一索引约束，按强行法冲突（Tier 1: `overrides`, `conflicts_with`, `exception_to`）、判例互证（Tier 2: `applied_in`, `interprets`）及一般层级重算 `edges_top.rk`；
+- **28 个高内聚风险社区**：覆盖东盟 11 国与中方母国规制，包含中文实务法理综述 (`community_summary_zh`) 与双向合规锚点；
+- **真实拓扑穿透接口**：新增 `GET /api/search/graph-neighborhood` 端点，前端 [`InteractiveCitationGraph.tsx`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/FrontEnd/src/components/analysis/InteractiveCitationGraph.tsx) 动态调用展示真实 SQLite 跨层关联边。
+
+### 9. 长耗时 AI 通信超时容灾与平滑降级机制
+消除大模型深度推理导致的前端通信中断：
+- **前端网络超时阈值基准放宽**：[`FrontEnd/src/api/client.ts`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/FrontEnd/src/api/client.ts) 默认超时由 25 秒调整为 60 秒，[`lawAgentApi.ts`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/FrontEnd/src/api/lawAgentApi.ts) 要素抽提配置 90 秒长超时；
+- **后端主动超时熔断与零中断回退**：[`lawagent/api/routes/cases.py`](file:///C:/Downloads/OverseasLawAssistEast/OverseasLawAssistEast/lawagent/api/routes/cases.py) 在 `extract_case_intake` 中通过 `asyncio.wait_for(..., timeout=45.0)` 实施主动超时控制，超时自动平滑回退至毫秒级完成的本地确定性规则提取引擎，100% 确保接口返回有效 HTTP 200。
 
 ---
 
@@ -101,7 +129,7 @@
 | **CRAG 跨层补偿触发率 (CRAG Trigger Rate)** | **85.0% (17/20)** | 0% (无自省) | 当 L1 单层不足时，自省门禁触发并跨层调取上位条约与先例 |
 | **L2 跨层补充法源贡献总量** | **91 条** | 0 条 | 注入 CISG、BIT 投资条约、FIDIC 先例等跨国裁判规则 |
 | **单案平均端到端耗时 (Avg Latency)** | **113.22 秒** | 120+ 秒 | 采用解耦分工调度，保障高密推理下的稳定产出 |
-| **全量自动化单元测试通过率** | **100.0% (31/31)** | - | 覆盖 GraphRAG、CL-Align、CRAG、Critic 等全部核心逻辑 |
+| **全量自动化单元测试通过率** | **100.0% (39/39)** | - | 覆盖 GraphRAG、CL-Align、CRAG、Critic、双向合规及阶段四 API 回归全部核心逻辑 |
 
 ### 5.2 真实司法判决与系统查明策略深度对比
 评测对 20 个案例的真实法院/仲裁庭判决主文（Ground-Truth Holding）与系统查明策略进行了逐案比对：
@@ -159,7 +187,7 @@ npm run dev
 
 ### 6.4 运行全量自动化测试与基准评测
 ```bash
-# 运行全部 34 项单元测试（涵盖法条查明、图扩展、重排、概念对齐、CRAG充分性与智能建案）
+# 运行全部 39 项单元测试（涵盖法条查明、图扩展、重排、概念对齐、CRAG充分性、智能建案、双向合规与阶段四 API）
 python -m pytest tests/ -q
 
 # 执行 20 案例自动化基准评测流水线
@@ -191,7 +219,7 @@ OverseasLawAssistEast/
 │       ├── actual_ruling_comparison.md # 真实判决与策略对比表
 │       └── evaluation_raw_data.json # 评测原始数据集
 ├── scripts/                        # 数据库构建、修复、对齐与评测脚本
-├── tests/                          # 自动化单元测试集 (31 passed)
+├── tests/                          # 自动化单元测试集 (39 passed)
 ├── 东盟域外法查明助手设计方案.md       # 系统架构与详细设计规范
 └── ReadMe.md                       # 项目用户手册与技术全景指南
 ```

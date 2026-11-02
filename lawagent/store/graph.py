@@ -16,22 +16,51 @@ DEFAULT_GRAPH_RELS = [
     "interpreted_by",
     "INTERPRETS",
     "applied_in",
+    "applied_by",
     "triggers_preservation",
     "CITES",
     "cites",
     "APPLIES",
     "applies",
+    "applies_with",
     "DEFINES",
+    "defines",
     "correlates_with",
+    "CORRELATES_WITH",
     "references",
     "governs",
+    "governed_by",
     "complements",
+    "COMPLEMENTS",
     "cross_references",
+    "CROSS_REFERENCES",
     "distinguishes",
     "exception_to",
     "hierarchical_child",
     "hierarchical_parent",
-    "PREREQUISITE_FOR"
+    "HIERARCHICAL_PARENT",
+    "delegates_to",
+    "limits_liability",
+    "LIMITS_LIABILITY",
+    "prerequisite_for",
+    "PREREQUISITE_FOR",
+    "upgrades_to_treaty",
+    "UPGRADES_TO_TREATY",
+    "triggers",
+    "co_enforced_by",
+    "cross_regulatory",
+    "enforces",
+    "escalates_to",
+    "follows",
+    "harmonizes_with",
+    "implements",
+    "interoperates_with",
+    "mitigates",
+    "precedes",
+    "reciprocates_with",
+    "regulates",
+    "remedied_by",
+    "standardizes"
 ]
 
 
@@ -114,33 +143,38 @@ class SQLiteGraphStore:
         node_id: str,
         rels: Optional[List[str]] = None,
         direction: str = "out",
-        limit: int = 20
+        limit: int = 20,
+        layer: str = "ALL"
     ) -> List[Dict[str, Any]]:
-        """获取直连邻居节点 (支持 out / in / both，同时兼容裸 ID 与带 NORM:/CASE: 前缀 ID，并融合跨命名别名)"""
+        """获取直连邻居节点 (支持 out / in / both，同时兼容裸 ID 与带 NORM:/CASE: 前缀 ID，并融合跨命名别名与跨层视图)"""
         id_variants = _expand_id_aliases(node_id)
 
         conn = self._get_conn()
         cur = conn.cursor()
 
+        table = "unified_edges" if layer == "ALL" else ("edges_top" if layer == "L1" else "reference_edges")
+
         query_rels = rels if rels else DEFAULT_GRAPH_RELS
         placeholders_rels = ",".join("?" for _ in query_rels)
         placeholders_ids = ",".join("?" for _ in id_variants)
 
+        order_clause = "ORDER BY rk ASC" if table == "edges_top" else ""
+
         if direction == "out":
-            sql = f"""SELECT dst as node, rel, source FROM edges_top
+            sql = f"""SELECT dst as node, rel, source FROM {table}
                       WHERE src IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
-                      ORDER BY rk ASC LIMIT ?"""
+                      {order_clause} LIMIT ?"""
             cur.execute(sql, [*id_variants, *query_rels, limit])
         elif direction == "in":
-            sql = f"""SELECT src as node, rel, source FROM edges_top
+            sql = f"""SELECT src as node, rel, source FROM {table}
                       WHERE dst IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
-                      ORDER BY rk ASC LIMIT ?"""
+                      {order_clause} LIMIT ?"""
             cur.execute(sql, [*id_variants, *query_rels, limit])
         else:  # both
-            sql = f"""SELECT dst as node, rel, source FROM edges_top
+            sql = f"""SELECT dst as node, rel, source FROM {table}
                       WHERE src IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
                       UNION ALL
-                      SELECT src as node, rel, source FROM edges_top
+                      SELECT src as node, rel, source FROM {table}
                       WHERE dst IN ({placeholders_ids}) AND rel IN ({placeholders_rels})
                       LIMIT ?"""
             cur.execute(sql, [*id_variants, *query_rels, *id_variants, *query_rels, limit])
@@ -152,9 +186,10 @@ class SQLiteGraphStore:
         start_ids: List[str],
         max_hops: int = 2,
         rels: Optional[List[str]] = None,
-        limit: int = 60
+        limit: int = 60,
+        layer: str = "ALL"
     ) -> List[Dict[str, Any]]:
-        """执行 1~2 跳双向递归 CTE 图扩展 (严格控制扇出与最大条数，同时兼容带前缀与裸 ID)"""
+        """执行 1~2 跳双向递归 CTE 图扩展 (严格控制扇出与最大条数，同时支持 unified_edges 跨层穿透)"""
         if not start_ids:
             return []
 
@@ -170,6 +205,8 @@ class SQLiteGraphStore:
         conn = self._get_conn()
         cur = conn.cursor()
 
+        table = "unified_edges" if layer == "ALL" else ("edges_top" if layer == "L1" else "reference_edges")
+
         # 构建起始节点 UNION 查询
         start_unions = " UNION ALL ".join(f"SELECT '{s}' AS node, 0 AS depth" for s in clean_starts_list)
 
@@ -179,7 +216,7 @@ class SQLiteGraphStore:
             UNION
             SELECT CASE WHEN e.src = w.node THEN e.dst ELSE e.src END, w.depth + 1
             FROM walk w
-            JOIN edges_top e ON (e.src = w.node OR e.dst = w.node)
+            JOIN {table} e ON (e.src = w.node OR e.dst = w.node)
             WHERE w.depth < ? AND e.rel IN ({rel_clause})
         )
         SELECT node, MIN(depth) AS depth
@@ -193,6 +230,8 @@ class SQLiteGraphStore:
         try:
             cur.execute(sql, (max_hops, limit))
             return [dict(r) for r in cur.fetchall()]
+        except Exception:
+            return []
         except Exception:
             return []
 

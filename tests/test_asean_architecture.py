@@ -234,9 +234,9 @@ async def test_end_to_end_asean_workflow_simulation():
         if hasattr(sim_state, k):
             setattr(sim_state, k, v)
 
-    # 3. S3: 东盟建设工程专属争点与构成要件拆解
+    # 3. S3: 东盟建设工程专属争点与构成要件拆解 (含双向合规冲突争点注入)
     s3_res = await s3_decompose_node(sim_state)
-    assert len(s3_res["issues"]) == 3
+    assert len(s3_res["issues"]) >= 3
     assert len(s3_res["questions"]) >= 1
     q0 = s3_res["questions"][0]
     assert any("FIDIC_SILVER:Clause8.4" in n for n in q0.must_norms)

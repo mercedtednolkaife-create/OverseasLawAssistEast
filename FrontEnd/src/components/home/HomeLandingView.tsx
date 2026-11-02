@@ -281,7 +281,7 @@ export const HomeLandingView: React.FC = () => {
         <section className="apple-bento-card rounded-[24px] p-5 sm:p-6 shadow-2xs space-y-3">
           <div className="max-w-4xl mx-auto text-center space-y-2.5">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              东盟基建工程与涉外投资法律智能工作台
+              东盟基建工程与涉外投资法律查明工作台
             </h1>
 
             <p className="text-xs text-slate-500 max-w-xl mx-auto font-normal">
@@ -326,7 +326,7 @@ export const HomeLandingView: React.FC = () => {
           </div>
         </section>
 
-        {/* 智能研判结果原地展开卡片 */}
+        {/* 检索研判结果原地展开卡片 */}
         {activeQA && (
           <section className="apple-bento-card rounded-[24px] p-4 sm:p-5 space-y-3.5 shadow-sm border border-blue-200/80 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">

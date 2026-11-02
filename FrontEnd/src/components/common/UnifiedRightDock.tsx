@@ -6,7 +6,7 @@ import { lawAgentApi } from '../../api/lawAgentApi';
 import {
   X,
   BookOpen,
-  Bot,
+  Scale,
   Compass,
   Copy,
   Check,
@@ -262,8 +262,8 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Bot className="w-3.5 h-3.5 text-blue-600" />
-            <span>AI 法律咨询</span>
+            <Scale className="w-3.5 h-3.5 text-blue-600" />
+            <span>案卷法律问询</span>
           </button>
           <button
             onClick={() => setRightDockMode('country_playbook')}
@@ -461,10 +461,10 @@ export const UnifiedRightDock: React.FC<UnifiedRightDockProps> = ({ onClose }) =
               {messages.length === 0 ? (
                 <div className="p-6 text-center space-y-3">
                   <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200/60 text-blue-600 flex items-center justify-center mx-auto shadow-2xs">
-                    <Bot className="w-5 h-5 text-blue-600" />
+                    <Scale className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <h5 className="font-semibold text-slate-800 text-xs">AI 法律咨询助手已挂载</h5>
+                    <h5 className="font-semibold text-slate-800 text-xs">案卷法律实务问询助手已挂载</h5>
                     <p className="text-[11px] text-slate-500 mt-1 max-w-[280px] mx-auto leading-relaxed">
                       已集成东盟法典库与 FIDIC 合同规则。可针对工程索赔时效、保函止付条件与属地强行法提出咨询或展开抗辩推演。
                     </p>

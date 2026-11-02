@@ -27,6 +27,7 @@ pyyaml>=6.0.0                       # YAML 配置解析 (models.yaml, retrieval.
 # ------------------------------------------------------------------------------
 # 注意: 本地若有 NVIDIA GPU，可安装对应 CUDA 版本的 PyTorch
 torch>=2.2.0                        # 深度学习底层运行时 (Embedding 与 Cross-Encoder 重排)
+modelscope>=1.15.0                  # 阿里云魔搭社区官方客户端 (面向国内环境保障 BAAI 深度模型高速拉取)
 sentence-transformers>=3.0.0        # 稠密语义向量计算 (BGE-M3) 与 Cross-Encoder 深度重排 (BGE-Reranker-v2-m3)
 transformers>=4.40.0                # HuggingFace 模型与分词组件支持
 faiss-cpu>=1.8.0                    # 高性能向量稠密索引引擎 (支持 IndexFlatIP 内积相似度检索)

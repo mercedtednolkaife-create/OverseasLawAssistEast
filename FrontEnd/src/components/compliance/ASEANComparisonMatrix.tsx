@@ -16,6 +16,12 @@ interface ComparisonRow {
   sg: string;
   th: string;
   ph: string;
+  kh?: string;
+  la?: string;
+  mm?: string;
+  bn?: string;
+  tl?: string;
+  [key: string]: string | undefined;
 }
 
 const COUNTRIES = [
@@ -25,6 +31,11 @@ const COUNTRIES = [
   { key: 'sg', name: '新加坡', flag: '🇸🇬', code: 'asean_sg' },
   { key: 'th', name: '泰国', flag: '🇹🇭', code: 'asean_th' },
   { key: 'ph', name: '菲律宾', flag: '🇵🇭', code: 'asean_ph' },
+  { key: 'kh', name: '柬埔寨', flag: '🇰🇭', code: 'asean_kh' },
+  { key: 'la', name: '老挝', flag: '🇱🇦', code: 'asean_la' },
+  { key: 'mm', name: '缅甸', flag: '🇲🇲', code: 'asean_mm' },
+  { key: 'bn', name: '文莱', flag: '🇧🇳', code: 'asean_bn' },
+  { key: 'tl', name: '东帝汶', flag: '🇹🇱', code: 'asean_tl' },
 ];
 
 export const ASEANComparisonMatrix: React.FC = () => {

@@ -30,18 +30,29 @@ KEYWORDS_CRITICAL_INFRASTRUCTURE = [
     "水利枢纽", "跨海大桥", "国家关键基础设施"
 ]
 
-KEYWORDS_SANCTIONS_DEBARMENT = [
+KEYWORDS_MDB_DEBARMENT = [
     "世行黑名单", "世界银行黑名单", "亚行除名", "亚洲开发银行除名",
-    "跨行联合除名", "联合除名", "跨行除名", "实体清单", "制裁名单",
-    "限制交易名单", "多边开发银行制裁", "腐败调查除名", "debarment",
-    "cross-debarment", "sanctions"
+    "跨行联合除名", "联合除名", "跨行除名", "多边开发银行制裁", "腐败调查除名",
+    "debarment", "cross-debarment", "world bank debarment", "adb debarment",
+    "integrity compliance", "合规除名", "世行合规除名"
 ]
+
+KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM = [
+    "实体清单", "制裁名单", "限制交易名单", "OFAC", "SDN", "特别指定国民",
+    "二级制裁", "次级制裁", "单边制裁", "地缘制裁", "涉俄制裁", "全面制裁", "长臂制裁",
+    "长臂管辖", "出口管制", "EAR", "BIS", "涉疆法案", "UFLPA",
+    "不可靠实体清单", "反外国制裁法", "阻断办法", "商务部阻断令", "美元清算阻断",
+    "CIPS替代", "unilateral sanctions", "secondary sanctions"
+]
+
+KEYWORDS_SANCTIONS_DEBARMENT = KEYWORDS_MDB_DEBARMENT + KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM
 
 KEYWORDS_CREEPING_EXPROPRIATION = [
     "征收", "国有化", "隐性征收", "间接征收", "单方废约", "单方终止",
     "撤销特许权", "终止特许权", "撤权", "取消特许经营", "FIT电价下调",
     "追溯下调", "强制股权剥离", "没收资产", "征用", "政府单方接管",
-    "关停项目", "吊销特许经营权", "吊销发电许可证"
+    "关停项目", "吊销特许经营权", "吊销发电许可证", "出险报损", "中信保报损",
+    "强扣施工机械", "强行扣押", "扣押", "强制结汇", "强行结汇", "汇兑限制"
 ]
 
 KEYWORDS_RESOURCE_NATIONALISM_TKDN = [
@@ -53,8 +64,8 @@ KEYWORDS_RESOURCE_NATIONALISM_TKDN = [
 KEYWORDS_CROSS_BORDER_DATA_ART36 = [
     "跨境调证", "境外调证", "提供数据", "工程图纸出境", "地质数据",
     "测绘数据", "高精度地理信息", "司法协助调证", "数据出境",
-    "数据安全法第36条", "数据安全法36条", "境外法院命令",
-    "境外仲裁调证命令", "未经批准提供数据"
+    "数据安全法第36条", "数据安全法36条", "数据安全法", "数安法", "境外法院命令",
+    "境外仲裁调证命令", "未经批准提供数据", "工控数据", "境外调取"
 ]
 
 KEYWORDS_SASAC_SUPERVISION_REDLINE = [
@@ -136,14 +147,14 @@ class SecuritySentinel:
             ))
 
         # ---------------------------------------------------------------------
-        # 2. 多边金融机构制裁与联合除名 (Sanctions & Debarment) - CRITICAL
+        # 2. 多边金融机构廉政调查与联合除名 (MDB Debarment) - CRITICAL
         # ---------------------------------------------------------------------
-        if any(kw.lower() in full_text.lower() for kw in KEYWORDS_SANCTIONS_DEBARMENT):
-            fact_anchors = cls.scan_fact_anchors(state, KEYWORDS_SANCTIONS_DEBARMENT)
+        if any(kw.lower() in full_text.lower() for kw in KEYWORDS_MDB_DEBARMENT):
+            fact_anchors = cls.scan_fact_anchors(state, KEYWORDS_MDB_DEBARMENT)
             alerts.append(SecurityAlertItem(
                 risk_level=SecurityRiskLevel.CRITICAL,
-                category="sanctions_debarment_risk",
-                title_zh="多边开发机构 (世行/亚行) 联合除名与跨境制裁连带阻断预警",
+                category="mdb_debarment_risk",
+                title_zh="多边开发机构 (世行/亚行/跨行) 联合除名与廉政调查合规预警",
                 fact_anchor_ids=fact_anchors,
                 host_law_basis=[],
                 prc_or_treaty_basis=["PRC_SASAC:Order35"],
@@ -160,6 +171,45 @@ class SecuritySentinel:
                     "立即在联营体协议（KSO/JO）中启动‘制裁除名即时解约与无损隔离’条款；",
                     "全面切换结算通道至本币双边互换清算系统（如人民币跨境支付系统 CIPS）；",
                     "委托涉外国际合规律师事务所启动世行廉政局（INT）和解谈判或合规整改抗辩程序。"
+                ]
+            ))
+
+        # ---------------------------------------------------------------------
+        # 2B. 单边长臂制裁与次级制裁冲突 (Unilateral Sanctions & Long-Arm) - CRITICAL
+        # ---------------------------------------------------------------------
+        if any(kw.lower() in full_text.lower() for kw in KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM):
+            fact_anchors = cls.scan_fact_anchors(state, KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM)
+            alerts.append(SecurityAlertItem(
+                risk_level=SecurityRiskLevel.CRITICAL,
+                category="unilateral_sanctions_long_arm",
+                title_zh="单边制裁与长臂管辖冲突（OFAC/SDN/实体清单 vs 中国反外国制裁法与阻断办法）",
+                fact_anchor_ids=fact_anchors,
+                host_law_basis=["REF_CASE:UK_CA:Lamesa_v_Cynergy_2020", "REF_CASE:SG_SICC:Sanctions_LC_Payment_2023"],
+                prc_or_treaty_basis=[
+                    "CN:Anti_Foreign_Sanctions_Law:Art3_4_12_15",
+                    "CN:MOFCOM_Order_1_2021:Blocking_Statute",
+                    "CN:State_Council_AFSL_Reg_2025:Art1_22",
+                    "CN:MOFCOM_Order_4_2020:UEL"
+                ],
+                sinosure_preservation_guide=(
+                    "【单边制裁与长臂管辖出险特别指引】：\n"
+                    "1. 依据中国《阻断外国法律与措施不当域外适用办法》（商务部2021年第1号令）第5条，中国公民、法人或者其他组织遇到外国法律与措施禁止或者限制其与第三国（地区）及其公民、法人或者其他组织进行正常的经贸及相关活动情形的，应当在30日内向国务院商务主管部门如实报告；\n"
+                    "2. 依据《中华人民共和国反外国制裁法》第12条及2025年《实施条例》，任何组织和个人执行或协助执行外国歧视性限制措施侵害我国公民、组织合法权益的，受害方可依法向中国人民法院提起民事侵权赔偿之诉并申请财产保全；\n"
+                    "3. 立即启动中信保‘政治风险/特险制裁特别应对’报备，梳理非美元（RMB/CIPS或当地本币）备用清算路由；\n"
+                    "4. 外方单方以受美国制裁为由拒绝支付或擅自解约的，依据英国普通法 Lamesa 案及东道国强行法，该单边长臂制裁不属于合同准据法下的合法履行不能（Illegality under Lex Loci Solutionis），应坚决发起合同违约反诉。"
+                ),
+                mandatory_human_checklist=[
+                    "核查外方中止履行或解约所援引的制裁法律是否属外国单边长臂管辖（如美国 OFAC SDN / BIS 实体清单）；",
+                    "核查涉案合同准据法（如英国法/新加坡法）下单边制裁是否构成不可抗力或合法抗辩（援引 Lamesa 案与 Ralli Bros 规则抗辩）；",
+                    "在30日法定期限内向国家商务部提交阻断令书面报告（商务部1号令第5条）；",
+                    "梳理外方在华资产线索，评估依据《反外国制裁法》第12条向境内中级人民法院提起损害赔偿诉讼的法律路径；",
+                    "排查是否涉及高科技、关键矿产或受我国《出口管制法》管控的技术/物项出口。"
+                ],
+                mitigation_actions=[
+                    "向外方发出正式法律异议函：明确依据中国《反外国制裁法》及东道国合同准据法，外国单边长臂制裁不得作为其免除付款或停工抗辩的合法依据；",
+                    "切换跨境资金结算通道至人民币跨境支付系统 (CIPS) 或东道国本币双边本币结算通道 (LCT)；",
+                    "在30日内向商务部主管部门提交阻断令报告，并向中国信保报损预警；",
+                    "聘请东道国国际仲裁大律师与中国涉外律师联合组建抗辩团队，在 SIAC/ICC/HKIAC 仲裁中提出抗辩，并在境内对配合制裁的外企保留反制追索诉讼。"
                 ]
             ))
 
@@ -659,7 +709,7 @@ def check_critic_v12_security_gate(state: CaseState) -> Tuple[bool, str, str]:
         
     has_mitigation = any(
         kw in full_text
-        for kw in ["中信保", "保全", "BIT", "投资协定", "抗辩", "紧急仲裁", "合规", "豁免", "脱敏", "对冲", "止付", "禁令", "反制", "救济"]
+        for kw in ["中信保", "保全", "BIT", "投资协定", "抗辩", "紧急仲裁", "合规", "豁免", "脱敏", "对冲", "止付", "禁令", "反制", "救济", "阻断", "反外国制裁"]
     )
     
     reasons = [f"【{a.risk_level.value.upper()}】{a.title_zh}" for a in critical_or_high]
@@ -818,6 +868,19 @@ def build_tactical_guidance(
             "script_en": f"With main LD cap at {main_ld}% and subcontract LD cap at {sub_ld}%, Contractor shall enforce direct contractual breach indemnity and interim certified back-charges to close interface exposure."
         })
 
+    # 2.5 单边长臂制裁与次级制裁非法抗辩话术
+    has_sanctions = (
+        any(getattr(a, "category", "") == "unilateral_sanctions_long_arm" for a in (security_alerts or []))
+        or any(kw.lower() in facts_text.lower() for kw in KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM)
+    )
+    if has_sanctions:
+        scripts.append({
+            "scenario_title": "单边长臂制裁非法阻断与反外国制裁法第12条追偿话术口径",
+            "legal_basis": "反外国制裁法第12条、商务部1号令、Lamesa Investments 案与 Ralli Bros 规则",
+            "script_zh": "我方严正指出：贵方单方援引第三国（如美国）单边制裁与长臂管辖作为拒付工程款或中止履约的理由，在合同准据法及履行地法下均无合法依据（亦不符合 Lamesa 先例要件）。此举已构成重大实质违约。依据中国《反外国制裁法》第12条，执行或协助执行外国歧视性限制措施侵害我方权益的，我方有权向中国法院提起侵权赔偿之诉并申请查封保全贵方在华资产；同时我方已依法向商务主管部门提请阻断令报告。请贵方于7日内恢复履约并切换备用清算通道。",
+            "script_en": "Contractor firmly rejects Employer's reliance on extraterritorial unilateral sanctions (e.g. OFAC/Entity List) as justification for non-payment or suspension. Such third-country sanctions lack governing law validity and do not constitute legal impossibility under the Lex Loci Solutionis doctrine. Under PRC Anti-Foreign Sanctions Law Art. 12, implementing discriminatory foreign sanctions entitles us to pursue civil damages and asset freezes in Chinese courts. We demand immediate resumption and currency switch within 7 days."
+        })
+
     # 3. 7日内紧急发函与取证清单 (Urgent Actions - 自适应国别)
     urgent_actions = [
         {
@@ -898,6 +961,50 @@ def build_tactical_guidance(
                 "联营体中方技术转移培训与属地劳工提升方案"
             ]
         })
+
+    if has_sanctions:
+        urgent_actions.extend([
+            {
+                "action_type": "清算切换",
+                "deadline_tag": "3日内",
+                "document_template_title": "《结算币种切换与非美元备用清算通道启用函 (CIPS / Local Currency Switch Notice)》",
+                "key_points": [
+                    "指定离岸人民币或东道国双边本币清算账户",
+                    "排除涉及受制裁美元中转行的结算路径",
+                    "通知业主按替代路由拨付工程款"
+                ]
+            },
+            {
+                "action_type": "大律师意见",
+                "deadline_tag": "7日内",
+                "document_template_title": "《聘请东道国大律师就单边制裁不构成履行不能出具法律意见书》",
+                "key_points": [
+                    "依据准据法判定单边制裁是否构成不可抗力",
+                    "援引 Lamesa 案先例锁定外方实质违约责任",
+                    "准备仲裁反诉与临时止付证据卷宗"
+                ]
+            },
+            {
+                "action_type": "境内反制",
+                "deadline_tag": "14日内",
+                "document_template_title": "《依据反外国制裁法第12条就配合制裁侵权行为固定境内起诉证据清单》",
+                "key_points": [
+                    "梳理外方及其关联实体在华资产与股权线索",
+                    "向中级人民法院申请诉前财产保全",
+                    "计算因外方停工/拒付造成的实际损失与预期利益"
+                ]
+            },
+            {
+                "action_type": "阻断报备",
+                "deadline_tag": "30日内",
+                "document_template_title": "《商务部阻断办法第5条境外制裁30日法定报告书与中信保重大制裁险出险报损申请》",
+                "key_points": [
+                    "向国家商务部涉外经贸主管部门递交正式报告",
+                    "向中国信保递交政治风险与制裁特别出险备案",
+                    "请求商务部评估核发《不得承认与执行指令》"
+                ]
+            }
+        ])
 
     return {
         "qualitative_verdict": qualitative_verdict,

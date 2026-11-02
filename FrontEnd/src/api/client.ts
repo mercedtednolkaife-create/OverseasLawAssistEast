@@ -40,7 +40,7 @@ export function getAuthToken(): string {
 }
 
 export async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  const { timeoutMs = 25000, params, headers, ...customConfig } = options;
+  const { timeoutMs = 60000, params, headers, ...customConfig } = options;
 
   let url = `${DEFAULT_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   if (params) {

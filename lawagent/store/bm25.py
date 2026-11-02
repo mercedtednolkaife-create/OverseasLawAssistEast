@@ -115,7 +115,14 @@ class BM25Engine:
             if law_filter:
                 doc_law = meta.get("law", "")
                 clean_law = law_filter.replace("asean_", "").upper()
-                if doc_law != law_filter and not (clean_law and (doc_law.upper().startswith(clean_law) or f":{clean_law}" in cid or f"{clean_law}:" in cid)):
+                cid_upper = cid.upper()
+                matched = False
+                if doc_law == law_filter or (clean_law and (doc_law.upper().startswith(clean_law) or f":{clean_law}" in cid or f"{clean_law}:" in cid)):
+                    matched = True
+                # TREATY, FIDIC, INTL, CN 母国监管与双边协定等通用规则不应被排除
+                if any(cp in cid_upper for cp in (":FIDIC:", ":TREATY:", ":ACIA:", ":CAFTA:", ":RCEP:", ":ICSID:", ":PCA:", ":SIAC:", ":CN:", ":SINOSURE:", ":DTA:", ":MDB:", ":INTL:")):
+                    matched = True
+                if not matched:
                     continue
 
             scored_pairs.append((cid, float(score)))

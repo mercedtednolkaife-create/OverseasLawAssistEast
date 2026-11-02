@@ -4,6 +4,7 @@
 - 支持 BAAI/bge-reranker-v2-m3，并提供平滑回退保障
 """
 
+import os
 import logging
 from typing import List, Tuple, Dict, Any, Optional
 import torch
@@ -26,6 +27,12 @@ class Reranker:
     def _load_model(self):
         if self._model is None and self.enabled:
             try:
+                if not torch.cuda.is_available():
+                    torch.set_num_threads(min(4, os.cpu_count() or 4))
+                    try:
+                        torch.set_num_interop_threads(1)
+                    except RuntimeError:
+                        pass
                 from lawagent.store.models_loader import load_cross_encoder
                 self._model = load_cross_encoder(self.model_name, max_length=512, device=self.device)
             except Exception as e:
@@ -53,12 +60,19 @@ class Reranker:
             sorted_cands = sorted(candidates, key=lambda x: x.get("rrf_score", 0.0), reverse=True)
             return [(c, c.get("rrf_score", 0.0)) for c in sorted_cands[:top_k]]
 
-        # 性能优化：限制查询与法条输入长度，防止 Cross-Encoder 长文本拖慢推理
+        # 性能优化：限制重排候选池上限 (至多 16 项) 与输入文本长度 (512 字符)，大幅降低 CPU 推理时延
+        rerank_cands = candidates[:16]
         trunc_query = query[:256]
-        pairs = [[trunc_query, (c.get("text") or "")[:1024]] for c in candidates]
+        pairs = [[trunc_query, (c.get("text") or "")[:512]] for c in rerank_cands]
         try:
-            scores = self._model.predict(pairs, show_progress_bar=False)
-            scored = list(zip(candidates, [float(s) for s in scores]))
+            with torch.inference_mode():
+                scores = self._model.predict(
+                    pairs,
+                    batch_size=8,
+                    show_progress_bar=False,
+                    convert_to_numpy=True
+                )
+            scored = list(zip(rerank_cands, [float(s) for s in scores]))
             scored.sort(key=lambda x: x[1], reverse=True)
             return scored[:top_k]
         except Exception as e:

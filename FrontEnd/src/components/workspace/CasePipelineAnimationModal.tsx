@@ -39,7 +39,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       {
         id: 'asean-gate',
         stepNumber: '01',
-        title: 'Agent正在执行投资准入识别、东道国外资限制与央企合规前置审查',
+        title: '第一阶段：投资准入识别、东道国外资限制与央企合规前置审查',
         coreAction: '核验东道国外商投资负面清单（泰FBA/菲PCAB/印尼投资法）、土地所有权限制及国资委35号令门禁',
         durationMs: 3200,
         pills: ['东道国外资准入', '负面清单核查', '国资委35号令门禁'],
@@ -47,7 +47,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       {
         id: 'decomposition',
         stepNumber: '02',
-        title: 'Agent正在执行跨境投资与工程准入合规要项结构化拆解',
+        title: '第二阶段：跨境投资与工程准入合规要项结构化拆解',
         coreAction: '将投资合规要项拆解为外资股权红线(40%)、本地化率(TKDN)、PPP特许经营换届征收与中信保30日报损',
         durationMs: 3200,
         pills: ['外资持股比例', 'TKDN/准入牌照', '中信保报损时效'],
@@ -55,7 +55,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       {
         id: 'hybrid-rag',
         stepNumber: '03',
-        title: 'Agent正在执行东盟外资法典、BOI政策通告与特许经营判例检索',
+        title: '第三阶段：东盟外资法典、BOI政策通告与特许经营判例检索',
         coreAction: '检索东道国外资法典、菲律宾Manila Water判例、中菲/中越双边投资协定(BIT)与PPP法典现行规范',
         durationMs: 3200,
         pills: ['外资保护条约', '权威司法先例', 'BOI投资优惠'],
@@ -63,7 +63,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       {
         id: 'verification',
         stepNumber: '04',
-        title: 'Agent正在执行东道国政府批文防伪与投前尽调证据闭环核验',
+        title: '第四阶段：东道国政府批文验真与投前尽调证据闭环核验',
         coreAction: '对齐东道国投资部(BKPM/BOI)官方正本，核验特许权协议、征地环评批文与合资联营架构真实性',
         durationMs: 3200,
         pills: ['投资部一手批文', '尽调证据链闭环', '穿透式合规审查'],
@@ -71,7 +71,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
       {
         id: 'synthesis',
         stepNumber: '05',
-        title: 'Agent正在执行投前准入构成要件评估与合规落地审查意见书生成',
+        title: '第五阶段：投前准入构成要件评估与合规审查意见书生成',
         coreAction: '完成准入要件充分性评估与投资架构对冲设计，生成投前合规审查意见书与双包落地指引',
         durationMs: 3200,
         pills: ['准入合规评估', '投资对冲方案', '合规意见书就绪'],
@@ -83,7 +83,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
     {
       id: 'asean-gate',
       stepNumber: '01',
-      title: 'Agent正在执行准据法识别、东道国强行法与央企安全审查',
+      title: '第一阶段：准据法识别、东道国强行法与央企安全审查',
       coreAction: '核验合同选法有效性、东道国强行法（印尼建筑法/越南新建设法/马来CIPAA）及国资委35号令安全门禁',
       durationMs: 3200,
       pills: ['东道国准据法', '强行法审查', '国资委35号令门禁'],
@@ -91,7 +91,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
     {
       id: 'decomposition',
       stepNumber: '02',
-      title: 'Agent正在执行涉外建设工程争议焦点结构化拆解',
+      title: '第二阶段：涉外建设工程争议焦点结构化拆解',
       coreAction: '将工程诉求拆解为工期顺延(EOT)、FIDIC 20.1 28天索赔失权通知、背靠背付款及本地化率(TKDN)争点',
       durationMs: 3200,
       pills: ['FIDIC 8.4/20.1 时效', '背靠背付款效力', 'TKDN 配额审查'],
@@ -99,7 +99,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
     {
       id: 'hybrid-rag',
       stepNumber: '03',
-      title: 'Agent正在执行东盟法典、司法通告与工程裁判先例检索',
+      title: '第三阶段：东盟法典、司法通告与工程裁判先例检索',
       coreAction: '检索东道国成文法典、印尼SEMA 3/2023、新加坡BS Mount Sophia保函止付先例与FIDIC通用条件',
       durationMs: 3200,
       pills: ['东盟现行法条', '权威裁判先例', 'FIDIC GC vs PC'],
@@ -107,7 +107,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
     {
       id: 'verification',
       stepNumber: '04',
-      title: 'Agent正在执行司法部“法通网”官方规范防伪与工程证据核验',
+      title: '第四阶段：司法部“法通网”官方规范防伪与工程证据核验',
       coreAction: '对齐司法部法通网与东盟一手正本，完成停工令、工程师指令、签证单与第三方认证真实性核验',
       durationMs: 3200,
       pills: ['官方多语正本', '工程留痕证据闭环', '三道防线合规审查'],
@@ -115,7 +115,7 @@ export const buildPipelineStages = (caseMeta?: PipelineCaseMeta) => {
     {
       id: 'synthesis',
       stepNumber: '05',
-      title: 'Agent正在执行法定构成要件审查与央企合规查明意见书生成',
+      title: '第五阶段：法定构成要件审查与央企合规查明意见书生成',
       coreAction: '完成违约责任阻断与保函止付构成要件核验，生成出海基建央企法庭级查明意见书与信保保全指引',
       durationMs: 3200,
       pills: ['法定构成要件审查', '保函抗辩救济', '查明意见书就绪'],
@@ -203,7 +203,7 @@ export const CasePipelineAnimationModal: React.FC<CasePipelineAnimationModalProp
               <div className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
                 <span className="text-xs font-semibold text-blue-600 font-mono tracking-wide">
-                  Agent 正在实时查明推演 ({activeIndex + 1} / {stages.length})
+                  多阶段法律查明与合规推演流程 ({activeIndex + 1} / {stages.length})
                 </span>
               </div>
               <p className="text-sm font-bold text-slate-900 truncate max-w-sm sm:max-w-xl mt-0.5">

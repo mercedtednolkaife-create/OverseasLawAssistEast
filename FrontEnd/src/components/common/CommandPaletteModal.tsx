@@ -10,7 +10,7 @@ import {
   Users,
   Plus,
   ArrowRight,
-  Bot,
+  BookOpen,
   Command,
 } from 'lucide-react';
 
@@ -56,9 +56,9 @@ export const CommandPaletteModal: React.FC = () => {
       {
         id: 'action-open-copilot',
         category: '快捷操作',
-        title: 'AI 法律助手',
+        title: '案卷法务问询',
         desc: '法规咨询、时效审查与抗辩推演',
-        icon: Bot,
+        icon: BookOpen,
         action: () => {
           closeCommandPalette();
           openRightDock('case_copilot');

@@ -65,9 +65,9 @@ CROSS_LEGAL_SYSTEM_RULES: Dict[str, Dict[str, Any]] = {
                 "statute_refs": ["Denka Advantech [2020] SGCA 119", "Cubic Electronics [2019] 6 MLJ 15", "Contracts Act Sec 74 75"]
             },
             "asean_vn": {
-                "doctrine_note": "越南大陆法系下商事合同违约金受《商事法》第301条8%上限强行法刚性限制；政府投资项目受第37/2015号法令第12条上限12%限制，超出部分依法无效。",
-                "tokens": ["mức phạt vi phạm", "penalty cap 8%", "Điều 301 Luật Thương mại", "Nghị định 37 2015 Điều 12", "phạt hợp đồng"],
-                "statute_refs": ["VN:Commercial_Law_2005:Art301", "VN:Decree_37_2015:Art14"]
+                "doctrine_note": "越南大陆法系下商事合同违约金受《商事法》第301条8%上限强行法刚性限制；建设工程合同依据《建设法》第146条/新建设法第86.2条，使用国家资本工程违约金上限为12%，民间投资项目允许约定违约金与实际合理损害赔偿（Bồi thường thiệt hại）并用，超出法定上限部分无效。",
+                "tokens": ["mức phạt vi phạm", "penalty cap 8%", "Điều 301 Luật Thương mại", "Luật Xây dựng Điều 146", "Luật Xây dựng 2025 Điều 86.2", "bồi thường thiệt hại", "phạt hợp đồng"],
+                "statute_refs": ["VN:Commercial_Law_2005:Art301", "VN:Decree_37_2015:Art14", "VN:Construction_Law_2014:Art146"]
             },
             "asean_kh": {
                 "doctrine_note": "柬埔寨民法典第403条明文确立违约金不可增减原则：当事人事先约定违约金的，法院原则上无权增加或减少违约金金额（沿袭日本民法传统）。",
@@ -273,6 +273,31 @@ CROSS_LEGAL_SYSTEM_RULES: Dict[str, Dict[str, Any]] = {
                 "doctrine_note": "东帝汶审计院法（Law 9/2011）第45-48条规定，公共工程合同若遭审计院拒发 Visto 签证，总承包商与项目部可在15日内向审计院全会提起复议（Recurso Ordinário），若全会维持拒绝，可进一步向上诉法院（Court of Appeal）提出司法审查诉讼，诉讼期间暂停工程开工。",
                 "tokens": ["Recusa de Visto", "Recurso Ordinário", "Law No 9 2011 Art 45", "Tribunal de Recurso", "Câmara de Contas appeal"],
                 "statute_refs": ["TL:Law_9_2011_Audit_Court:Art45", "TL:Law_9_2011_Audit_Court:Art48"]
+            }
+        }
+    },
+    "反制裁与长臂管辖": {
+        "keywords": ["反制裁", "长臂管辖", "单边制裁", "OFAC", "SDN", "实体清单", "阻断办法", "次级制裁", "反外国制裁法", "sanctions", "secondary sanctions"],
+        "mappings": {
+            "general": {
+                "doctrine_note": "中国《反外国制裁法》第12条严禁任何组织和个人执行或协助外国歧视性限制措施；商务部《阻断外国法律与措施不当域外适用办法》（2021年1号令）第5条要求30日内报告，第7条可发布不得承认阻断令；受害方有权向中国法院提起民事侵权索赔并申请财产保全。",
+                "tokens": ["Anti-Foreign Sanctions Law Art 12", "MOFCOM Order 1 2021", "Blocking Statute", "Unreliable Entity List", "反外国制裁法第12条", "商务部阻断办法"],
+                "statute_refs": ["CN:Anti_Foreign_Sanctions_Law:Art3_4_12_15", "CN:MOFCOM_Order_1_2021:Blocking_Statute", "CN:State_Council_AFSL_Reg_2025:Art1_22"]
+            },
+            "common_law": {
+                "doctrine_note": "英美普通法在 Lamesa Investments Ltd v Cynergy Bank Ltd [2020] EWCA Civ 821 先例中确立：单边制裁是否构成履行不能取决于合同特殊措辞（如 mandatory provision of law）；普通法 Ralli Bros 规则仅在合同履行地（Lex Loci Solutionis）法使履行为非法时免责，外国单边长臂制裁原则上不构成合法履行不能。",
+                "tokens": ["Lamesa Investments v Cynergy Bank", "Ralli Brothers doctrine", "lex loci solutionis illegality", "unilateral extraterritorial sanctions defence", "force majeure sanctions"],
+                "statute_refs": ["REF_CASE:UK_CA:Lamesa_v_Cynergy_2020", "REF_CASE:SG_SICC:Sanctions_LC_Payment_2023"]
+            }
+        }
+    },
+    "出口管制与供应链断供": {
+        "keywords": ["出口管制", "物项管制", "供应链断供", "断供", "两用物项", "商务部管制", "export control", "dual use items"],
+        "mappings": {
+            "general": {
+                "doctrine_note": "中国《出口管制法》第12条与第44条对管制物项、两用物项及军民两用技术出境实施严格最终用户与最终用途许可制度，违反构成行政及刑事违法；与东道国技术引进或转售要求产生冲突时，必须履行中国商务部许可前置程序。",
+                "tokens": ["Export Control Law Art 12", "end user end use certification", "two way export control compliance", "出口管制法", "最终用户证明"],
+                "statute_refs": ["CN:Export_Control_Law_2020:Art12_44"]
             }
         }
     }

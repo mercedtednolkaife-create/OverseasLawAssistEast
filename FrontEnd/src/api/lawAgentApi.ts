@@ -272,6 +272,7 @@ export const lawAgentApi = {
     return await request<CaseChatResponse>(`/cases/${caseId}/chat`, {
       method: 'POST',
       body: JSON.stringify({ messages, role_view: roleView, mode }),
+      timeoutMs: 60000,
     });
   },
 
@@ -443,6 +444,7 @@ export const lawAgentApi = {
     return await request<IntakeExtractResponse>('/cases/extract-intake', {
       method: 'POST',
       body: JSON.stringify(payload),
+      timeoutMs: 90000,
     });
   },
 
@@ -489,6 +491,71 @@ export const lawAgentApi = {
       method: 'POST',
       body: formData,
     });
+  },
+
+  /**
+   * 中-东盟双向合规动态审查与冲突消解对标
+   * 对应 POST /compliance/dual-check
+   */
+  async runDualComplianceCheck(payload: {
+    jurisdiction: string;
+    facts_zh?: string;
+    facts_text?: string;
+    claims_zh?: string;
+    claims_text?: string;
+    title?: string;
+    lifecycle_stage?: string;
+    declared_equity_pct?: number;
+    declared_tkdn_pct?: number;
+    has_overseas_transfer?: boolean;
+    data_outbound_sensitive?: boolean;
+    has_sanctions_clause?: boolean;
+    engineering_params?: Record<string, any>;
+  }): Promise<DualComplianceAudit> {
+    return await request<DualComplianceAudit>('/compliance/dual-check', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * 案卷实务经验向合规规则库反馈沉淀
+   * 对应 POST /cases/{id}/feedback-to-compliance
+   */
+  async feedbackToCompliance(
+    caseId: string,
+    payload: {
+      rule_code: string;
+      feedback_type: 'corroboration' | 'amendment' | 'exception';
+      comment: string;
+      suggested_statute?: string;
+    }
+  ): Promise<{ status: string; rule_code: string; message: string }> {
+    return await request<{ status: string; rule_code: string; message: string }>(
+      `/cases/${caseId}/feedback-to-compliance`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+  },
+
+  /**
+   * GraphRAG 拓扑子图按层与跳数真实检索
+   * 对应 GET /search/graph-neighborhood
+   */
+  async getGraphNeighborhood(
+    nodeId: string,
+    hops: number = 1,
+    layer: string = 'ALL'
+  ): Promise<{ center_node: string; hops: number; nodes: any[]; edges: any[] }> {
+    return await request<{ center_node: string; hops: number; nodes: any[]; edges: any[] }>(
+      '/search/graph-neighborhood',
+      {
+        method: 'GET',
+        params: { node_id: nodeId, hops, layer },
+      }
+    );
   },
 };
 

@@ -44,6 +44,8 @@ class SecurityAlertItem(BaseModel):
         "resource_nationalism_tkdn",
         "creeping_expropriation",
         "sanctions_debarment_risk",
+        "mdb_debarment_risk",
+        "unilateral_sanctions_long_arm",
         "cross_border_data_art36",
         "sasac_supervision_redline"
     ]
@@ -249,6 +251,70 @@ class EntryCheckItem(BaseModel):
     detail: str
 
 
+class DualComplianceItem(BaseModel):
+    """中-东盟双向合规单项对标模型"""
+    dimension: str                       # 投资准入 / 融资担保 / 数据出口 / 工程分包 / 争端出险
+    side: Literal["prc_outbound", "host_country", "bidirectional_conflict"]
+    status: Literal["pass", "warning", "violation", "collision"]
+    rule_code: str
+    title_zh: str
+    prc_statute: Optional[str] = None
+    host_statute: Optional[str] = None
+    collision_desc: Optional[str] = None
+    mitigation_clause_zh: Optional[str] = None
+    action_guidance: Optional[str] = None
+    prc_summary: Optional[str] = None
+    host_summary: Optional[str] = None
+    resolution_strategy: Optional[str] = None
+    prc_norms: List[str] = Field(default_factory=list)
+    host_norms: List[str] = Field(default_factory=list)
+    approval_chain: List[str] = Field(default_factory=list)
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.prc_summary:
+            self.prc_summary = self.prc_statute or self.title_zh
+        if not self.host_summary:
+            self.host_summary = self.host_statute or self.collision_desc or ""
+        if not self.resolution_strategy:
+            self.resolution_strategy = self.action_guidance or self.mitigation_clause_zh or ""
+        if not self.prc_norms and self.prc_statute:
+            self.prc_norms = [self.prc_statute]
+        if not self.host_norms and self.host_statute:
+            self.host_norms = [self.host_statute]
+
+    @property
+    def is_collision(self) -> bool:
+        return self.status == "collision" or self.side == "bidirectional_conflict"
+
+    @property
+    def topic_zh(self) -> str:
+        return self.title_zh
+
+    @property
+    def risk_level(self) -> str:
+        if self.status in ("violation", "collision"):
+            return "CRITICAL"
+        if self.status == "warning":
+            return "HIGH"
+        return "SAFE"
+
+
+class DualComplianceAudit(BaseModel):
+    """中-东盟双向合规审查与冲突消解汇总模型"""
+    host_country: str = ""
+    total_checked: int = 0
+    prc_score: float = 100.0
+    host_score: float = 100.0
+    collision_count: int = 0
+    items: List[DualComplianceItem] = Field(default_factory=list)
+    approval_chain: List[Dict[str, str]] = Field(default_factory=list)
+    summary_zh: str = ""
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.total_checked and self.items:
+            self.total_checked = len(self.items)
+
+
 class SimilarCaseItem(BaseModel):
     case_id: str
     eid: str
@@ -364,6 +430,7 @@ class CaseState(BaseModel):
     attached_artifacts: List[Dict[str, Any]] = Field(default_factory=list)  # 挂载的合同红线扫描、重点法条引证、专家避冲记录
     compared_jurisdictions: List[str] = Field(default_factory=list)  # 多国横向比选案卷国别列表
     crag_trace: Optional[Dict[str, Any]] = None  # CRAG 自省式检索充分性门禁与跨层补偿轨迹
+    dual_compliance_audit: Optional[DualComplianceAudit] = None  # 中-东盟双向合规审查与冲突消解审计结果
     status: CaseWorkflowStatus = "draft"
     created_at: str = ""
     updated_at: str = ""

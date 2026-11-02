@@ -9,6 +9,7 @@ import yaml
 import re
 import datetime
 import logging
+import asyncio
 from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ from lawagent.core.types import (
     EntryCheckItem, LifecycleStage
 )
 from lawagent.llm.client import LLMClient
-from lawagent.store.retriever import HybridRetriever
+from lawagent.store.retriever import HybridRetriever, get_cached_retriever
 from lawagent.store.snapshots import SnapshotManager
 from lawagent.flow.checks import generate_entry_checks, timepoint_level
 from lawagent.flow.sufficiency import evaluate_sufficiency_rule, evaluate_sufficiency_llm, compute_sufficiency_score
@@ -174,6 +175,18 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
             detail=th_eval.get("recommendation", "")
         ))
 
+    # 4. 运行中-东盟双向合规审查引擎 (Dual Compliance Engine)
+    from lawagent.flow.dual_compliance import DualComplianceEngine
+    dual_audit = DualComplianceEngine.evaluate(state)
+    if dual_audit and dual_audit.collision_count > 0:
+        for it in dual_audit.items:
+            if it.is_collision:
+                entry_checks.append(EntryCheckItem(
+                    name=f"【双向合规法域冲突】{it.topic_zh}",
+                    status="uncertain",
+                    detail=f"中国法红线：{it.prc_summary}；东道国法冲突：{it.host_summary}。冲突消解路径：{it.resolution_strategy}"
+                ))
+
     engineering_audit = {
         "tkdn_eval": tkdn_eval,
         "eot_eval": eot_eval,
@@ -193,6 +206,7 @@ async def s2_precheck_node(state: CaseState) -> Dict[str, Any]:
         "timepoint": {"level": tp_level, "reasons": tp_reasons},
         "security_alerts": security_alerts,
         "engineering_audit": engineering_audit,
+        "dual_compliance_audit": dual_audit,
         "status": status,
         "current_node": "s2_precheck",
         "updated_at": _now()
@@ -488,6 +502,26 @@ async def s3_decompose_node(state: CaseState) -> Dict[str, Any]:
     except Exception as e:
         logger.debug(f"Risk community injection skipped: {e}")
 
+    # 注入中-东盟双向合规冲突消解争议焦点与必选法规
+    if getattr(state, "dual_compliance_audit", None) and state.dual_compliance_audit.collision_count > 0:
+        audit = state.dual_compliance_audit
+        collided = [it for it in audit.items if it.is_collision]
+        if collided:
+            conflict_issue_id = f"ISSUE_DUAL_COMPLIANCE_{len(issues) + 1:02d}"
+            topic_names = "、".join(it.topic_zh for it in collided)
+            issues.append(Issue(
+                issue_id=conflict_issue_id,
+                kind="law",
+                text_zh=f"中-东盟双向合规审查与法域冲突消解：涉及【{topic_names}】等 {len(collided)} 项冲突红线",
+                claim_ids=[c.cid for c in state.claims],
+                element_ids=[f"e_dc_{i+1}" for i in range(len(collided))] or ["e1"]
+            ))
+            for it in collided:
+                for q in questions:
+                    for n in (it.prc_norms + it.host_norms):
+                        if n not in q.must_norms:
+                            q.must_norms.append(n)
+
     # 判断是否在此暂停供用户交互确认 (S3 Gate)
     status = state.status
     if state.mode == "full" and any(q.status == "draft" for q in questions):
@@ -508,7 +542,7 @@ async def s3_decompose_node(state: CaseState) -> Dict[str, Any]:
 # =====================================================================
 async def researcher_node(state: CaseState) -> Dict[str, Any]:
     """S4 节点：混合检索、东盟工程审查算子、证据打包与充分性判定循环"""
-    retriever = HybridRetriever(snapshot_id=state.snapshot_id)
+    retriever = get_cached_retriever(snapshot_id=state.snapshot_id)
     evidence_dict: Dict[str, Evidence] = dict(state.evidence)
     elements: List[ElementState] = list(state.elements)
     client = LLMClient()
@@ -517,9 +551,9 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
         # 1. 收集检索词
         search_queries = list(q.queries_target or q.queries_de) if (q.queries_target or q.queries_de) else [q.text_zh]
         
-        # 2. 执行检索与法域纯净化过滤
-        for q_str in search_queries:
-            results = retriever.search(q_str, top_k=6, must_norms=q.must_norms)
+        # 2. 执行检索与法域纯净化过滤 (限制核心检索词至多 3 组，避免重复检索拖慢时延；异步线程池执行防阻塞事件循环)
+        for q_str in search_queries[:3]:
+            results = await asyncio.to_thread(retriever.search, q_str, top_k=6, must_norms=q.must_norms)
             for res in results:
                 # 严格过滤德美历史条文
                 if any(k in res.ref_id for k in ["BGH", "BGB", "HGB", "ZPO", "UCC", "USC", "SCOTUS", "CIR"]):
@@ -582,7 +616,8 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
             l2_compensated_refs = []
             graph_1hop_refs = []
 
-            for el in missing_elems:
+            # 限制 CRAG 跨层补偿至多选取 2 项最关键缺失要件深潜，兼顾国际法源补充与推理时效
+            for el in missing_elems[:2]:
                 el.rounds += 1
                 gap_kw = f" {el.gap_note}" if el.gap_note else ""
                 reformulated = f"{el.name_zh}{gap_kw} {jur} contract dispute statute law".strip()
@@ -590,13 +625,14 @@ async def researcher_node(state: CaseState) -> Dict[str, Any]:
                 aligned_q = retriever.expand_query(reformulated, jurisdiction=jur)
                 reformulated_queries.append(aligned_q)
 
-                # 4.1 L1 核心层深潜补查
-                l1_sub_results = retriever.search(aligned_q, top_k=4, law_filter=jur)
+                # 4.1 L1 核心层深潜补查 (异步线程池执行)
+                l1_sub_results = await asyncio.to_thread(retriever.search, aligned_q, top_k=4, law_filter=jur)
                 # 4.2 L2 广覆盖参考层跨层补偿 (双边条约/海牙送达取证/PAM/PSSCOC/FIDIC/投资仲裁先例)
-                l2_sub_results = retriever.search_l2(aligned_q, top_k=4, law_filter=jur)
+                l2_sub_results = await asyncio.to_thread(retriever.search_l2, aligned_q, top_k=4, law_filter=jur)
                 if len(l2_sub_results) < 2:
                     # 全局条约与行业标准兜底补偿
-                    l2_sub_results.extend(retriever.search_l2(aligned_q, top_k=3, law_filter=None))
+                    extra_l2 = await asyncio.to_thread(retriever.search_l2, aligned_q, top_k=3, law_filter=None)
+                    l2_sub_results.extend(extra_l2)
 
                 all_candidates = l1_sub_results + l2_sub_results
                 for res in all_candidates:
@@ -952,6 +988,41 @@ async def drafter_node(state: CaseState) -> Dict[str, Any]:
                     status="ok"
                 ))
                 stmt_idx += 1
+
+        # --- Part B 扩展：中-东盟双向合规对标与法域冲突消解专章 ---
+        if getattr(state, "dual_compliance_audit", None) and state.dual_compliance_audit.items:
+            audit = state.dual_compliance_audit
+            chain_desc = ""
+            if getattr(audit, "approval_chain", None):
+                c_steps = [f"{c.get('authority', '')}({c.get('item', '')})" for c in audit.approval_chain if isinstance(c, dict)]
+                if c_steps:
+                    chain_desc = f"推荐合规审批链条：{' ➔ '.join(c_steps[:3])}。"
+
+            for item in audit.items:
+                if item.is_collision or item.risk_level in ("CRITICAL", "HIGH"):
+                    item_chain = ""
+                    if getattr(item, "approval_chain", None) and isinstance(item.approval_chain, list):
+                        item_chain = f"前置审批/备案链条：{' ➔ '.join(str(x) for x in item.approval_chain)}。"
+                    elif chain_desc:
+                        item_chain = chain_desc
+
+                    dc_text = (
+                        f"【中-东盟双向合规与法域冲突消解】专章事项【{item.topic_zh}】(风险等级: {item.risk_level})："
+                        f"中方出海强行法要件：{item.prc_summary}（依据：{', '.join(item.prc_norms)}）；"
+                        f"东道国法域规制要求：{item.host_summary}（依据：{', '.join(item.host_norms)}）。"
+                        f"法域冲突消解方案：{item.resolution_strategy}。"
+                        f"{item_chain}"
+                    )
+                    statements.append(Statement(
+                        sid=f"S{stmt_idx}",
+                        text_zh=dc_text,
+                        type="inference",
+                        evidence_ids=list(state.evidence.keys())[:1],
+                        part="B",
+                        fact_ids=[state.facts[0].fid] if state.facts else [],
+                        status="ok"
+                    ))
+                    stmt_idx += 1
 
         gaps = [
             f"构成要件【{el.name_zh}】事实状态为【{el.match_status or 'missing'}】，建议委托{counsel_label}线下调取凭证"

@@ -208,6 +208,7 @@ def test_e2e_docx_export(client):
 
 def test_e2e_extract_intake(client):
     """验收 9: 验证建案前原始邮件/索赔函一键智能要素抽提 (/api/cases/extract-intake)"""
+    from unittest.mock import patch, AsyncMock
     claim_email = """
     From: Employer PM (Jakarta)
     To: China Contractor EPC Team
@@ -216,15 +217,22 @@ def test_e2e_extract_intake(client):
     Your progress is currently delayed by 45 days. Under FIDIC Silver Clause 20.1, you were required to serve notice within 28 days of the event, but your notice arrived after 35 days.
     Furthermore, your TKDN local content is only 28%, violating MEMR Reg 11/2024. Liquidated damages will be capped at 10%. Sinosure notice must be preserved within 20 days.
     """
-    res = client.post("/api/cases/extract-intake", json={"raw_text": claim_email})
-    assert res.status_code == 200
-    data = res.json()
-    assert data["jurisdiction"] == "asean_id"
-    assert data["lifecycle_stage"] == "execution_dispute"
-    assert data["extracted_params"]["notice_days"] == 28 or data["extracted_params"]["notice_days"] == 35
-    assert data["extracted_params"]["delay_days"] == 45
-    assert data["extracted_params"]["declared_tkdn_pct"] == 28.0
-    assert data["extracted_params"]["main_ld_cap_pct"] == 10.0
+    with patch("lawagent.llm.client.LLMClient.chat_json", new_callable=AsyncMock) as mock_chat:
+        mock_chat.return_value = {
+            "title": "中资企业诉印尼业主工期延误与违约金扣除争议案",
+            "suggested_jurisdiction": "asean_id",
+            "governing_law": "asean_id",
+            "lifecycle_stage": "execution_dispute"
+        }
+        res = client.post("/api/cases/extract-intake", json={"raw_text": claim_email})
+        assert res.status_code == 200
+        data = res.json()
+        assert data["jurisdiction"] == "asean_id"
+        assert data["lifecycle_stage"] == "execution_dispute"
+        assert data["extracted_params"]["notice_days"] == 28 or data["extracted_params"]["notice_days"] == 35
+        assert data["extracted_params"]["delay_days"] == 45
+        assert data["extracted_params"]["declared_tkdn_pct"] == 28.0
+        assert data["extracted_params"]["main_ld_cap_pct"] == 10.0
 
 
 def test_e2e_attach_artifact_and_simulate_guidance(client):

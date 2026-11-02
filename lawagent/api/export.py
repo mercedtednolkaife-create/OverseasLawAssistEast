@@ -322,8 +322,46 @@ def generate_case_docx(state: CaseState) -> BytesIO:
 
         doc.add_paragraph()
 
+    # 4B. 中-东盟双向合规审查与法域冲突消解专章 (Dual Compliance & Conflict Resolution)
+    if getattr(state, "dual_compliance_audit", None) and state.dual_compliance_audit.items:
+        audit = state.dual_compliance_audit
+        doc.add_heading("五、中-东盟双向合规审查与法域冲突消解专章 (Dual Compliance Audit)", level=1)
+        h_country = (getattr(audit, "host_country", None) or (state.meta.jurisdiction or "ASEAN").replace("asean_", "")).upper()
+        t_checked = getattr(audit, "total_checked", None) or len(audit.items)
+        c_count = getattr(audit, "collision_count", 0)
+        p_dc_intro = doc.add_paragraph(
+            f"本章节遵循‘双向合规对标与法域冲突消解’原则，穿透审查我国企业境外投资出海强行法与东道国（{h_country}）本地法之碰撞。当前共核验 {t_checked} 项跨法域重点事项，识别出 {c_count} 项法域冲突点与红线。"
+        )
+        p_dc_intro.runs[0].font.color.rgb = RGBColor(30, 64, 175)
+
+        for it_idx, item in enumerate(audit.items, 1):
+            tag = "【🔴 冲突碰撞】" if item.is_collision else "【🟢 对标通过】"
+            r_lvl = getattr(item, "risk_level", "HIGH")
+            doc.add_heading(f"5.{it_idx} {tag} {item.topic_zh} (风险等级: {r_lvl})", level=2)
+            
+            p_dc_body = doc.add_paragraph()
+            p_dc_body.add_run("中国法出海强行法规制：").bold = True
+            p_dc_body.add_run(f"{item.prc_summary}（依据规范：{', '.join(item.prc_norms)}）\n")
+            p_dc_body.add_run("东道国法域规制要求：").bold = True
+            p_dc_body.add_run(f"{item.host_summary}（依据规范：{', '.join(item.host_norms)}）\n")
+            p_dc_body.add_run("法域冲突消解与实操建议：").bold = True
+            p_dc_body.add_run(f"{item.resolution_strategy}\n")
+
+            chain_steps = []
+            if getattr(item, "approval_chain", None):
+                chain_steps = [str(x) for x in item.approval_chain]
+            elif getattr(audit, "approval_chain", None):
+                chain_steps = [f"{c.get('authority', '')}({c.get('item', '')})" for c in audit.approval_chain if isinstance(c, dict)]
+            
+            if chain_steps:
+                p_dc_body.add_run("境内外出海审批/备案链条：").bold = True
+                p_dc_body.add_run(f"{' ➔ '.join(chain_steps)}")
+
+        doc.add_paragraph()
+
     # 5. 工程履约沙盘敏感度测算与商务谈判反驳话术卡
-    doc.add_heading(f"{'五' if state.security_alerts else '四'}、工程履约沙盘敏感度测算与商务谈判反驳话术卡 (Tactical Engineering & Battlecards)", level=1)
+    sec_prefix = "六" if (state.security_alerts and getattr(state, "dual_compliance_audit", None)) else ("五" if (state.security_alerts or getattr(state, "dual_compliance_audit", None)) else "四")
+    doc.add_heading(f"{sec_prefix}、工程履约沙盘敏感度测算与商务谈判反驳话术卡 (Tactical Engineering & Battlecards)", level=1)
     
     # 沙盘参数表
     params = state.meta.engineering_params or {}

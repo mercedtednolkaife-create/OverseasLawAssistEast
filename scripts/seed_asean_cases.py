@@ -804,6 +804,8 @@ def seed_asean_demo_cases(db: StateDBManager, overwrite: bool = False):
                 lifecycle_stage=case.meta.lifecycle_stage.value if hasattr(case.meta.lifecycle_stage, "value") else str(case.meta.lifecycle_stage or "execution_dispute"),
                 security_alerts=case.security_alerts
             )
+            from lawagent.flow.dual_compliance import DualComplianceEngine
+            case.dual_compliance_audit = DualComplianceEngine.evaluate(case)
             db.save_case(case, title=case.title)
             logger.info(f"Successfully seeded ASEAN Case {cid}")
 

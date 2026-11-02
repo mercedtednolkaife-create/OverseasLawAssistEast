@@ -26,11 +26,11 @@ import {
   Share2,
   Sparkles,
   Maximize2,
-  Bot,
 } from 'lucide-react';
 import { GradeBadge } from '../common/GradeBadge';
 import { CitationGraphFullscreenModal } from './CitationGraphFullscreenModal';
 import { ViabilityCalculationModal } from './ViabilityCalculationModal';
+import { DualComplianceCompass } from './DualComplianceCompass';
 import { TacticalGuidance, NegotiationScript, UrgentAction, AttachedArtifact } from '../../types/lawAgent';
 import { getJurisdictionConfig, ASEAN_JURISDICTIONS } from '../../configs/jurisdictions';
 
@@ -1013,10 +1013,10 @@ export const CaseAnalysisView: React.FC = () => {
                   ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-xs'
                   : 'bg-white/90 text-slate-700 border-slate-200/80 hover:bg-white shadow-2xs'
               }`}
-              title={isRightDockOpen ? "收起法律辅助面板" : "展开 AI 法律助手 (Cmd/Ctrl + B)"}
+              title={isRightDockOpen ? "收起法律辅助面板" : "展开案卷法务问询 (Cmd/Ctrl + B)"}
             >
-              <Bot className="w-3.5 h-3.5 text-blue-600" />
-              <span>AI 法律助手</span>
+              <Scale className="w-3.5 h-3.5 text-blue-600" />
+              <span>案卷法务问询</span>
             </button>
           </div>
         </div>
@@ -1027,7 +1027,7 @@ export const CaseAnalysisView: React.FC = () => {
       {/* ========================================================================= */}
       {facet === 'verdict' && (
         <div key="facet-verdict" className="space-y-6 apple-tab-pane">
-          {/* 顶部：三维定性结论遥测带 (中立多维定性研判结论) */}
+          {/* 顶部：中立多维定性研判结论 */}
           <div className="apple-bento-card rounded-[30px] p-6 sm:p-7 space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2">
@@ -1296,6 +1296,15 @@ export const CaseAnalysisView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* 中-东盟双向合规罗盘 (Dual Compliance Compass) */}
+          {currentCase && (
+            <DualComplianceCompass
+              caseState={currentCase}
+              onRefreshCase={refreshCurrentCase}
+              showToast={showToast}
+            />
+          )}
         </div>
       )}
 

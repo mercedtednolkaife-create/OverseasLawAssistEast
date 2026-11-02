@@ -67,7 +67,7 @@ def list_cases(
 
 
 def _ensure_assessment_built(state: CaseState, db: StateDBManager) -> bool:
-    """确保案件的 StrategicAssessment 和 TacticalGuidance 已构建并持久化"""
+    """确保案件的 StrategicAssessment, TacticalGuidance 和 DualComplianceAudit 已构建并持久化"""
     need_save = False
     if state.strategic_assessment is None:
         state.strategic_assessment = build_strategic_assessment(state)
@@ -86,6 +86,10 @@ def _ensure_assessment_built(state: CaseState, db: StateDBManager) -> bool:
             lifecycle_stage=state.meta.lifecycle_stage.value if hasattr(state.meta.lifecycle_stage, "value") else str(state.meta.lifecycle_stage or "execution_dispute"),
             security_alerts=state.security_alerts
         )
+        need_save = True
+    if getattr(state, "dual_compliance_audit", None) is None:
+        from lawagent.flow.dual_compliance import DualComplianceEngine
+        state.dual_compliance_audit = DualComplianceEngine.evaluate(state)
         need_save = True
     if need_save:
         db.save_case(state)
@@ -161,6 +165,9 @@ async def _run_workflow_background(case_id: str, db: StateDBManager, runner: Law
             state.status = "completed"
         if state.strategic_assessment is None:
             state.strategic_assessment = build_strategic_assessment(state)
+        if getattr(state, "dual_compliance_audit", None) is None:
+            from lawagent.flow.dual_compliance import DualComplianceEngine
+            state.dual_compliance_audit = DualComplianceEngine.evaluate(state)
         db.save_case(state)
 
         await sse_manager.broadcast(case_id, "state_update", state.model_dump())
@@ -341,8 +348,8 @@ async def followup_question(
     )
     state.questions.append(q)
 
-    # 补充检索
-    sub_results = retriever.search(payload.question_text, top_k=3)
+    # 补充检索 (异步线程池执行防阻塞事件循环)
+    sub_results = await asyncio.to_thread(retriever.search, payload.question_text, top_k=3)
     added_eids = []
     for res in sub_results:
         eid = f"E{len(state.evidence) + 1}"
@@ -1053,14 +1060,20 @@ async def chat_case(
             last_user_message = msg.content
             break
 
-    is_us = (state.meta.jurisdiction or "").startswith("us_") or any(
+    jur_code = state.meta.jurisdiction or ""
+    is_asean = jur_code.startswith("asean_") or any(
+        kw in (state.meta.choice_of_law or "") for kw in ["东盟", "印尼", "新加坡", "马来西亚", "越南", "老挝", "泰国", "菲律宾", "FIDIC", "CIPAA", "SOPA"]
+    )
+    is_us = not is_asean and ((state.meta.jurisdiction or "").startswith("us_") or any(
         kw in (state.meta.choice_of_law or "") for kw in ["美国", "UCC", "纽约", "特拉华", "加州", "US"]
     ) or any(
         kw in (state.meta.jurisdiction or "") for kw in ["美国", "US", "NY", "DE", "CA"]
-    )
+    ))
 
     # 提取已知法条与争点
-    if is_us:
+    if is_asean:
+        known_statutes = ["FIDIC Silver 20.1", "FIDIC Silver 8.4", "CIPAA 2012 Sec 35", "SOPA 2004 Sec 9", "ID:MEMR 11/2024", "SEMA 3/2023", "信保报损30日"]
+    elif is_us:
         known_statutes = ["UCC § 2-314", "UCC § 2-607", "UCC § 2-714", "UCC § 2-715"]
     else:
         known_statutes = ["BGB § 434", "BGB § 437", "HGB § 377"]
@@ -1073,7 +1086,15 @@ async def chat_case(
 
     # 角色视角系统指令
     if current_mode == "red_teaming":
-        if is_us:
+        if is_asean:
+            role_perspective_prompt = """你现在是涉外工程与投资争议中的【东盟外方业主/被诉方资深对抗首席大律师】(Opposing Red-Team Counsel)。
+你的任务是站在东道国业主或本土联营体的严苛对抗辩护立场，专挑中国承包商/投资方在工期索赔28天失权通知 (FIDIC 20.1)、背靠背付款无效抗辩 (CIPAA Sec 35/SOPA Sec 9)、TKDN属地化率违约扣款、印尼双语文本有效性 (SEMA 3/2023) 及跨境涉外证据调证数据合规漏洞上的所有死穴，展开猛烈质证反击！
+请按照：
+【一、外方核心反击立场与失权主张 (Time-Bar & Statutory Invalidation)】
+【二、外方三大致命质证攻击点 (Cross-Examination Points)】
+【三、我方（中国中资企业法务/代理律师）防守补强与防御要点 (Shield Advice)】
+进行条理分明的对抗剖析，帮助中资法务团队穷尽防守盲区。"""
+        elif is_us:
             role_perspective_prompt = """你现在是涉外商事诉讼中的【美方资深对抗大律师】(Opposing Red-Team Counsel)。
 你的任务是站在美国卖方/被告的极端对抗辩护立场，专挑买方在案情事实、检验时效、合理通知期限 (UCC § 2-607(3)(a))、可预见性损害免责与减损义务 (UCC § 2-715(2)(a)) 上的所有潜在漏洞，展开猛烈质证反击！
 请按照：
@@ -1090,7 +1111,13 @@ async def chat_case(
 【三、我方（中国律师）防守补强与防御要点 (Shield Advice)】
 进行条理分明的对抗剖析，帮助中国律师穷尽防守盲区。"""
     else:
-        if is_us:
+        if is_asean:
+            role_perspective_prompt = {
+                "judicial": "你当前以【司法与仲裁辅助端 (裁判视角)】协助审理，侧重FIDIC工程准据法识别、涉外管辖冲突、属地强行法限制与证据链开示质证焦点。",
+                "practitioner": "你当前以【实务专业端 (律师视角)】提供诉讼与出庭策略，侧重FIDIC索赔权基础、反制止付保函、东道国强行法避冲、中信保出险报损联动与和解筹码。",
+                "public": "你当前以【公共服务端 (商事合规视角)】提供通俗法律指引与商事合规建议，侧重东盟国别工程投资合规前置防线与涉外商事争议调解。"
+            }.get(payload.role_view, "你当前以【实务专业端 (律师视角)】提供专业法律研判。")
+        elif is_us:
             role_perspective_prompt = {
                 "judicial": "你当前以【司法辅助端 (法官视角)】协助审理，侧重准据法识别、事实调查要点、美国证据法及先例判例下的举证责任分配与庭审质证焦点。",
                 "practitioner": "你当前以【实务专业端 (律师视角)】提供诉讼与出庭策略，侧重 UCC 请求权基础、美方抗辩防范、证据链补强及和解筹码。",
@@ -1107,13 +1134,13 @@ async def chat_case(
 【案件编号】: {state.case_id}
 【基本案情】: {state.facts_zh[:800]}
 【原告诉求】: {state.claims_zh or "未填"}
-【准据法选法】: {state.meta.choice_of_law or ('约定美国纽约州法及 UCC' if is_us else '已约定适用德国联邦法')}
-【CISG公约状态】: {'未排除/优先适用' if is_us else ('已明确排除' if state.meta.cisg_excluded else '未排除/待核验')}
-【核心争议焦点】: {', '.join([i.text_zh for i in state.issues]) if state.issues else ('机器能效瑕疵与 UCC § 2-607 检验通知抗辩' if is_us else '产品瑕疵认定与检验通知抗辩')}
-【涉及重点法条】: {', '.join(known_statutes) if known_statutes else ('UCC § 2-314, UCC § 2-607, UCC § 2-714' if is_us else 'BGB § 434, BGB § 437, HGB § 377')}
+【准据法选法】: {state.meta.choice_of_law or ('约定东盟属地法及 FIDIC 标准合同' if is_asean else ('约定美国纽约州法及 UCC' if is_us else '已约定适用德国联邦法'))}
+【CISG公约状态】: {'未约定/以属地建设工程合同为准' if is_asean else ('未排除/优先适用' if is_us else ('已明确排除' if state.meta.cisg_excluded else '未排除/待核验'))}
+【核心争议焦点】: {', '.join([i.text_zh for i in state.issues]) if state.issues else ('工期顺延 EOT、FIDIC 20.1 通知时效与保函止付' if is_asean else ('机器能效瑕疵与 UCC § 2-607 检验通知抗辩' if is_us else '产品瑕疵认定与检验通知抗辩'))}
+【涉及重点法条】: {', '.join(known_statutes) if known_statutes else ('FIDIC 20.1, FIDIC 8.4, CIPAA Sec 35, SOPA Sec 9' if is_asean else ('UCC § 2-314, UCC § 2-607, UCC § 2-714' if is_us else 'BGB § 434, BGB § 437, HGB § 377'))}
 """
 
-    jurisdiction_title = "美国联邦与州商事法" if is_us else "德国联邦法"
+    jurisdiction_title = "东盟涉外建设工程与跨境投资法" if is_asean else ("美国联邦与州商事法" if is_us else "德国联邦法")
     system_prompt = f"""你是涉外法查明智能辅助系统的法律专家 Agent (Foreign Law Ascertainment Copilot)。
 {role_perspective_prompt}
 当前案件处于{jurisdiction_title}查明研判阶段。用户正在就该案情进行深度法律追问。
@@ -1122,8 +1149,8 @@ async def chat_case(
 {context_summary}
 
 回答规范：
-1. 恪守专业、严谨、客观的法律分析，不得捏造法条编号或虚构{'美国联邦或巡回法院判例' if is_us else '德意志联邦最高法院 (BGH) 判例'}。
-2. 明确给出请求权基础（{'如 UCC § 2-314 适销性默示担保 / § 2-714 损害赔偿 / § 2-715 附随与间接损害' if is_us else '如 BGB § 437, § 439 追完请求权 / § 280 损害赔偿'}），并结合{'美国统一商法典 (UCC § 2-607) 合理通知义务' if is_us else '德国商法典 (HGB § 377) 检验通知义务'}分析抗辩风险。
+1. 恪守专业、严谨、客观的法律分析，不得捏造法条编号或虚构{'东盟属地判例或 FIDIC 裁决' if is_asean else ('美国联邦或巡回法院判例' if is_us else '德意志联邦最高法院 (BGH) 判例')}。
+2. 明确给出请求权基础（{'如 FIDIC 8.4 顺延工期 / 20.1 索赔权 / 马来 CIPAA 35 条 / 新加坡 SOPA 9 条' if is_asean else ('如 UCC § 2-314 适销性默示担保 / § 2-714 损害赔偿' if is_us else '如 BGB § 437, § 439 追完请求权 / § 280 损害赔偿')}），并结合{'FIDIC 28 天通知失权条款、东道国强制性资质与本地化率法条' if is_asean else ('美国统一商法典 (UCC § 2-607) 合理通知义务' if is_us else '德国商法典 (HGB § 377) 检验通知义务')}分析抗辩风险。
 3. 条理分明，提供清晰的法理依据、诉讼/审理薄弱点及可落地的应对或补强建议。
 4. 本次追问探索为交互研判记录，独立于归档的 A/B 报告。"""
 
@@ -1159,7 +1186,9 @@ async def chat_case(
             used_model = "local-expert-heuristic"
 
     # 正则提取回复中引用的法条
-    if is_us:
+    if is_asean:
+        referenced_statutes = list(set(re.findall(r"(?:FIDIC|CIPAA|SOPA|SEMA|UU|MEMR|BGB|HGB|UCC|U\.S\.C\.|NDRC|SASAC|数安法|反制裁法)\s*[\w\.\:\§\-]+", reply_text)))
+    elif is_us:
         referenced_statutes = list(set(re.findall(r"(?:UCC|U\.S\.C\.|Fed\.\s*R\.\s*Civ\.\s*P\.)\s*§?\s*[\d\-]+(?:\([a-zA-Z0-9]+\))*", reply_text)))
     else:
         referenced_statutes = list(set(re.findall(r"(?:BGB|HGB|ZPO|CISG)\s*§?\s*\d+(?:\s*Abs\.\s*\d+)?", reply_text)))
@@ -1366,6 +1395,8 @@ def simulate_engineering(
         "updated_at": datetime.now().isoformat()
     }
     state.security_alerts = SecuritySentinel.evaluate(state)
+    from lawagent.flow.dual_compliance import DualComplianceEngine
+    state.dual_compliance_audit = DualComplianceEngine.evaluate(state)
     state.updated_at = datetime.now().isoformat()
     db.save_case(state)
     return state
@@ -1501,8 +1532,8 @@ async def extract_case_intake(payload: ExtractIntakePayload):
         except Exception:
             pass
 
-    m_delay = re.search(r'(?:延误|拖延|delay|delayed\s*by|逾期|工期滞后)[^\d]{0,25}?(\d+)\s*(?:天|日|days?)', text, re.IGNORECASE) or \
-              re.search(r'(\d+)\s*(?:天|日|days?)[^\w\n]{0,25}?(?:延误|delay)', text, re.IGNORECASE)
+    m_delay = re.search(r'(?:延误|迟延|拖延|delay|delayed\s*by|逾期|工期滞后|顺延)[^\d]{0,25}?(\d+)\s*(?:天|日|days?)', text, re.IGNORECASE) or \
+              re.search(r'(\d+)\s*(?:天|日|days?)[^\w\n]{0,25}?(?:延误|迟延|delay)', text, re.IGNORECASE)
     if m_delay:
         try:
             extracted_params["delay_days"] = int(m_delay.group(1))
@@ -1652,10 +1683,13 @@ async def extract_case_intake(payload: ExtractIntakePayload):
 }
 注意：必须严格输出有效 JSON 格式，不要包含任何 markdown 解释或多余文本。"""
 
-            ai_data = await llm.chat_json(
-                task="intake_extract",
-                system_prompt=system_prompt,
-                user_prompt=f"【用户提供的案情材料】：\n{text}\n\n【用户界面当前选中的参考法域】：{hint_jur or '无'}"
+            ai_data = await asyncio.wait_for(
+                llm.chat_json(
+                    task="intake_extract",
+                    system_prompt=system_prompt,
+                    user_prompt=f"【用户提供的案情材料】：\n{text}\n\n【用户界面当前选中的参考法域】：{hint_jur or '无'}"
+                ),
+                timeout=45.0
             )
 
             if isinstance(ai_data, dict):
@@ -1839,6 +1873,67 @@ async def parse_document(file: UploadFile = File(...)):
         "filename": file.filename,
         "text": extracted_text.strip(),
         "char_count": len(extracted_text.strip())
+    }
+
+
+class ComplianceFeedbackRequest(BaseModel):
+    topic_zh: Optional[str] = None
+    rule_code: Optional[str] = None
+    feedback_type: Optional[str] = "corroboration"
+    host_country: Optional[str] = "asean"
+    conflict_clause_example: Optional[str] = None
+    custom_resolution_note: Optional[str] = None
+    comment: Optional[str] = None
+    suggested_statute: Optional[str] = None
+    approval_chain: List[str] = Field(default_factory=list)
+    reporter_name: Optional[str] = "涉外法务/总承包商合规团队"
+
+
+@router.post("/{case_id}/feedback-to-compliance")
+def feedback_to_compliance(
+    case_id: str,
+    req: ComplianceFeedbackRequest,
+    state_db: StateDBManager = Depends(get_state_db)
+):
+    """将真实案件查明沉淀为企业自定义合规规则库 (写入 state.sqlite 的 custom_compliance_rules 表)"""
+    conn = state_db.get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS custom_compliance_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id TEXT NOT NULL,
+            topic_zh TEXT NOT NULL,
+            host_country TEXT NOT NULL,
+            conflict_clause_example TEXT,
+            custom_resolution_note TEXT,
+            approval_chain TEXT,
+            reporter_name TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    now_str = datetime.utcnow().isoformat()
+    chain_json = json.dumps(req.approval_chain, ensure_ascii=False)
+    final_topic = req.topic_zh or req.rule_code or "自定义出海合规规则"
+    final_conflict = req.conflict_clause_example or req.suggested_statute or ""
+    final_resolution = req.custom_resolution_note or req.comment or ""
+
+    cur.execute("""
+        INSERT INTO custom_compliance_rules (
+            case_id, topic_zh, host_country, conflict_clause_example,
+            custom_resolution_note, approval_chain, reporter_name, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        case_id, final_topic, req.host_country, final_conflict,
+        final_resolution, chain_json, req.reporter_name, now_str
+    ))
+    conn.commit()
+    return {
+        "status": "success",
+        "rule_id": cur.lastrowid,
+        "case_id": case_id,
+        "rule_code": req.rule_code or final_topic,
+        "topic_zh": final_topic,
+        "message": f"案卷 {case_id} 实务经验已成功沉淀至企业自定义合规规则库！"
     }
 
 

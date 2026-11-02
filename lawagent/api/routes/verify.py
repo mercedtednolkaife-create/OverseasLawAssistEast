@@ -25,6 +25,7 @@ class ContractRedlineItem(BaseModel):
     violated_norm_id: str
     mandatory_rule_desc: str
     recommended_revision: str
+    compliance_side: Literal["host_country", "prc_outbound", "bidirectional_conflict"] = "host_country"
 
 
 class VerifyItem(BaseModel):
@@ -135,10 +136,38 @@ ASEAN_CONTRACT_REDLINES = [
             "pcab", "regular license", "special license", "ra 4566", "manila water", "承包商执照", "菲律宾pcab"
         ],
         "risk_level": "high",
+        "compliance_side": "host_country",
         "title": "菲律宾 PCAB 资质准入 (RA 4566) 与最高院 Manila Water 案平等待遇保障",
         "norm_id": "PH:RA_4566:Contractor_License",
         "desc": "外资持股超 40% 的承包商以往被限制仅能申请单项项目 Special License。依菲律宾最高院 PCAB v. Manila Water 终审判例，外资股比限制违宪，中资承包商享有平等申办执照或与本地企业组建联营体的权利。",
         "revision": "Licensing Compliance Clause: The Contractor shall hold either a valid Special License or Regular Contractor License issued by the Philippine Contractors Accreditation Board (PCAB), protected under Supreme Court precedent G.R. No. 217590 (PCAB v. Manila Water)."
+    },
+    {
+        "keywords": [
+            "unilateral sanctions", "ofac termination", "sdn list termination",
+            "secondary sanctions event of default", "entity list termination",
+            "制裁即解约", "列入实体清单即构成违约", "受美国制裁即解除合同",
+            "subject to us sanctions", "ofac sdn termination"
+        ],
+        "risk_level": "critical",
+        "compliance_side": "bidirectional_conflict",
+        "title": "中国《反外国制裁法》第12条与《阻断办法》：外方单方扩权制裁解约条款与冲突红线",
+        "norm_id": "CN:Anti_Foreign_Sanctions_Law:Art3_4_12_15",
+        "desc": "外方在合同中约定将承包商或其关联方被列入第三国（如美国 OFAC SDN / BIS 实体清单）单边制裁名单作为合同违约事件 (Event of Default) 或无赔偿单方解除合同事由。此条款直接触犯中国《反外国制裁法》第12条（严禁执行或协助外国歧视性限制措施），且在外方单方违约拒付时中国法院不予承认，受害方有权在中国境内起诉追偿侵权损失。",
+        "revision": "Sanctions Balancing Clause: Termination on grounds of sanctions shall be strictly confined to mandatory sanctions unanimously imposed by the United Nations Security Council (UNSC) or the statutory laws of the governing law and place of project execution. Extraterritorial unilateral measures by third-party nations (including US OFAC/BIS) shall not constitute an Event of Default or grounds for unilateral termination without mutual consultation and compliance with applicable blocking statutes."
+    },
+    {
+        "keywords": [
+            "provide all drawings to foreign court", "foreign discovery", "unrestricted data transfer",
+            "cross-border disclosure without consent", "向境外调取工程图纸", "境外调证",
+            "无条件向境外法院提供数据", "工程地质测绘数据出境", "data security law"
+        ],
+        "risk_level": "critical",
+        "compliance_side": "prc_outbound",
+        "title": "中国《数据安全法》第36条与跨境调证法定行政审批红线",
+        "norm_id": "CN:Data_Security_Law:Art36",
+        "desc": "中国《数据安全法》第36条规定，非经中华人民共和国主管机关批准，境内的组织、个人不得向外国司法或者执法机构提供存储于中华人民共和国境内的数据。若合同约定承包商无条件配合境外仲裁庭/法院大范围调取工程地质勘察、高精度测绘及敏感技术图纸，将直接触发中国国内刑事及行政严厉问责。",
+        "revision": "Cross-Border Judicial Assistance & Data Transfer Clause: Any request by foreign judicial, arbitral, or administrative authorities for disclosure of technical drawings, survey data, or project records shall be processed in accordance with International Judicial Assistance procedures and requires prior approval of the competent authority of the PRC pursuant to Article 36 of the PRC Data Security Law."
     }
 ]
 
@@ -174,7 +203,8 @@ def _run_verification(
                 violated_rule_title=rule["title"],
                 violated_norm_id=rule["norm_id"],
                 mandatory_rule_desc=rule["desc"],
-                recommended_revision=rule["revision"]
+                recommended_revision=rule["revision"],
+                compliance_side=rule.get("compliance_side", "host_country")
             ))
 
     # 2. 扫描法条引用 (FIDIC, UU, CIPAA, SOPA 等)

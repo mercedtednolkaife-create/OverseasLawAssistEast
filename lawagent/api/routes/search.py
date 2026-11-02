@@ -395,3 +395,89 @@ def align_legal_concept(
     op = CLAlignOperator.get_instance()
     res = op.align(q, jurisdiction=jurisdiction)
     return res.to_dict()
+
+
+@router.get("/graph-neighborhood")
+def get_graph_neighborhood(
+    node_id: str = Query(..., description="中心节点 ID (如 FIDIC:Silver_1999:Clause_20.1 或 MY:CIPAA_2012:Sec35)"),
+    hops: int = Query(1, ge=1, le=2, description="扩展跳数 (1 或 2)"),
+    layer: str = Query("ALL", description="检索层级 (L1, L2, ALL)"),
+    snapshot_mgr: SnapshotManager = Depends(get_snapshot_mgr),
+):
+    """GraphRAG 真实图谱拓扑邻域查询接口 (基于 unified_edges / reference_edges)"""
+    conn = snapshot_mgr.get_connection()
+    clean_id = node_id.replace("NORM:", "").replace("CASE:", "").strip()
+    if not conn:
+        return {"center_node": clean_id, "nodes": [], "edges": []}
+
+    cur = conn.cursor()
+
+    norm_info = snapshot_mgr.norm_lookup(clean_id)
+    center_label = (norm_info.get("title") or clean_id) if norm_info else clean_id
+    center_kind = "norm" if norm_info else ("case" if "CASE:" in node_id else "norm")
+
+    nodes = [{"id": clean_id, "label": center_label, "kind": center_kind, "is_center": True}]
+    edges = []
+    visited_nodes = {clean_id}
+    seen_edge_keys = set()
+    current_front = [clean_id]
+
+    table_name = "unified_edges" if layer == "ALL" else ("edges" if layer == "L1" else "reference_edges")
+
+    for h in range(hops):
+        next_front = []
+        for src in current_front:
+            try:
+                cur.execute(
+                    f"SELECT src, dst, rel, layer FROM {table_name} WHERE src = ? OR dst = ? LIMIT 25",
+                    (src, src)
+                )
+                rows = cur.fetchall()
+                if not rows and len(src) >= 3:
+                    cur.execute(
+                        f"SELECT src, dst, rel, layer FROM {table_name} WHERE src LIKE ? OR dst LIKE ? LIMIT 25",
+                        (f"%{src}%", f"%{src}%")
+                    )
+                    rows = cur.fetchall()
+            except Exception:
+                cur.execute(
+                    "SELECT src, dst, rel, 'L1' AS layer FROM edges WHERE src = ? OR dst = ? UNION "
+                    "SELECT src, dst, rel, 'L2' AS layer FROM reference_edges WHERE src = ? OR dst = ? LIMIT 25",
+                    (src, src, src, src)
+                )
+                rows = cur.fetchall()
+                if not rows and len(src) >= 3:
+                    cur.execute(
+                        "SELECT src, dst, rel, 'L1' AS layer FROM edges WHERE src LIKE ? OR dst LIKE ? UNION "
+                        "SELECT src, dst, rel, 'L2' AS layer FROM reference_edges WHERE src LIKE ? OR dst LIKE ? LIMIT 25",
+                        (f"%{src}%", f"%{src}%", f"%{src}%", f"%{src}%")
+                    )
+                    rows = cur.fetchall()
+
+            for r in rows:
+                s, d, rel = r[0], r[1], r[2]
+                edge_layer = r[3] if len(r) > 3 else "ALL"
+                ek = f"{s}->{d}:{rel}"
+                if ek not in seen_edge_keys:
+                    seen_edge_keys.add(ek)
+                    edges.append({"source": s, "target": d, "relation": rel, "layer": edge_layer})
+
+                other = d if s == src else s
+                if other not in visited_nodes:
+                    visited_nodes.add(other)
+                    next_front.append(other)
+                    other_info = snapshot_mgr.norm_lookup(other)
+                    other_label = (other_info.get("title") or other) if other_info else other
+                    other_kind = "case" if ("CASE:" in other or "REF_CASE:" in other) else "norm"
+                    nodes.append({"id": other, "label": other_label, "kind": other_kind, "is_center": False})
+        current_front = next_front
+
+    return {
+        "center_node": clean_id,
+        "hops": hops,
+        "layer": layer,
+        "nodes": nodes,
+        "edges": edges,
+        "total_nodes": len(nodes),
+        "total_edges": len(edges)
+    }
