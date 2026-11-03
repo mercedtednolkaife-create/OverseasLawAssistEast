@@ -16,6 +16,7 @@ import {
   Compass,
   Scale,
 } from 'lucide-react';
+import { getAseanProfile } from './aseanJurisdictionProfiles';
 
 interface InteractiveCitationGraphProps {
   activeNormId?: string;
@@ -222,6 +223,18 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       ];
     }
 
+    const profile = getAseanProfile(hostJur);
+    if (profile && !isPreInv) {
+      return profile.facts.map((f, idx) => ({
+        id: `F${idx + 1}`,
+        tag: `F${idx + 1}`,
+        chainId: idx + 1,
+        title: f.title,
+        full_text: f.fullText,
+        status: f.status,
+      }));
+    }
+
     return [
       {
         id: 'F1',
@@ -394,6 +407,18 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
           desc: '向仲裁庭或越南法院申请针对见索即付保函的紧急临时保全命令。',
         },
       ];
+    }
+
+    const profile = getAseanProfile(hostJur);
+    if (profile && !isPreInv) {
+      return profile.issues.map((iss, idx) => ({
+        id: `I${idx + 1}`,
+        code: `争点${idx === 0 ? '一' : idx === 1 ? '二' : idx === 2 ? '三' : '四'}`,
+        chainId: idx + 1,
+        name: iss.name,
+        elem: iss.elem,
+        desc: iss.desc,
+      }));
     }
 
     return [
@@ -639,6 +664,20 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
       ];
     }
 
+    const profile = getAseanProfile(hostJur);
+    if (profile && !isPreInv) {
+      return profile.norms.map((n, idx) => ({
+        id: `N${idx + 1}`,
+        code: n.code,
+        chainId: idx + 1,
+        name: n.name,
+        category: '东道国现行强行法',
+        authority_grade: '官方现行法典与司法先例',
+        full_quote: n.fullQuote,
+        ref_id: n.refId,
+      }));
+    }
+
     return [
       {
         id: 'N1',
@@ -872,6 +911,39 @@ export const InteractiveCitationGraph: React.FC<InteractiveCitationGraphProps> =
           title: '【仲裁临时措施】依据 VIAC 规则第 21 条申请保函暂缓索兑保护令',
           ruling: 'VIAC 紧急仲裁规则：为避免当事人发生难以弥补之严重财务损害，有权签发临时救济令。',
           strategy: '48 小时内向 VIAC 仲裁委员会递交紧急临时保护措施申请书，送达开证行。',
+        },
+      ];
+    }
+
+    const profile = getAseanProfile(hostJur);
+    if (profile && !isPreInv) {
+      return [
+        {
+          id: 'P1',
+          code: 'P1',
+          chainId: 1,
+          type: '工程延误抗辩',
+          title: `【${profile.nameZh}建设法索赔】迟延交地工期顺延与阻碍原则抗辩`,
+          ruling: `${profile.nameZh}建设法规程：发包人交付施工场地迟延构成关键路径阻工，承包商享有顺延工期抗辩权。`,
+          strategy: '向发包人发出正式工期顺延与抗辩通知书，锁定受阻事实证据链。',
+        },
+        {
+          id: 'P2',
+          code: 'P2',
+          chainId: 2,
+          type: '违约金核减',
+          title: `【${profile.nameZh}民法违约金核减】依据东道国强行法申请公允核减`,
+          ruling: `${profile.nameZh}民商法典规程：预定违约金显失公允时裁判机关享有法定职权予以裁减。`,
+          strategy: '出示实际可归责损失核算报告，阻断发包人全额扣罚误期损害赔偿金。',
+        },
+        {
+          id: 'P3',
+          code: 'P3',
+          chainId: 3,
+          type: '保函止付救济',
+          title: '【保函止付保护】提起紧急仲裁或司法禁令阻断恶意索兑',
+          ruling: '司法裁判先例：在当事人存在实质争议且发包人自身违约时，恶意索兑构成显失公平。',
+          strategy: '向紧急仲裁庭提请临时保全禁令，向开证行送达法律意见书。',
         },
       ];
     }

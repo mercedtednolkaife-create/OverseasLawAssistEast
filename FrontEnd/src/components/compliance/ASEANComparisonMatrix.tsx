@@ -158,7 +158,7 @@ export const ASEANComparisonMatrix: React.FC = () => {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-        <table className="w-full text-left border-collapse min-w-[900px]">
+        <table className="w-full text-left border-collapse min-w-[1200px]">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90">
               <th className="py-3 px-3.5 text-xs font-bold text-slate-700 w-44">
@@ -187,7 +187,7 @@ export const ASEANComparisonMatrix: React.FC = () => {
           <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
             {loading && matrixData.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-16 text-center text-slate-400">
+                <td colSpan={COUNTRIES.length + 1} className="py-16 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
                     <span className="text-xs font-medium">正在载入横向比对矩阵...</span>
@@ -200,24 +200,14 @@ export const ASEANComparisonMatrix: React.FC = () => {
                 <td className="py-3.5 px-3.5 font-semibold text-slate-900 bg-slate-50/40">
                   {row.dimension}
                 </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('id') ? 'bg-blue-50/20' : ''}`}>
-                  {row.id}
-                </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('vn') ? 'bg-blue-50/20' : ''}`}>
-                  {row.vn}
-                </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('my') ? 'bg-blue-50/20' : ''}`}>
-                  {row.my}
-                </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('sg') ? 'bg-blue-50/20' : ''}`}>
-                  {row.sg}
-                </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('th') ? 'bg-blue-50/20' : ''}`}>
-                  {row.th}
-                </td>
-                <td className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes('ph') ? 'bg-blue-50/20' : ''}`}>
-                  {row.ph}
-                </td>
+                {COUNTRIES.map((c) => (
+                  <td
+                    key={c.key}
+                    className={`py-3.5 px-3 leading-relaxed ${selectedKeys.includes(c.key) ? 'bg-blue-50/20' : ''}`}
+                  >
+                    {row[c.key] || '-'}
+                  </td>
+                ))}
               </tr>
             )))}
           </tbody>

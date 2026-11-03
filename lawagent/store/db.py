@@ -287,6 +287,18 @@ CREATE TABLE IF NOT EXISTS consults(
   conflict_affirmed INT DEFAULT 1,
   updated_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS custom_compliance_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id TEXT NOT NULL,
+  topic_zh TEXT NOT NULL,
+  host_country TEXT NOT NULL,
+  conflict_clause_example TEXT,
+  custom_resolution_note TEXT,
+  approval_chain TEXT,
+  reporter_name TEXT,
+  created_at TEXT NOT NULL
+);
 """
 
 
@@ -606,3 +618,107 @@ class StateDBManager:
         data["consult_id"] = consult_id
         data["updated_at"] = updated_at
         return data
+
+    def get_custom_compliance_rules(self, host_country: Optional[str] = None, case_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """获取企业自定义合规规则沉淀"""
+        conn = self.get_connection()
+        try:
+            cur = conn.cursor()
+            query = "SELECT * FROM custom_compliance_rules WHERE 1=1"
+            params: List[Any] = []
+            if host_country and host_country.upper() not in ["ALL", "ASEAN"]:
+                clean_hc = host_country.upper().replace("ASEAN_", "")
+                query += """ AND (
+                    UPPER(host_country) = UPPER(?)
+                    OR REPLACE(UPPER(host_country), 'ASEAN_', '') = ?
+                    OR UPPER(host_country) IN ('ASEAN', 'ALL')
+                )"""
+                params.extend([host_country, clean_hc])
+            if case_id:
+                query += " OR case_id = ?"
+                params.append(case_id)
+            query += " ORDER BY id DESC"
+
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            return [dict(r) for r in rows]
+        finally:
+            conn.close()
+
+    def log_event(self, case_id: str, step: str, model: Optional[str] = None, prompt_hash: Optional[str] = None, input_ref: Optional[str] = None, output_ref: Optional[str] = None, actor: str = "agent"):
+        """向 events 表写入全链路审计留痕事件"""
+        now = datetime.datetime.now().isoformat()
+        def _do_log(conn):
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO events(ts, case_id, step, model, prompt_hash, input_ref, output_ref, actor)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+            """, (now, case_id, step, model, prompt_hash, input_ref, output_ref, actor))
+        self.execute_write(_do_log)
+
+    def list_events(self, case_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """查询审计留痕事件列表"""
+        conn = self.get_connection()
+        try:
+            cur = conn.cursor()
+            if case_id:
+                cur.execute("SELECT * FROM events WHERE case_id = ? ORDER BY ts DESC", (case_id,))
+            else:
+                cur.execute("SELECT * FROM events ORDER BY ts DESC LIMIT 100")
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def save_report_version(self, case_id: str, trigger: str = "export", content_hash: str = "", snapshot_id: str = "20261021-asean-v2.2", path: str = "") -> int:
+        """记录报告版本快照溯源（写事务内原子自增版本号，避免二次建连与并发竞争）"""
+        now = datetime.datetime.now().isoformat()
+        version_holder = [1]
+        def _do_save_ver(conn):
+            cur = conn.cursor()
+            cur.execute("SELECT COALESCE(MAX(version), 0) + 1 FROM report_versions WHERE case_id = ?", (case_id,))
+            row = cur.fetchone()
+            next_version = row[0] if row else 1
+            version_holder[0] = next_version
+            cur.execute("""
+                INSERT INTO report_versions(case_id, version, created_at, trigger, content_hash, snapshot_id, path)
+                VALUES(?, ?, ?, ?, ?, ?, ?)
+            """, (case_id, next_version, now, trigger, content_hash, snapshot_id, path))
+        self.execute_write(_do_save_ver)
+        return version_holder[0]
+
+    def list_report_versions(self, case_id: str) -> List[Dict[str, Any]]:
+        """获取案件报告历史生成版本"""
+        conn = self.get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM report_versions WHERE case_id = ? ORDER BY version DESC", (case_id,))
+            return [dict(r) for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def record_feedback(self, data: Dict[str, Any]):
+        """记录人工校核/驳回/修改的反馈留痕 (feedback 表)"""
+        now = datetime.datetime.now().isoformat()
+        def _do_feedback(conn):
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO feedback(ts, case_id, sid, element_id, action, error_type, before_text, after_text, note, role, actor, run_id, snapshot_id, model, prompt_hash)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                now,
+                data.get("case_id"),
+                data.get("sid"),
+                data.get("element_id"),
+                data.get("action", "review"),
+                data.get("error_type"),
+                data.get("before_text"),
+                data.get("after_text"),
+                data.get("note"),
+                data.get("role", "legal_expert"),
+                data.get("actor", "user"),
+                data.get("run_id"),
+                data.get("snapshot_id", "20261021-asean-v2.2"),
+                data.get("model"),
+                data.get("prompt_hash")
+            ))
+        self.execute_write(_do_feedback)

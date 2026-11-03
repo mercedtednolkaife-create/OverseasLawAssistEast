@@ -153,6 +153,16 @@ async def _run_workflow_background(case_id: str, db: StateDBManager, runner: Law
                 if node_name == "red_team_strategist" and state.strategic_assessment is None:
                     state.strategic_assessment = build_strategic_assessment(state)
                 db.save_case(state)
+                try:
+                    db.log_event(
+                        case_id=case_id,
+                        step=f"NODE_{node_name.upper()}",
+                        model="lawagent-orchestrator",
+                        output_ref=state.status,
+                        actor="agent"
+                    )
+                except Exception:
+                    pass
                 await sse_manager.broadcast(case_id, "node_complete", {
                     "node": node_name,
                     "status": state.status,
@@ -169,6 +179,16 @@ async def _run_workflow_background(case_id: str, db: StateDBManager, runner: Law
             from lawagent.flow.dual_compliance import DualComplianceEngine
             state.dual_compliance_audit = DualComplianceEngine.evaluate(state)
         db.save_case(state)
+        try:
+            db.log_event(
+                case_id=case_id,
+                step="WORKFLOW_COMPLETED",
+                model="lawagent-orchestrator",
+                output_ref=state.status,
+                actor="system"
+            )
+        except Exception:
+            pass
 
         await sse_manager.broadcast(case_id, "state_update", state.model_dump())
         await sse_manager.broadcast(case_id, "done", {"status": state.status, "current_node": state.current_node})
@@ -176,6 +196,16 @@ async def _run_workflow_background(case_id: str, db: StateDBManager, runner: Law
         logger.exception(f"Error running workflow for {case_id}: {e}")
         state.status = "failed"
         db.save_case(state)
+        try:
+            db.log_event(
+                case_id=case_id,
+                step="WORKFLOW_FAILED",
+                model="lawagent-orchestrator",
+                output_ref=str(e),
+                actor="system"
+            )
+        except Exception:
+            pass
         await sse_manager.broadcast(case_id, "error", {"error": str(e)})
 
 
@@ -216,7 +246,7 @@ async def create_case(
     elif is_us:
         title = f"涉美商事法查明案件-{case_id}"
     else:
-        title = f"德国法查明案件-{case_id}"
+        title = f"东盟涉外法查明案件-{case_id}"
 
     init_state = CaseState(
         case_id=case_id,
@@ -248,6 +278,17 @@ async def create_case(
 
     # 入库
     db.save_case(init_state, title=title)
+    try:
+        db.log_event(
+            case_id=case_id,
+            step="CASE_CREATED",
+            model="lawagent-orchestrator",
+            input_ref=f"jurisdiction:{jur_code}",
+            output_ref=case_id,
+            actor="user"
+        )
+    except Exception:
+        pass
 
     # 启动后台工作流
     background_tasks.add_task(_run_workflow_background, case_id, db, runner)
@@ -301,7 +342,7 @@ async def confirm_gate(
             state.current_node = "cisg_notice"
             if state.findings:
                 state.findings[0].gaps.append(
-                    "【CISG 公约适用提示】双方营业地分处中德且未排除 CISG，应优先适用联合国国际货物销售公约。"
+                    "【CISG 公约适用提示】双方营业地分处不同公约缔约国且未明示排除 CISG，应优先适用联合国国际货物销售合同公约。"
                 )
     elif gate == "s3":
         if payload.issues:
@@ -317,6 +358,17 @@ async def confirm_gate(
         state.current_node = "s9_export"
 
     db.save_case(state)
+    try:
+        db.log_event(
+            case_id=case_id,
+            step=f"GATE_CONFIRM_{gate.upper()}",
+            model="human-in-the-loop",
+            input_ref=gate,
+            output_ref=state.current_node,
+            actor="legal_expert"
+        )
+    except Exception:
+        pass
 
     # 若状态已恢复 running，触发后续流程流转
     if state.status == "running":
@@ -408,6 +460,29 @@ def update_statement_review(
 
     state.updated_at = datetime.now().isoformat()
     db.save_case(state)
+
+    try:
+        db.record_feedback({
+            "case_id": case_id,
+            "sid": sid,
+            "action": payload.action,
+            "error_type": payload.error_type,
+            "note": payload.note,
+            "after_text": payload.updated_text if payload.action == "edit" else None,
+            "snapshot_id": state.snapshot_id,
+            "actor": "legal_expert"
+        })
+        db.log_event(
+            case_id=case_id,
+            step=f"STATEMENT_REVIEW_{payload.action.upper()}",
+            model="human-in-the-loop",
+            input_ref=sid,
+            output_ref=payload.note or payload.action,
+            actor="legal_expert"
+        )
+    except Exception:
+        pass
+
     return state
 
 
@@ -419,6 +494,24 @@ def delete_case(
     """彻底删除案件数据"""
     db.delete_case(case_id)
     return None
+
+
+@router.get("/{case_id}/audit-trail")
+def get_case_audit_trail(
+    case_id: str,
+    db: StateDBManager = Depends(get_state_db)
+):
+    """获取案件全链路审计溯源事件日志 (events 表)"""
+    return db.list_events(case_id)
+
+
+@router.get("/{case_id}/report-versions")
+def get_case_report_versions(
+    case_id: str,
+    db: StateDBManager = Depends(get_state_db)
+):
+    """获取案件历次生成的查明意见书与合规指引版本历史 (report_versions 表)"""
+    return db.list_report_versions(case_id)
 
 
 @router.get("/{case_id}/events")
@@ -448,6 +541,7 @@ async def export_docx(
 ):
     """导出符合司法解释二第三条规范的 Word (DOCX) 查明与咨询报告"""
     import asyncio
+    import hashlib
     from fastapi.responses import StreamingResponse
     from lawagent.api.export import generate_case_docx
 
@@ -464,6 +558,14 @@ async def export_docx(
     headers = {
         "Content-Disposition": f'attachment; filename="{doc_prefix}_{case_id}.docx"'
     }
+
+    try:
+        content_hash = hashlib.sha256(f"{case_id}:{state.snapshot_id}:{datetime.now().isoformat()}".encode()).hexdigest()[:16]
+        ver = db.save_report_version(case_id=case_id, trigger="docx_export", content_hash=content_hash, snapshot_id=state.snapshot_id, path=f"/api/cases/{case_id}/export/docx")
+        db.log_event(case_id=case_id, step="REPORT_EXPORT_DOCX", model="lawagent-exporter", output_ref=f"version_{ver}", actor="user")
+    except Exception:
+        pass
+
     return StreamingResponse(
         doc_stream,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -471,6 +573,7 @@ async def export_docx(
     )
 
 
+@router.get("/{case_id}/export/compliance-handbook")
 @router.get("/{case_id}/export/handbook/docx")
 async def export_case_handbook_docx(
     case_id: str,
@@ -478,6 +581,7 @@ async def export_case_handbook_docx(
 ):
     """导出针对个案国别与业态的《央企境外工程专项合规指引手册 (DOCX)》"""
     import asyncio
+    import hashlib
     from fastapi.responses import StreamingResponse
     from lawagent.api.export import generate_compliance_handbook_docx
 
@@ -493,6 +597,14 @@ async def export_case_handbook_docx(
     headers = {
         "Content-Disposition": f'attachment; filename="Compliance_Handbook_{jur_code}_{case_id}.docx"'
     }
+
+    try:
+        content_hash = hashlib.sha256(f"{case_id}:{jur_code}:{datetime.now().isoformat()}".encode()).hexdigest()[:16]
+        ver = db.save_report_version(case_id=case_id, trigger="handbook_export", content_hash=content_hash, snapshot_id=state.snapshot_id, path=f"/api/cases/{case_id}/export/compliance-handbook")
+        db.log_event(case_id=case_id, step="HANDBOOK_EXPORT_DOCX", model="lawagent-exporter", output_ref=f"version_{ver}", actor="user")
+    except Exception:
+        pass
+
     return StreamingResponse(
         doc_stream,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -672,6 +784,13 @@ def get_case_agent_workflow(
     statements_count = sum(len(f.statements) for f in state.findings) if state.findings else 0
 
     parties_display = state.meta.parties if state.meta.parties else ["中资总承包商/投资方", "东道国业主/特许权授予方"]
+    jur_code = state.meta.jurisdiction or ""
+    is_asean = jur_code.startswith("asean_") or any(
+        kw in (state.meta.choice_of_law or "") for kw in ["东盟", "印尼", "新加坡", "马来西亚", "越南", "老挝", "泰国", "菲律宾", "柬埔寨", "缅甸", "文莱", "东帝汶", "FIDIC", "CIPAA", "SOPA"]
+    )
+    is_us = not is_asean and (jur_code.startswith("us_") or any(
+        kw in (state.meta.choice_of_law or "") for kw in ["美国", "UCC", "纽约", "特拉华", "加州", "US"]
+    ))
 
     steps: List[AgentWorkflowStep] = [
         AgentWorkflowStep(
@@ -755,7 +874,7 @@ def get_case_agent_workflow(
                 (
                     f"逐要件完成【成立/不成立/存疑/待查】四态推导，锁定美方 UCC § 2-607 检验异议合理时间抗辩突破口"
                     if is_us else
-                    f"逐要件完成【成立/不成立/存疑/待查】四态推导，锁定德方商事检验失权抗辩薄弱点"
+                    f"逐要件完成【成立/不成立/存疑/待查】四态推导，锁定东盟东道国强行法与合同违约抗辩突破口"
                 )
                 if s4_status in ("completed", "verified", "delivered")
                 else ("Agent 正在开展四态构成要件涵摄与事实归入..." if s4_status == "running" else "等待法源混合检索完成...")
@@ -808,15 +927,11 @@ def get_case_agent_workflow(
             outputs_summary=(
                 (
                     f"生成符合《涉外法解释二》规范的中美双语论据命题 {statements_count} 组，支持 Word (DOCX) 权威导出"
-                    if s6_status in ("completed", "verified", "delivered")
-                    else ("Agent 正在编制双语查明报告与法律意见书..." if s6_status == "running" else "等待策略推演就绪...")
+                    if is_us else
+                    f"生成符合《涉外法解释二》规范的中-东盟双语/三语论据命题 {statements_count} 组，支持 Word (DOCX) 权威导出"
                 )
-                if is_us else
-                (
-                    f"生成符合《涉外法解释二》规范的中德双语论据命题 {statements_count} 组，支持 Word (DOCX) 权威导出"
-                    if s6_status in ("completed", "verified", "delivered")
-                    else ("Agent 正在编制双语查明报告与法律意见书..." if s6_status == "running" else "等待策略推演就绪...")
-                )
+                if s6_status in ("completed", "verified", "delivered")
+                else ("Agent 正在编制双语查明报告与法律意见书..." if s6_status == "running" else "等待策略推演就绪...")
             ),
             details={
                 "bilingual_statements": statements_count,
@@ -1076,7 +1191,7 @@ async def chat_case(
     elif is_us:
         known_statutes = ["UCC § 2-314", "UCC § 2-607", "UCC § 2-714", "UCC § 2-715"]
     else:
-        known_statutes = ["BGB § 434", "BGB § 437", "HGB § 377"]
+        known_statutes = ["东道国现行成文法典", "FIDIC 标准合同条件", "国际商事仲裁规则"]
     for q in state.questions:
         for s in q.must_norms:
             if s not in known_statutes:
@@ -1103,13 +1218,13 @@ async def chat_case(
 【三、我方（买方律师）防守补强与防御要点 (Shield Advice)】
 进行条理分明的对抗剖析，帮助律师穷尽防守盲区。"""
         else:
-            role_perspective_prompt = """你现在是涉外商事诉讼中的【德方资深对抗大律师】(Opposing Red-Team Counsel)。
-你的任务是站在德国卖方/被告的极端对抗辩护立场，专挑中国买方在案情事实、检验时效、证据瑕疵、法律依据上的所有潜在漏洞，展开猛烈质证反击！
+            role_perspective_prompt = """你现在是涉外工程与商事争议中的【外方资深对抗大律师】(Opposing Red-Team Counsel)。
+你的任务是站在外方/被诉方的严格对抗辩护立场，专挑中资企业在案情事实、索赔时效、证据瑕疵、法律依据上的所有潜在漏洞，展开猛烈质证反击！
 请按照：
-【一、德方核心反击立场与失权主张 (Präklusion)】
-【二、德方三大致命质证攻击点 (Cross-Examination Points)】
-【三、我方（中国律师）防守补强与防御要点 (Shield Advice)】
-进行条理分明的对抗剖析，帮助中国律师穷尽防守盲区。"""
+【一、外方核心反击立场与失权主张】
+【二、外方三大致命质证攻击点】
+【三、我方（中国中资企业法务/代理律师）防守补强与防御要点】
+进行条理分明的对抗剖析，帮助中资法务团队穷尽防守盲区。"""
     else:
         if is_asean:
             role_perspective_prompt = {
@@ -1125,8 +1240,8 @@ async def chat_case(
             }.get(payload.role_view, "你当前以【实务专业端 (律师视角)】提供专业法律研判。")
         else:
             role_perspective_prompt = {
-                "judicial": "你当前以【司法辅助端 (法官视角)】协助审理，侧重准据法识别、事实调查要点、德国法下的举证责任分配（Beweislast）及庭审质证焦点。",
-                "practitioner": "你当前以【实务专业端 (律师视角)】提供诉讼与出庭策略，侧重请求权基础（Anspruchsgrundlage）、德方抗辩防范、证据链补强及和解筹码。",
+                "judicial": "你当前以【司法与仲裁辅助端 (裁判视角)】协助审理，侧重涉外准据法识别、事实调查要点、举证责任分配及庭审质证焦点。",
+                "practitioner": "你当前以【实务专业端 (律师视角)】提供诉讼与出庭策略，侧重请求权基础、外方抗辩防范、证据链补强及和解筹码。",
                 "public": "你当前以【公共服务端 (商事合规视角)】提供通俗法律指引与商事合规建议，侧重涉外商事风险提示与多元化纠纷解决（ADR）。"
             }.get(payload.role_view, "你当前以【实务专业端 (律师视角)】提供专业法律研判。")
 
@@ -1134,13 +1249,13 @@ async def chat_case(
 【案件编号】: {state.case_id}
 【基本案情】: {state.facts_zh[:800]}
 【原告诉求】: {state.claims_zh or "未填"}
-【准据法选法】: {state.meta.choice_of_law or ('约定东盟属地法及 FIDIC 标准合同' if is_asean else ('约定美国纽约州法及 UCC' if is_us else '已约定适用德国联邦法'))}
+【准据法选法】: {state.meta.choice_of_law or ('约定东盟属地法及 FIDIC 标准合同' if is_asean else ('约定美国纽约州法及 UCC' if is_us else '涉外准据法与国际条约'))}
 【CISG公约状态】: {'未约定/以属地建设工程合同为准' if is_asean else ('未排除/优先适用' if is_us else ('已明确排除' if state.meta.cisg_excluded else '未排除/待核验'))}
-【核心争议焦点】: {', '.join([i.text_zh for i in state.issues]) if state.issues else ('工期顺延 EOT、FIDIC 20.1 通知时效与保函止付' if is_asean else ('机器能效瑕疵与 UCC § 2-607 检验通知抗辩' if is_us else '产品瑕疵认定与检验通知抗辩'))}
-【涉及重点法条】: {', '.join(known_statutes) if known_statutes else ('FIDIC 20.1, FIDIC 8.4, CIPAA Sec 35, SOPA Sec 9' if is_asean else ('UCC § 2-314, UCC § 2-607, UCC § 2-714' if is_us else 'BGB § 434, BGB § 437, HGB § 377'))}
+【核心争议焦点】: {', '.join([i.text_zh for i in state.issues]) if state.issues else ('工期顺延 EOT、FIDIC 20.1 通知时效与保函止付' if is_asean else ('机器能效瑕疵与 UCC § 2-607 检验通知抗辩' if is_us else '涉外工程履约与违约争议'))}
+【涉及重点法条】: {', '.join(known_statutes) if known_statutes else ('FIDIC 20.1, FIDIC 8.4, CIPAA Sec 35, SOPA Sec 9' if is_asean else ('UCC § 2-314, UCC § 2-607, UCC § 2-714' if is_us else '东道国建设法典与条约'))}
 """
 
-    jurisdiction_title = "东盟涉外建设工程与跨境投资法" if is_asean else ("美国联邦与州商事法" if is_us else "德国联邦法")
+    jurisdiction_title = "东盟涉外建设工程与跨境投资法" if is_asean else ("美国联邦与州商事法" if is_us else "东盟涉外法")
     system_prompt = f"""你是涉外法查明智能辅助系统的法律专家 Agent (Foreign Law Ascertainment Copilot)。
 {role_perspective_prompt}
 当前案件处于{jurisdiction_title}查明研判阶段。用户正在就该案情进行深度法律追问。
@@ -1149,49 +1264,49 @@ async def chat_case(
 {context_summary}
 
 回答规范：
-1. 恪守专业、严谨、客观的法律分析，不得捏造法条编号或虚构{'东盟属地判例或 FIDIC 裁决' if is_asean else ('美国联邦或巡回法院判例' if is_us else '德意志联邦最高法院 (BGH) 判例')}。
-2. 明确给出请求权基础（{'如 FIDIC 8.4 顺延工期 / 20.1 索赔权 / 马来 CIPAA 35 条 / 新加坡 SOPA 9 条' if is_asean else ('如 UCC § 2-314 适销性默示担保 / § 2-714 损害赔偿' if is_us else '如 BGB § 437, § 439 追完请求权 / § 280 损害赔偿')}），并结合{'FIDIC 28 天通知失权条款、东道国强制性资质与本地化率法条' if is_asean else ('美国统一商法典 (UCC § 2-607) 合理通知义务' if is_us else '德国商法典 (HGB § 377) 检验通知义务')}分析抗辩风险。
+1. 恪守专业、严谨、客观的法律分析，不得捏造法条编号或虚构{'东盟属地判例或 FIDIC 裁决' if is_asean else ('美国联邦或巡回法院判例' if is_us else '涉外司法与仲裁裁决')}。
+2. 明确给出请求权基础（{'如 FIDIC 8.4 顺延工期 / 20.1 索赔权 / 马来 CIPAA 35 条 / 新加坡 SOPA 9 条' if is_asean else ('如 UCC § 2-314 适销性默示担保 / § 2-714 损害赔偿' if is_us else '如东道国建设法违约金上限 / 索赔权基础')}），并结合{'FIDIC 28 天通知失权条款、东道国强制性资质与本地化率法条' if is_asean else ('美国统一商法典 (UCC § 2-607) 合理通知义务' if is_us else '涉外商事检验与通知义务')}分析抗辩风险。
 3. 条理分明，提供清晰的法理依据、诉讼/审理薄弱点及可落地的应对或补强建议。
 4. 本次追问探索为交互研判记录，独立于归档的 A/B 报告。"""
 
-    # 优先匹配高保真专家库快速响应（针对预置快捷胶囊与红方反击演练）
+    # 离线确定性专家回复作为保底
     offline_reply = _generate_offline_legal_chat_reply(
         last_user_message, state, payload.role_view or "practitioner", current_mode
     )
-    is_preset_specialized = any(k in last_user_message.lower() for k in [
-        "tkdn", "cipaa", "sopa", "fidic", "sema", "20.1", "8.4", "保函", "工期", "背靠背", "中信保",
-        "sinosure", "fba", "pcab", "manila", "征收", "特许经营", "败诉", "风险", "胜诉", "成立", "薄弱",
-        "专家", "出庭", "质证", "咨询", "和解", "谈判", "adr", "调解", "筹码"
-    ]) or current_mode == "red_teaming"
 
-    if is_preset_specialized and offline_reply:
+    reply_text = None
+    used_model = "lawagent-deterministic-engine"
+
+    try:
+        from lawagent.llm.client import LLMClient
+        client = LLMClient()
+        llm_messages = [{"role": "system", "content": system_prompt}]
+        for m in payload.messages[-6:]:
+            llm_messages.append({"role": m.role, "content": m.content})
+
+        reply_text = client.text_completion(
+            task="chat",
+            messages=llm_messages,
+            temperature=0.3
+        )
+        task_cfg = client.get_task_config("chat")
+        used_model = task_cfg.get("model", "deepseek-v3")
+    except Exception as e:
+        logger.info(f"Chat completion API 未就绪或离线模式，平滑启用确定性专家研判引擎: {e}")
         reply_text = offline_reply
-        used_model = "deepseek-v3"
-    else:
-        try:
-            from lawagent.llm.client import LLMClient
-            client = LLMClient()
-            llm_messages = [{"role": "system", "content": system_prompt}]
-            for m in payload.messages[-6:]:
-                llm_messages.append({"role": m.role, "content": m.content})
+        used_model = "lawagent-deterministic-engine"
 
-            reply_text = client.text_completion(
-                task="chat",
-                messages=llm_messages,
-                temperature=0.3
-            )
-        except Exception as e:
-            logger.warning(f"Chat completion API 调用失败，转为离线专业研判引擎: {e}")
-            reply_text = offline_reply
-            used_model = "local-expert-heuristic"
+    if not reply_text:
+        reply_text = offline_reply
+        used_model = "lawagent-deterministic-engine"
 
     # 正则提取回复中引用的法条
     if is_asean:
-        referenced_statutes = list(set(re.findall(r"(?:FIDIC|CIPAA|SOPA|SEMA|UU|MEMR|BGB|HGB|UCC|U\.S\.C\.|NDRC|SASAC|数安法|反制裁法)\s*[\w\.\:\§\-]+", reply_text)))
+        referenced_statutes = list(set(re.findall(r"(?:FIDIC|CIPAA|SOPA|SEMA|UU|MEMR|UCC|CISG|NDRC|SASAC|数安法|反制裁法)\s*[\w\.\:\§\-]+", reply_text)))
     elif is_us:
         referenced_statutes = list(set(re.findall(r"(?:UCC|U\.S\.C\.|Fed\.\s*R\.\s*Civ\.\s*P\.)\s*§?\s*[\d\-]+(?:\([a-zA-Z0-9]+\))*", reply_text)))
     else:
-        referenced_statutes = list(set(re.findall(r"(?:BGB|HGB|ZPO|CISG)\s*§?\s*\d+(?:\s*Abs\.\s*\d+)?", reply_text)))
+        referenced_statutes = list(set(re.findall(r"(?:FIDIC|CIPAA|SOPA|SEMA|UU|MEMR|CISG|NDRC|SASAC|数安法|反制裁法)\s*[\w\.\:\§\-]+", reply_text)))
     if not referenced_statutes and known_statutes:
         referenced_statutes = known_statutes[:3]
 
@@ -1282,6 +1397,8 @@ class SimulateEngineeringPayload(BaseModel):
     sub_ld_cap_pct: Optional[float] = None
     foreign_equity_pct: Optional[float] = None
     sinosure_notice_days: Optional[int] = None
+    spv_scheme: Optional[str] = None
+    local_subcontract_pct: Optional[float] = None
 
 
 @router.post("/{case_id}/simulate-engineering", response_model=CaseState)
@@ -1370,6 +1487,23 @@ def simulate_engineering(
             detail=sinosure_eval.get("recommended_action", "")
         ))
 
+    foreign_eq = updated_params.get("foreign_equity_pct")
+    if foreign_eq is not None:
+        eq_val = float(foreign_eq)
+        spv = updated_params.get("spv_scheme", "B")
+        if eq_val > 49.0 and jur in ["asean_th", "asean_id", "asean_ph"]:
+            updated_entry_checks.append(EntryCheckItem(
+                name=f"东道国外资持股比例红线预警 ({int(eq_val)}% 超过属地限制)",
+                status="uncertain",
+                detail=f"东道国准入法规规定外资直接持股上限通常为 49% 或需 BOI/BKPM 特批。当前设定外资股比 {int(eq_val)}%，建议采用方案 B (双层新加坡 SPV + 离岸股东协议) 或通过合规联营体规避隐名代持无效风险。"
+            ))
+        else:
+            updated_entry_checks.append(EntryCheckItem(
+                name=f"东道国外资持股合规审查 ({int(eq_val)}% 符合安全边界)",
+                status="satisfied",
+                detail=f"当前外资股比配置符合东道国外资准入安全线，架构方案 {spv} 可有效对冲主权风险并享有 BIT 投资保护协定适用。"
+            ))
+
     state.entry_checks = updated_entry_checks
     from lawagent.flow.security_sentinel import build_tactical_guidance
     tactical_guidance = build_tactical_guidance(
@@ -1450,7 +1584,8 @@ async def extract_case_intake(payload: ExtractIntakePayload):
         "asean_la": ["老挝", "Laos", "Lao", "万象", "Vientiane", "中老铁路", "南塔", "磨丁", "琅勃拉邦"],
         "asean_kh": ["柬埔寨", "Cambodia", "Cambodian", "金边", "Phnom Penh", "西港", "Sihanoukville", "暹粒", "Siem Reap"],
         "asean_mm": ["缅甸", "Myanmar", "Burma", "仰光", "Yangon", "内比都", "Naypyidaw", "曼德勒", "Mandalay"],
-        "asean_bn": ["文莱", "Brunei", "斯里巴加湾", "Bandar Seri Begawan"]
+        "asean_bn": ["文莱", "Brunei", "斯里巴加湾", "Bandar Seri Begawan"],
+        "asean_tl": ["东帝汶", "Timor-Leste", "Timor", "East Timor", "帝力", "Dili", "Visto", "审计法院", "Tribunal de Recurso"]
     }
 
     # 计算各法域在文本中的命中权重（核心国名权重 5，主要城市/法规/机构权重 3）
@@ -1458,7 +1593,7 @@ async def extract_case_intake(payload: ExtractIntakePayload):
     for code, kws in jur_keywords.items():
         for kw in kws:
             if kw in text:
-                weight = 5 if kw in ["马来西亚", "Malaysia", "越南", "Vietnam", "新加坡", "Singapore", "泰国", "Thailand", "菲律宾", "Philippines", "印尼", "印度尼西亚", "Indonesia", "老挝", "Laos", "柬埔寨", "Cambodia", "缅甸", "Myanmar", "文莱", "Brunei"] else 3
+                weight = 5 if kw in ["马来西亚", "Malaysia", "越南", "Vietnam", "新加坡", "Singapore", "泰国", "Thailand", "菲律宾", "Philippines", "印尼", "印度尼西亚", "Indonesia", "老挝", "Laos", "柬埔寨", "Cambodia", "缅甸", "Myanmar", "文莱", "Brunei", "东帝汶", "Timor-Leste", "Timor"] else 3
                 scores[code] += weight
 
     best_jur, best_score = max(scores.items(), key=lambda x: x[1])
@@ -1483,6 +1618,16 @@ async def extract_case_intake(payload: ExtractIntakePayload):
         gov_law = "asean_th"
     elif any(k in text for k in ["菲律宾法", "Philippine law", "laws of the Philippines"]):
         gov_law = "asean_ph"
+    elif any(k in text for k in ["柬埔寨法", "Cambodian law", "laws of Cambodia"]):
+        gov_law = "asean_kh"
+    elif any(k in text for k in ["老挝法", "Lao law", "laws of Laos"]):
+        gov_law = "asean_la"
+    elif any(k in text for k in ["缅甸法", "Myanmar law", "laws of Myanmar"]):
+        gov_law = "asean_mm"
+    elif any(k in text for k in ["文莱法", "Brunei law", "laws of Brunei"]):
+        gov_law = "asean_bn"
+    elif any(k in text for k in ["东帝汶法", "Timorese law", "laws of Timor-Leste"]):
+        gov_law = "asean_tl"
 
     # 3. 识别生命周期阶段 (lifecycle_stage)
     has_dispute = any(k in text for k in [
@@ -1927,9 +2072,33 @@ def feedback_to_compliance(
         final_resolution, chain_json, req.reporter_name, now_str
     ))
     conn.commit()
+    new_rule_id = cur.lastrowid
+
+    try:
+        state_db.log_event(
+            case_id=case_id,
+            step="COMPLIANCE_FEEDBACK_SAVED",
+            model="human-in-the-loop",
+            input_ref=final_topic,
+            output_ref=f"rule_{new_rule_id}",
+            actor=req.reporter_name or "user"
+        )
+        state_db.record_feedback({
+            "case_id": case_id,
+            "element_id": req.rule_code or final_topic,
+            "action": "feedback_to_compliance",
+            "before_text": final_conflict,
+            "after_text": final_resolution,
+            "note": f"沉淀至合规库规则 #{new_rule_id}",
+            "role": "compliance_officer",
+            "actor": req.reporter_name or "user"
+        })
+    except Exception:
+        pass
+
     return {
         "status": "success",
-        "rule_id": cur.lastrowid,
+        "rule_id": new_rule_id,
         "case_id": case_id,
         "rule_code": req.rule_code or final_topic,
         "topic_zh": final_topic,

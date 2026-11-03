@@ -471,7 +471,12 @@ def generate_compliance_handbook_docx(
         "asean_my": "马来西亚 (Malaysia)",
         "asean_sg": "新加坡共和国 (Singapore)",
         "asean_th": "泰王国 (Thailand)",
-        "asean_ph": "菲律宾共和国 (Philippines)"
+        "asean_ph": "菲律宾共和国 (Philippines)",
+        "asean_kh": "柬埔寨王国 (Cambodia)",
+        "asean_la": "老挝人民民主共和国 (Laos)",
+        "asean_mm": "缅甸联邦共和国 (Myanmar)",
+        "asean_bn": "文莱达鲁萨兰国 (Brunei)",
+        "asean_tl": "东帝汶民主共和国 (Timor-Leste)"
     }
     jur_label = jur_names.get(jurisdiction, "东盟重点国家")
 

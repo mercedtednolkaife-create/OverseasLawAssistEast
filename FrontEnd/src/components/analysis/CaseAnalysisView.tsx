@@ -33,6 +33,7 @@ import { ViabilityCalculationModal } from './ViabilityCalculationModal';
 import { DualComplianceCompass } from './DualComplianceCompass';
 import { TacticalGuidance, NegotiationScript, UrgentAction, AttachedArtifact } from '../../types/lawAgent';
 import { getJurisdictionConfig, ASEAN_JURISDICTIONS } from '../../configs/jurisdictions';
+import { buildFallbackTacticalGuidance, getAseanProfile } from './aseanJurisdictionProfiles';
 
 type AnalysisFacet = 'verdict' | 'elements' | 'sandbox' | 'export';
 
@@ -101,6 +102,60 @@ export const CaseAnalysisView: React.FC = () => {
   const [showGraphModal, setShowGraphModal] = useState<boolean>(false);
   // CRAG 自省门禁补偿轨迹展开开关
   const [showCragDetails, setShowCragDetails] = useState<boolean>(false);
+
+  // 司法解释二双包命题人工核验审计与门控确认状态
+  const [isConfirmingGate, setIsConfirmingGate] = useState<string | null>(null);
+  const [editingStatementSid, setEditingStatementSid] = useState<string | null>(null);
+  const [editingStatementText, setEditingStatementText] = useState<string>('');
+  const [editingStatementNote, setEditingStatementNote] = useState<string>('');
+  const [isReviewingStatement, setIsReviewingStatement] = useState<string | null>(null);
+
+  // 人工门控确认 (S3 争点拆解确认 / S8 终审报告免责核验 / CISG 公约适用确认)
+  const handleConfirmGate = async (gate: 'cisg' | 's3' | 's8') => {
+    if (!currentCaseId) return;
+    setIsConfirmingGate(gate);
+    try {
+      const res = await lawAgentApi.confirmGate(currentCaseId, gate, {});
+      if (res.updated_state) {
+        setCurrentCase(res.updated_state);
+      }
+      showToast(`门控 [${gate.toUpperCase()}] 确认成功，Multi-Agent 流水线已推进`);
+    } catch (err: any) {
+      showToast(`门控确认失败: ${err.message || err}`, 'error');
+    } finally {
+      setIsConfirmingGate(null);
+    }
+  };
+
+  // 逐条审阅陈述（采纳、驳回、修改批注）闭环审计
+  const handleReviewStatement = async (
+    sid: string,
+    action: 'accept' | 'reject' | 'edit',
+    note?: string,
+    updatedText?: string
+  ) => {
+    if (!currentCaseId) return;
+    setIsReviewingStatement(sid);
+    try {
+      const updated = await lawAgentApi.updateStatementReview(
+        currentCaseId,
+        sid,
+        action,
+        undefined,
+        note,
+        updatedText
+      );
+      setCurrentCase(updated);
+      setEditingStatementSid(null);
+      setEditingStatementText('');
+      setEditingStatementNote('');
+      showToast(`查明命题 [${sid}] 已成功${action === 'accept' ? '采纳留痕' : action === 'reject' ? '驳回剔除' : '完成修正批注'}`);
+    } catch (err: any) {
+      showToast(`命题核验更新失败: ${err.message || err}`, 'error');
+    } finally {
+      setIsReviewingStatement(null);
+    }
+  };
 
   // 当案件变更时同步沙盘滑块数值 (仅在切换不同案件 ID 时初始化，不重复触发自旋重算)
   const userInteractedRef = useRef<boolean>(false);
@@ -180,6 +235,9 @@ export const CaseAnalysisView: React.FC = () => {
         sinosure_notice_days: simSinosureDays,
         main_ld_cap_pct: simMainLd,
         sub_ld_cap_pct: simSubLd,
+        foreign_equity_pct: foreignEquityPct,
+        spv_scheme: selectedSpvScheme,
+        local_subcontract_pct: localSubcontractPct,
       });
       if (reqVersion === simReqVersionRef.current) {
         if (updatedCase) {
@@ -245,6 +303,90 @@ export const CaseAnalysisView: React.FC = () => {
           : '准备金不足，面临紧急仲裁强制执行流动性压力。',
       };
     }
+    if (hostJur === 'asean_th') {
+      return {
+        title: '泰国 FBA 外商经营法属地参股与采购率 (FBA 1999)',
+        target: 49,
+        anchorLeft: '50%',
+        isCompliant: simTkdn >= 49,
+        statusLabel: simTkdn >= 49 ? '(达标合规)' : '(需 BOI 豁免)',
+        desc: simTkdn >= 49
+          ? '达到泰国外商投资持股比例与采购基线，符合 FBA 规制要求。'
+          : '外资占比或属地采购存在缺口，需办理 BOI 投资优惠外商执照 (FBL)。',
+      };
+    }
+    if (hostJur === 'asean_ph') {
+      return {
+        title: '菲律宾 PCAB 建筑业牌照属地分包配额 (RA 4566)',
+        target: 25,
+        anchorLeft: '30%',
+        isCompliant: simTkdn >= 25,
+        statusLabel: simTkdn >= 25 ? '(合规达标)' : '(牌照风险)',
+        desc: simTkdn >= 25
+          ? '达到菲律宾建筑工业仲裁与 PCAB 属地分包法定配额。'
+          : '属地分包比例偏低，面临 PCAB AAAA 特别牌照合规抽检。',
+      };
+    }
+    if (hostJur === 'asean_kh') {
+      return {
+        title: '柬埔寨 CDC 外商投资法属地劳工与采购配额',
+        target: 30,
+        anchorLeft: '37.5%',
+        isCompliant: simTkdn >= 30,
+        statusLabel: simTkdn >= 30 ? '(达标)' : '(配额缺口)',
+        desc: simTkdn >= 30
+          ? '符合柬埔寨发展理事会 (CDC) 外商投资企业属地配额指引。'
+          : '本地化比例未达 30%，需向劳工部申请外籍技术劳工特别许可。',
+      };
+    }
+    if (hostJur === 'asean_la') {
+      return {
+        title: '老挝特许经营项目本土用工与分包配额 (CA Concession)',
+        target: 20,
+        anchorLeft: '25%',
+        isCompliant: simTkdn >= 20,
+        statusLabel: simTkdn >= 20 ? '(达标)' : '(需协议豁免)',
+        desc: simTkdn >= 20
+          ? '符合中老铁路与老挝特许经营法属地化配额基准。'
+          : '属地用工不足，建议通过特许协议补充条款锁定外籍用工指标。',
+      };
+    }
+    if (hostJur === 'asean_mm') {
+      return {
+        title: '缅甸 MIC 投资法属地采购与劳工比例 (MIL 2016)',
+        target: 30,
+        anchorLeft: '37.5%',
+        isCompliant: simTkdn >= 30,
+        statusLabel: simTkdn >= 30 ? '(达标)' : '(审查预警)',
+        desc: simTkdn >= 30
+          ? '达到缅甸投资委员会 (MIC) 批准函法定属地采购指标。'
+          : '存在属地比例缺口，需向 MIC 提报季度用工与采购合规报告。',
+      };
+    }
+    if (hostJur === 'asean_bn') {
+      return {
+        title: '文莱能源部 LBD 属地化采购与雇佣比例 (LBD Directive)',
+        target: 30,
+        anchorLeft: '37.5%',
+        isCompliant: simTkdn >= 30,
+        statusLabel: simTkdn >= 30 ? '(符合 LBD)' : '(LBD 缺口)',
+        desc: simTkdn >= 30
+          ? '符合文莱属地商业发展指引 (LBD) 基本准入标准。'
+          : '未达到基础 LBD 配额，可能面临主包商扣发进度款风险。',
+      };
+    }
+    if (hostJur === 'asean_tl') {
+      return {
+        title: '东帝汶审计法院 Visto 合规与属地用工配额',
+        target: 25,
+        anchorLeft: '30%',
+        isCompliant: simTkdn >= 25,
+        statusLabel: simTkdn >= 25 ? '(合规)' : '(合规预警)',
+        desc: simTkdn >= 25
+          ? '符合东帝汶审计法院 (Tribunal de Contas) Visto 前置审查标准。'
+          : '配额存在风险，易在审计法院事后财务审查中遭受追溯调减。',
+      };
+    }
     // 默认印尼
     return {
       title: '印尼 TKDN 本地化采购率 (MEMR 11/2024)',
@@ -281,7 +423,7 @@ export const CaseAnalysisView: React.FC = () => {
       handleSimulateEngineering();
     }, 350);
     return () => clearTimeout(timer);
-  }, [simTkdn, simDelayDays, simNoticeDays, simSinosureDays, simMainLd, simSubLd, handleSimulateEngineering]);
+  }, [simTkdn, simDelayDays, simNoticeDays, simSinosureDays, simMainLd, simSubLd, foreignEquityPct, selectedSpvScheme, localSubcontractPct, handleSimulateEngineering]);
 
   // 移除挂载成果
   const handleRemoveArtifact = async (artifactId: string) => {
@@ -515,8 +657,9 @@ export const CaseAnalysisView: React.FC = () => {
       };
     }
 
-    // 默认或印尼法域 (asean_id)
-    return {
+    if (hostJur === 'asean_id') {
+      // 印尼法域 (asean_id)
+      return {
       qualitative_verdict: {
         legal_support_level: isPreInv ? '附条件准入 (Conditional Clearance)' : '强支持 (Substantial Support)',
         confidence_band: isPreInv ? '置信区间 78%-86%' : '置信区间 82%-90%',
@@ -574,6 +717,10 @@ export const CaseAnalysisView: React.FC = () => {
         },
       ],
     };
+    }
+
+    // 其他东盟法域自适应 (泰国/菲律宾/柬埔寨/老挝/缅甸/文莱/东帝汶)
+    return buildFallbackTacticalGuidance(hostJur, isPreInv);
   }, [currentCase, isPreInv]);
 
   // 争议焦点与要件清单动态解析
@@ -770,6 +917,82 @@ export const CaseAnalysisView: React.FC = () => {
             ];
       }
 
+      const profile = getAseanProfile(hostJur);
+      if (profile) {
+        const rawElList = isPreInv ? profile.elements.preInv : profile.elements.dispute;
+        return rawElList.map((el, i) => ({
+          element_id: `elem-${i + 1}`,
+          name_zh: el.nameZh,
+          status: el.status,
+          match_note: el.matchNote,
+          gap_note: el.gapNote,
+          ref_norm: el.refNorm,
+          eid: `E${i + 1}`,
+        }));
+      }
+
+      if (hostJur !== 'asean_id') {
+        return isPreInv
+          ? [
+              {
+                element_id: 'elem-1',
+                name_zh: `${jurConfig.name_zh}外商投资牌照与属地准入许可`,
+                status: 'covered' as const,
+                match_note: `持有${jurConfig.name_zh}主管机关核发之有效外资准入许可，符合负面清单要求。`,
+                gap_note: '资质牌照要件齐备。',
+                ref_norm: `${jurConfig.short_name} Investment Law`,
+                eid: 'E1',
+              },
+              {
+                element_id: 'elem-2',
+                name_zh: `${jurConfig.name_zh}双语合同与属地官方语言效力合规`,
+                status: 'covered' as const,
+                match_note: `采用英语与${jurConfig.name_zh}属地官方语言双语同文签署，满足形式合规要求。`,
+                gap_note: '合规要件通过。',
+                ref_norm: `${jurConfig.short_name} Civil Law`,
+                eid: 'E2',
+              },
+              {
+                element_id: 'elem-3',
+                name_zh: `${jurConfig.name_zh}属地化分包与用工配额审查`,
+                status: 'partial' as const,
+                match_note: `属地采购与劳工比例接近法定门槛，已提交合规豁免或合资联营报备。`,
+                gap_note: `需跟进${jurConfig.name_zh}投资部最终豁免批文。`,
+                ref_norm: `${jurConfig.short_name} Labor & Contracting Code`,
+                eid: 'E3',
+              },
+            ]
+          : [
+              {
+                element_id: 'elem-1',
+                name_zh: '迟延交地事实与发包人违约责任归属',
+                status: 'covered' as const,
+                match_note: '在卷现场监理日志证明交地迟延达关键路径停滞，责任归属于发包人。',
+                gap_note: '要件事实闭合完整。',
+                ref_norm: 'FIDIC Silver 8.4(c)',
+                eid: 'E1',
+              },
+              {
+                element_id: 'elem-2',
+                name_zh: '28天索赔通知送达与发包人知情推定',
+                status: 'partial' as const,
+                match_note: `承包商已发出阻工邮件，依据${jurConfig.name_zh}善意履约强行法，发包人不可免除自身违约后果。`,
+                gap_note: '需补强监理工程例会纪要凭证。',
+                ref_norm: 'FIDIC Silver 20.1',
+                eid: 'E2',
+              },
+              {
+                element_id: 'elem-3',
+                name_zh: `${jurConfig.name_zh}民商法预定违约金司法核减与合理性审查`,
+                status: 'covered' as const,
+                match_note: `发包人单方计取之高额违约金显失公允，符合${jurConfig.name_zh}法定司法调减门槛。`,
+                gap_note: '需提交现场实际损失核算报告。',
+                ref_norm: `${jurConfig.short_name} Civil & Commercial Code`,
+                eid: 'E3',
+              },
+            ];
+      }
+
       // 默认印尼法域 (asean_id)
       return isPreInv
         ? [
@@ -892,7 +1115,9 @@ export const CaseAnalysisView: React.FC = () => {
   // 导出 DOCX
   const handleExportDocx = (type: 'standard' | 'handbook' = 'standard') => {
     if (!currentCaseId) return;
-    const url = `/api/cases/${currentCaseId}/export/docx`;
+    const url = type === 'handbook'
+      ? `/api/cases/${currentCaseId}/export/compliance-handbook`
+      : `/api/cases/${currentCaseId}/export/docx`;
     window.open(url, '_blank');
     showToast(
       type === 'standard'
@@ -950,6 +1175,44 @@ export const CaseAnalysisView: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             {caseMeta.title}
           </h1>
+
+          {/* Human-in-the-Loop 人工门控与审查确认栏 */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 pb-1">
+            <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <span>《涉外法解释二》法官/合规官人工门控：</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => handleConfirmGate('s3')}
+              disabled={isConfirmingGate === 's3'}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-all cursor-pointer"
+              title="确认争点拆解与检索充分性，推进至法规检索与分析"
+            >
+              {isConfirmingGate === 's3' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              <span>确认 S3 争点拆解</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleConfirmGate('s8')}
+              disabled={isConfirmingGate === 's8'}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer"
+              title="确认最终报告合规与免责门禁，推进至交付归档"
+            >
+              {isConfirmingGate === 's8' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              <span>确认 S8 专家终审</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleConfirmGate('cisg')}
+              disabled={isConfirmingGate === 'cisg'}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+              title="确认 CISG 国际货物销售合同公约排除或适用"
+            >
+              {isConfirmingGate === 'cisg' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Globe className="w-3 h-3" />}
+              <span>核定 CISG 适用</span>
+            </button>
+          </div>
         </div>
 
         {/* 右侧：Apple 风格四切面胶囊分段控制器 (Segmented Control) 与工具按钮 */}
@@ -1305,6 +1568,241 @@ export const CaseAnalysisView: React.FC = () => {
               showToast={showToast}
             />
           )}
+
+          {/* 国家安全哨兵强类型预警防线 (Security Sentinel Alerts) */}
+          {currentCase?.security_alerts && currentCase.security_alerts.length > 0 && (
+            <div className="apple-bento-card rounded-[30px] p-6 space-y-4 border border-rose-200/70 bg-rose-50/20">
+              <div className="flex items-center justify-between pb-3 border-b border-rose-100">
+                <span className="text-xs font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-rose-600" />
+                  <span>国家安全与涉外合规特别预警 ({currentCase.security_alerts.length})</span>
+                </span>
+                <span className="text-[11px] font-mono text-rose-700 bg-rose-100 px-2.5 py-0.5 rounded-full font-bold">
+                  Security Sentinel
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentCase.security_alerts.map((alert: any, idx: number) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-white border border-rose-200/80 shadow-2xs space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">{alert.title_zh}</span>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
+                        alert.risk_level === 'CRITICAL' ? 'bg-rose-600 text-white' : alert.risk_level === 'HIGH' ? 'bg-amber-500 text-white' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {alert.risk_level}
+                      </span>
+                    </div>
+                    {alert.mitigation_actions && alert.mitigation_actions.length > 0 && (
+                      <div className="text-xs text-slate-600 space-y-1">
+                        <span className="font-semibold text-slate-700 text-[11px]">可执行对冲举措：</span>
+                        <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-slate-600">
+                          {alert.mitigation_actions.map((act: string, aIdx: number) => (
+                            <li key={aIdx}>{act}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {alert.sinosure_preservation_guide && (
+                      <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200/70 text-[11px] text-amber-900 font-sans leading-relaxed">
+                        <span className="font-bold">中信保 30 日出险保全指引：</span>
+                        <span>{alert.sinosure_preservation_guide}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 东盟同类工程司法判例与裁判观点 (Similar Cases) */}
+          {currentCase?.similar_cases && currentCase.similar_cases.length > 0 && (
+            <div className="apple-bento-card rounded-[30px] p-6 space-y-4 border border-blue-200/70 bg-blue-50/20">
+              <div className="flex items-center justify-between pb-3 border-b border-blue-100">
+                <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-blue-600" />
+                  <span>东盟同类工程司法判例与裁判观点 ({currentCase.similar_cases.length})</span>
+                </span>
+                <span className="text-[11px] font-mono text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full font-bold">
+                  Precedent Corpus
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {currentCase.similar_cases.map((sc: any, idx: number) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-white border border-blue-200/70 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 line-clamp-1">{sc.court} · {sc.az}</span>
+                      <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        {sc.case_id}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                      {sc.court_view_zh || sc.court_view_quote_de}
+                    </p>
+                    {sc.similarity_points && sc.similarity_points.length > 0 && (
+                      <div className="text-[11px] text-slate-500">
+                        <span className="font-semibold text-slate-600">本案异同对标：</span>
+                        <span>{sc.similarity_points.join('；')}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 《涉外法解释二》双包查明陈述逐条人工核验与闭环审计 (Statement Review Audit) */}
+          {currentCase?.findings && currentCase.findings.length > 0 && (
+            <div className="apple-bento-card rounded-[30px] p-6 space-y-5 border border-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span>《涉外法解释二》第三条规范双包查明命题人工核验与闭环审计</span>
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    支持对 Multi-Agent 生成的双包推导命题进行“采纳 / 驳回 / 批注修正”留痕，直接沉淀至 events 及 feedback 审计库
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2.5 py-1 rounded-xl">
+                  共计 {currentCase.findings.reduce((sum, f) => sum + (f.statements?.length || 0), 0)} 条命题
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {currentCase.findings.flatMap((f) => f.statements || []).map((st: any) => {
+                  const isAccepted = st.review_action === 'accept';
+                  const isRejected = st.review_action === 'reject';
+                  const isEdited = st.review_action === 'edit';
+                  const isEditing = editingStatementSid === st.sid;
+
+                  return (
+                    <div
+                      key={st.sid}
+                      className={`p-4 rounded-2xl border transition-all text-xs space-y-2.5 ${
+                        isAccepted
+                          ? 'bg-emerald-50/30 border-emerald-300'
+                          : isRejected
+                          ? 'bg-rose-50/30 border-rose-300 opacity-60'
+                          : isEdited
+                          ? 'bg-amber-50/30 border-amber-300'
+                          : 'bg-white border-slate-200/80 hover:border-blue-200'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                            st.part === 'A' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            Part {st.part || 'A'} · {st.part === 'A' ? '查明包' : '咨询包'}
+                          </span>
+                          <span className="font-mono font-bold text-slate-700">{st.sid}</span>
+                          <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {st.type === 'quote' ? '法源引述' : '要件涵摄推导'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {isAccepted && (
+                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                              ✓ 已核准采纳
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span className="text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded">
+                              ✕ 已驳回剔除
+                            </span>
+                          )}
+                          {isEdited && (
+                            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                              ✎ 已修改批注
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleReviewStatement(st.sid, 'accept')}
+                            disabled={isReviewingStatement === st.sid}
+                            className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer"
+                          >
+                            采纳
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReviewStatement(st.sid, 'reject')}
+                            disabled={isReviewingStatement === st.sid}
+                            className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer"
+                          >
+                            驳回
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isEditing) {
+                                setEditingStatementSid(null);
+                              } else {
+                                setEditingStatementSid(st.sid);
+                                setEditingStatementText(st.text_zh);
+                                setEditingStatementNote(st.review_note || '');
+                              }
+                            }}
+                            className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+                          >
+                            {isEditing ? '取消修改' : '批注修改'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {isEditing ? (
+                        <div className="space-y-2 pt-2 border-t border-slate-200">
+                          <textarea
+                            value={editingStatementText}
+                            onChange={(e) => setEditingStatementText(e.target.value)}
+                            rows={3}
+                            className="w-full text-xs p-2.5 rounded-xl border border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans"
+                            placeholder="修正陈述文本..."
+                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editingStatementNote}
+                              onChange={(e) => setEditingStatementNote(e.target.value)}
+                              className="flex-1 text-xs px-2.5 py-1.5 rounded-xl border border-slate-300 focus:outline-none"
+                              placeholder="专家审查批注理由 (可选)..."
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleReviewStatement(st.sid, 'edit', editingStatementNote, editingStatementText)}
+                              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all cursor-pointer"
+                            >
+                              保存并提交审计
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-slate-800 text-xs leading-relaxed font-sans">
+                          {st.text_zh}
+                        </p>
+                      )}
+
+                      {st.review_note && (
+                        <div className="p-2 rounded-xl bg-amber-50/80 border border-amber-200/60 text-[11px] text-amber-900">
+                          <span className="font-semibold">专家批注：</span>
+                          <span>{st.review_note}</span>
+                        </div>
+                      )}
+
+                      {st.quote_de && (
+                        <div className="text-[11px] font-mono text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-100 line-clamp-2">
+                          <span className="text-slate-500 font-semibold">外语法条原文字段：</span>
+                          {st.quote_de}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1442,7 +1940,7 @@ export const CaseAnalysisView: React.FC = () => {
                 <div className="flex items-center justify-between px-3 py-2 bg-blue-50/50 rounded-xl border border-blue-100 text-[11px]">
                   <span className="text-blue-700 font-medium flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                    <span>CL-Align 跨法系概念对齐：已自动对齐东盟【{jurConfig?.name || hostJur}】法系教义及属地母语关键词</span>
+                    <span>CL-Align 跨法系概念对齐：已自动对齐东盟【{jurConfig?.name_zh || jurConfig?.short_name || hostJur}】法系教义及属地母语关键词</span>
                   </span>
                   <span className="font-mono text-slate-400 text-[10px]">中·英·属地语三语映射</span>
                 </div>
@@ -1777,7 +2275,10 @@ export const CaseAnalysisView: React.FC = () => {
                     ].map((opt) => (
                       <div
                         key={opt.key}
-                        onClick={() => setSelectedSpvScheme(opt.key as any)}
+                        onClick={() => {
+                          userInteractedRef.current = true;
+                          setSelectedSpvScheme(opt.key as any);
+                        }}
                         className={`p-4 rounded-2xl border cursor-pointer transition-all text-xs space-y-1.5 ${
                           selectedSpvScheme === opt.key
                             ? 'bg-blue-50/80 border-blue-400 shadow-2xs text-slate-900'
@@ -1803,7 +2304,7 @@ export const CaseAnalysisView: React.FC = () => {
                       min="20"
                       max="100"
                       value={foreignEquityPct}
-                      onChange={(e) => setForeignEquityPct(Number(e.target.value))}
+                      onChange={(e) => handleSliderChange(setForeignEquityPct, Number(e.target.value))}
                       className="w-full accent-blue-600 cursor-pointer"
                     />
                   </div>

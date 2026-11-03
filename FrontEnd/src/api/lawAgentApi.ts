@@ -376,6 +376,8 @@ export const lawAgentApi = {
       main_ld_cap_pct?: number;
       sub_ld_cap_pct?: number;
       foreign_equity_pct?: number;
+      spv_scheme?: string;
+      local_subcontract_pct?: number;
     }
   ): Promise<CaseState> {
     return await request<CaseState>(`/cases/${caseId}/simulate-engineering`, {

@@ -26,6 +26,7 @@ import {
   Building2,
   ChevronDown,
   ChevronUp,
+  Clock,
 } from 'lucide-react';
 
 export const ExpertConsultsView: React.FC = () => {
@@ -61,11 +62,16 @@ export const ExpertConsultsView: React.FC = () => {
       }
 
       const consList = await lawAgentApi.getConsults(currentCase?.case_id);
-      if (Array.isArray(consList) && consList.length > 0) {
-        // 将后端最新产生的咨询记录与高保真示范意见书合并
-        const backendIds = new Set(consList.map((c) => c.consult_id));
-        const unseededDefaults = DEFAULT_CONSULTS.filter((dc) => !backendIds.has(dc.consult_id));
-        setConsults([...consList, ...unseededDefaults]);
+      if (Array.isArray(consList)) {
+        if (consList.length > 0) {
+          // 仅展示当前案卷关联的真实咨询记录
+          setConsults(consList as ExtendedConsultRecord[]);
+        } else if (!currentCase?.case_id) {
+          // 仅在无选中案卷时展示示例意见书
+          setConsults(DEFAULT_CONSULTS);
+        } else {
+          setConsults([]);
+        }
       }
     } catch (err: any) {
       console.warn('Consults background fetch failed, using high-fidelity local data:', err);
@@ -184,16 +190,17 @@ export const ExpertConsultsView: React.FC = () => {
 
       const newRecord: ExtendedConsultRecord = {
         ...created,
+        status: created.status || 'dispatched',
         expert_name: exp?.name || '东盟工程法专家',
         country_code: exp?.country_code,
         country_flag: exp?.country_flag,
         topic: `关于 ${exp?.country_name || '东盟'} 涉外工程合规专项法律咨询`,
-        reply: `【${exp?.country_name || '东盟'}属地法律顾问正式受理通知】\n已完成受托事项利益冲突审查，${exp?.name} 特邀出海法务团队已接受委托。\n专家组正在调阅东道国现行成文法典、属地行业行政规程及最高裁判先例，预计将于 3 个工作日内正式出具盖章签署版法律意见书。`,
+        reply: created.reply || undefined,
         legal_references: exp?.fields || ['东道国建设工程法典', 'FIDIC 标准合同条件'],
         key_findings: [
-          '已通过利益冲突排查与独立性审查',
-          '案卷材料已移送属地出海执业团队审阅',
-          '预计 3 个工作日内出具正式签署书面意见书',
+          '已完成受托事项利益冲突排查与独立性审查',
+          '案卷材料已递送属地出海执业专家团队审阅',
+          '状态：待属地大律师出具盖章签署版法律意见书',
         ],
         updated_at: new Date().toLocaleString('zh-CN', { hour12: false }),
       };
@@ -512,10 +519,17 @@ export const ExpertConsultsView: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700">
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>已出具正式意见书</span>
-                        </div>
+                        {con.status === 'completed' || con.status === 'issued' || (Boolean(con.reply) && con.status !== 'dispatched') ? (
+                          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700">
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>已出具正式意见书</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>已受理·待出具意见</span>
+                          </div>
+                        )}
                         <span className="text-[11px] font-mono text-slate-400">
                           {con.updated_at}
                         </span>
@@ -605,6 +619,13 @@ export const ExpertConsultsView: React.FC = () => {
                             </div>
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {!con.reply && (
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/60 text-xs text-slate-500 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>专家工作组正在调阅属地现行成文法典与司法先例，正式意见书出具后将自动归档呈现。</span>
                       </div>
                     )}
 

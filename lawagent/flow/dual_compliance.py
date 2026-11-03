@@ -16,7 +16,7 @@ class DualComplianceEngine:
     """中-东盟双向合规审查与冲突消解引擎"""
 
     @classmethod
-    def evaluate(cls, state: CaseState) -> DualComplianceAudit:
+    def evaluate(cls, state: CaseState, state_db: Optional[Any] = None) -> DualComplianceAudit:
         items: List[DualComplianceItem] = []
 
         items.extend(cls.evaluate_dual_investment_access(state))
@@ -24,6 +24,7 @@ class DualComplianceEngine:
         items.extend(cls.evaluate_dual_data_and_export_control(state))
         items.extend(cls.evaluate_dual_epc_execution(state))
         items.extend(cls.evaluate_dual_dispute_sinosure(state))
+        items.extend(cls.evaluate_custom_compliance_rules(state, state_db=state_db))
 
         # 计算得分与冲突计数
         collision_count = sum(1 for it in items if it.status == "collision")
@@ -39,9 +40,11 @@ class DualComplianceEngine:
         approval_chain = cls._build_approval_chain(jur)
 
         # 汇总综述
+        custom_cnt = sum(1 for it in items if it.dimension == "企业实务反哺规则库")
+        custom_note = f"，吸纳企业历史案卷沉淀规则 {custom_cnt} 条" if custom_cnt > 0 else ""
         summary_zh = (
             f"中-东盟双向合规核验完成：发现 {collision_count} 处母国与东道国强行法冲突碰撞点，"
-            f"{warnings} 处合规关注项。中方合规指数: {prc_score:.1f}，东道国属地合规指数: {host_score:.1f}。"
+            f"{warnings} 处合规关注项{custom_note}。中方合规指数: {prc_score:.1f}，东道国属地合规指数: {host_score:.1f}。"
         )
 
         return DualComplianceAudit(
@@ -52,6 +55,55 @@ class DualComplianceEngine:
             approval_chain=approval_chain,
             summary_zh=summary_zh
         )
+
+    @classmethod
+    def evaluate_custom_compliance_rules(cls, state: CaseState, state_db: Optional[Any] = None) -> List[DualComplianceItem]:
+        """6. 企业实务经验沉淀与反哺合规核查算子 (读取 state.sqlite 的 custom_compliance_rules 表)"""
+        items: List[DualComplianceItem] = []
+        jur = (state.meta.jurisdiction or "asean_id").replace("asean_", "").upper()
+
+        db_mgr = state_db
+        if db_mgr is None:
+            try:
+                from lawagent.store.db import StateDBManager
+                db_mgr = StateDBManager.get_instance()
+            except Exception:
+                db_mgr = None
+
+        if not db_mgr:
+            return items
+
+        try:
+            custom_rules = db_mgr.get_custom_compliance_rules(host_country=jur, case_id=state.case_id)
+            for r in custom_rules:
+                chain = []
+                chain_raw = r.get("approval_chain")
+                if chain_raw:
+                    try:
+                        import json
+                        parsed = json.loads(chain_raw) if isinstance(chain_raw, str) else chain_raw
+                        if isinstance(parsed, list):
+                            chain = [str(x) for x in parsed]
+                    except Exception:
+                        pass
+
+                items.append(DualComplianceItem(
+                    dimension="企业实务反哺规则库",
+                    side="bidirectional_conflict",
+                    status="warning",
+                    rule_code=f"CUSTOM_{r.get('id', 'FEEDBACK')}",
+                    title_zh=f"【实战经验沉淀】{r.get('topic_zh') or '涉外工程合规风险提示'}",
+                    prc_statute="ENTERPRISE:Internal_Compliance_Guidelines",
+                    host_statute=f"{jur}:{r.get('host_country') or jur}",
+                    collision_desc=r.get("conflict_clause_example") or f"在既往案卷（ID: {r.get('case_id')}）中遭遇类似法域冲突或履约风险，特此预警。",
+                    mitigation_clause_zh=r.get("custom_resolution_note") or "建议遵照企业境外合规内部指南，在主合同中增补双边审批先决条件及代位追偿救济条款。",
+                    action_guidance=f"由涉外法务/合规官【{r.get('reporter_name') or '专家团队'}】录入沉淀。遵循审批链：{r.get('approval_chain') or '常规内部核批'}。",
+                    approval_chain=chain
+                ))
+        except Exception:
+            pass
+
+        return items
 
     @classmethod
     def evaluate_dual_investment_access(cls, state: CaseState) -> List[DualComplianceItem]:

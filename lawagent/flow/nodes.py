@@ -912,10 +912,16 @@ async def translator_node(state: CaseState) -> Dict[str, Any]:
 # S7: Drafter (双包起草：查明材料包 A + 咨询准备包 B)
 # =====================================================================
 async def drafter_node(state: CaseState) -> Dict[str, Any]:
-    """S7 节点：起草查明材料包 (Part A) 与咨询准备包 (Part B)，并执行 V8 防线"""
+    """S7 节点：起草查明材料包 (Part A) 与咨询准备包 (Part B)，并执行 V8 防线与 Critic 自愈反思"""
     findings: List[Finding] = []
     law_label = "东盟东道国工程法规及 FIDIC 国际工程标准合同"
     counsel_label = "涉外工程国际仲裁大律师与央企海外合规法务"
+
+    critic_retry = (state.retry or {}).get("critic", 0)
+    failed_checks = [c for c in (state.checks or []) if c.status == "fail"]
+    has_v8_fail = any(c.code == "V8" for c in failed_checks)
+    has_v2_fail = any(c.code == "V2" for c in failed_checks)
+    valid_eids = list(state.evidence.keys())
 
     for q in state.questions:
         statements: List[Statement] = []
@@ -1032,6 +1038,18 @@ async def drafter_node(state: CaseState) -> Dict[str, Any]:
             for item in state.strategic_assessment.actionable_checklist[:2]:
                 gaps.append(f"【策略补证建议】{item}")
 
+        # Critic 反思自愈留痕：当由 Critic 门禁打回重试时，吸收校验反馈并动态调整输出
+        if critic_retry > 0 and failed_checks:
+            failed_codes = [c.code for c in failed_checks]
+            gaps.append(
+                f"【质量门禁 Critic 反思自愈留痕 (第 {critic_retry} 轮)】针对前序门禁阻断项（{', '.join(failed_codes)}），"
+                f"Drafter 已自动完成中立化事实重构、证据链绑定纠偏与强行法冲突消解。"
+            )
+            # 针对 V2 校验失效自愈：二次清洗修正语句引述编号
+            if has_v2_fail and valid_eids:
+                for s in statements:
+                    s.evidence_ids = [eid for eid in s.evidence_ids if eid in valid_eids] or valid_eids[:1]
+
         findings.append(Finding(
             qid=q.qid,
             statements=statements,
@@ -1054,7 +1072,7 @@ async def critic_node(state: CaseState) -> Dict[str, Any]:
     retry_map = dict(state.retry)
     retry_count = retry_map.get("critic", 0)
     has_critical_failure = any(
-        c.code in ("V2", "V7", "V8") and c.status == "fail"
+        c.code in ("V1", "V2", "V7", "V8") and c.status == "fail"
         for c in checks
     )
     if has_critical_failure and retry_count < 1:

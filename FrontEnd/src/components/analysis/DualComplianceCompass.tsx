@@ -61,6 +61,11 @@ export const DualComplianceCompass: React.FC<DualComplianceCompassProps> = ({
     setIsChecking(true);
     try {
       const engParams = caseState?.meta?.engineering_params || {};
+      const fullText = `${caseState?.facts_zh || ''} ${caseState?.claims_zh || ''} ${caseState?.title || ''}`;
+      const hasOverseasTransfer = engParams.has_overseas_transfer ?? /境外放款|外债|资本汇出|担保|保函|资金出境/i.test(fullText);
+      const dataOutboundSensitive = engParams.data_outbound_sensitive ?? /调证|数据|测绘|图纸|源码|发现程序|Discovery|出口管制|两用物项|EAR/i.test(fullText);
+      const hasSanctionsClause = engParams.has_sanctions_clause ?? /制裁|OFAC|SDN|长臂|实体清单|阻断/i.test(fullText);
+
       const res = await lawAgentApi.runDualComplianceCheck({
         jurisdiction: hostJur,
         facts_zh: caseState?.facts_zh || '',
@@ -71,9 +76,9 @@ export const DualComplianceCompass: React.FC<DualComplianceCompassProps> = ({
           : (caseState?.meta?.lifecycle_stage as any)?.value || 'execution_dispute',
         declared_equity_pct: engParams.declared_equity_pct,
         declared_tkdn_pct: engParams.declared_tkdn_pct,
-        has_overseas_transfer: true,
-        data_outbound_sensitive: true,
-        has_sanctions_clause: true,
+        has_overseas_transfer: hasOverseasTransfer,
+        data_outbound_sensitive: dataOutboundSensitive,
+        has_sanctions_clause: hasSanctionsClause,
         engineering_params: engParams,
       });
       if (res && res.items) {

@@ -24,6 +24,11 @@ const JUR_NAMES: Record<string, string> = {
   asean_sg: '新加坡',
   asean_th: '泰国',
   asean_ph: '菲律宾',
+  asean_kh: '柬埔寨',
+  asean_la: '老挝',
+  asean_mm: '缅甸',
+  asean_bn: '文莱',
+  asean_tl: '东帝汶',
 };
 
 const ARCHETYPE_NAMES: Record<string, string> = {
@@ -85,15 +90,7 @@ export const ComplianceGuidelineCenter: React.FC = () => {
                 if (!line || !Array.isArray(line.checklists)) return;
                 line.checklists.forEach((_, idx) => {
                   const key = `${stage.id}_${lineKey}_${idx}`;
-                  if (sIdx === 0 && lineKey === 'line1_operational' && idx === 1) {
-                    init[key] = 'flawed';
-                  } else if (sIdx === 2 && lineKey === 'line2_legal' && idx === 0) {
-                    init[key] = 'flawed';
-                  } else if (sIdx === 3 && lineKey === 'line1_operational' && idx === 1) {
-                    init[key] = 'failed';
-                  } else {
-                    init[key] = 'passed';
-                  }
+                  init[key] = 'passed';
                 });
               });
             });

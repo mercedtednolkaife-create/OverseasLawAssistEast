@@ -45,7 +45,22 @@ KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM = [
     "CIPS替代", "unilateral sanctions", "secondary sanctions"
 ]
 
-KEYWORDS_SANCTIONS_DEBARMENT = KEYWORDS_MDB_DEBARMENT + KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM
+KEYWORDS_SUPPLY_CHAIN_LONG_ARM = [
+    "UFLPA", "维吾尔强迫劳动", "强迫劳动", "涉疆供应链", "涉疆法案", "供应链溯源", "CSDDD",
+    "企业可持续尽职调查", "供应链尽责", "原产地溯源", "供应链审计", "排疆承诺"
+]
+
+KEYWORDS_EXPORT_CONTROL_TECH = [
+    "EAR", "出口管制", "De Minimis", "最低含量", "FDP规则", "外国直接产品",
+    "BIS", "备件断供", "核心主机断供", "DCS断供", "燃气轮机断供", "工业软件断供", "物项管制"
+]
+
+KEYWORDS_SANCTIONS_DEBARMENT = (
+    KEYWORDS_MDB_DEBARMENT
+    + KEYWORDS_UNILATERAL_SANCTIONS_LONG_ARM
+    + KEYWORDS_SUPPLY_CHAIN_LONG_ARM
+    + KEYWORDS_EXPORT_CONTROL_TECH
+)
 
 KEYWORDS_CREEPING_EXPROPRIATION = [
     "征收", "国有化", "隐性征收", "间接征收", "单方废约", "单方终止",
@@ -165,6 +180,8 @@ class SecuritySentinel:
                 mandatory_human_checklist=[
                     "核查联营体伙伴（JV Partner）或关键分包商是否列于世行/亚行跨行联合除名（Cross-Debarment）数据库；",
                     "排查项目资金链是否存在受制裁国际美元清算通道；",
+                    "开展属地商业代理（Local Sponsor/Agent）穿透审查，核查代理佣金比例及成功费（Success Fee）合规性，严防触发跨行联合除名廉政调查；",
+                    "核验代理协议与分包合同中是否载明廉洁承诺与账目审计权保留条款（Right to Audit）；",
                     "向集团合规委员会与反制裁专项办公室紧急报备。"
                 ],
                 mitigation_actions=[
@@ -210,6 +227,76 @@ class SecuritySentinel:
                     "切换跨境资金结算通道至人民币跨境支付系统 (CIPS) 或东道国本币双边本币结算通道 (LCT)；",
                     "在30日内向商务部主管部门提交阻断令报告，并向中国信保报损预警；",
                     "聘请东道国国际仲裁大律师与中国涉外律师联合组建抗辩团队，在 SIAC/ICC/HKIAC 仲裁中提出抗辩，并在境内对配合制裁的外企保留反制追索诉讼。"
+                ]
+            ))
+
+        # ---------------------------------------------------------------------
+        # 2C. 欧美供应链溯源与强迫劳动长臂管辖 (UFLPA / EU CSDDD) - HIGH
+        # ---------------------------------------------------------------------
+        if any(kw.lower() in full_text.lower() for kw in KEYWORDS_SUPPLY_CHAIN_LONG_ARM):
+            fact_anchors = cls.scan_fact_anchors(state, KEYWORDS_SUPPLY_CHAIN_LONG_ARM)
+            alerts.append(SecurityAlertItem(
+                risk_level=SecurityRiskLevel.HIGH,
+                category="supply_chain_long_arm",
+                title_zh="欧美供应链溯源与强迫劳动长臂管辖（UFLPA / EU CSDDD vs 中国反外国制裁法）",
+                fact_anchor_ids=fact_anchors,
+                host_law_basis=["REF_CLAUSE:FIDIC_SILVER:Sub_13_Variation", "REF_CASE:EU_CSDDD:SupplyChain_2024"],
+                prc_or_treaty_basis=[
+                    "CN:Anti_Foreign_Sanctions_Law:Art3_4_12",
+                    "CN:Export_Control_Law:Art1_48",
+                    "CN:MOFCOM_Order_1_2021:Blocking_Statute"
+                ],
+                sinosure_preservation_guide=(
+                    "【供应链溯源排疆出险特别指引】：\n"
+                    "欧美开发商或国际银团依据 UFLPA / CSDDD 强行要求签署涉疆供应链排除承诺并以此拒付工程款的，"
+                    "属于政治歧视性单边长臂限制。须防止外方借此将政治歧视转化为商务履约抗辩，"
+                    "应在出险 30 日内向中国信保报备政治风险特别险。"
+                ),
+                mandatory_human_checklist=[
+                    "核查外方是否强制要求签署涉疆供应链排除保证（UFLPA Exclusion Warranty）；",
+                    "审查合同供应链溯源条款是否违反中国《反外国制裁法》第3/12条及《出口管制法》；",
+                    "核查光伏组件、逆变器及核心设备的原产地证明与东盟属地深加工合规证书（Form D/Form E）；",
+                    "严禁在合同中承诺遵守第三国针对中国特定地区或企业的单边歧视性法律。"
+                ],
+                mitigation_actions=[
+                    "在合同谈判中坚决剔除指向特定第三国单边法案的承诺，改签‘仅遵循项目东道国与设备原产国生效法律及联合国安理会决议’的中性合规条款；",
+                    "约定若因第三国单边长臂管辖导致设备清关受阻，总包商享有无责替代供货（Variation under Clause 13）与工期顺延权利；",
+                    "向国内出口管制与涉外经贸主管部门报备，依托属地绿色制造认证链进行反驳。"
+                ]
+            ))
+
+        # ---------------------------------------------------------------------
+        # 2D. 第三国出口管制与技术长臂断供 (EAR De Minimis / FDP Rule) - HIGH
+        # ---------------------------------------------------------------------
+        if any(kw.lower() in full_text.lower() for kw in KEYWORDS_EXPORT_CONTROL_TECH):
+            fact_anchors = cls.scan_fact_anchors(state, KEYWORDS_EXPORT_CONTROL_TECH)
+            alerts.append(SecurityAlertItem(
+                risk_level=SecurityRiskLevel.HIGH,
+                category="export_control_tech_long_arm",
+                title_zh="第三国出口管制与核心技术长臂断供（EAR De Minimis 25% / FDP 规则 vs FIDIC 18/19 条款）",
+                fact_anchor_ids=fact_anchors,
+                host_law_basis=[
+                    "FIDIC:1999-SILVER:Sub-19.1_ForceMajeure",
+                    "FIDIC:2017-SILVER:Sub-18.1_ExceptionalEvents"
+                ],
+                prc_or_treaty_basis=[
+                    "CN:Export_Control_Law:Art1_48",
+                    "CN:MOFCOM_Order_1_2021:Blocking_Statute"
+                ],
+                sinosure_preservation_guide=(
+                    "【技术出口管制断供特别指引】：\n"
+                    "核心主机或 DCS 系统因第三国单边出口管制断供导致工期受阻的，必须在 30 日内向中信保报备，"
+                    "并及时向业主发出不可抗力/例外事件通知，阻断业主扣罚误期损害赔偿（Delay LD）及索兑履约保函。"
+                ),
+                mandatory_human_checklist=[
+                    "核查电站燃机、高端变压器、DCS控制系统等核心设备是否含美国受控成分超过 25%（De Minimis 规则）；",
+                    "审查 FIDIC 特殊条款（PC）是否将‘第三国单边出口管制导致的备件断供与许可撤销’明确列入不可抗力/例外事件；",
+                    "审查合同是否约定由于断供触发的同等性能国产品牌替代变更权（Clause 13 Variation）。"
+                ],
+                mitigation_actions=[
+                    "依据 FIDIC 第 19.2/18.2 款向业主签发不可抗力/例外事件通知函，主张工期顺延以阻断 Delay LD 扣罚；",
+                    "启动备用元器件与国产化成熟替代方案评估，提请业主签发工程变更令（Variation Order）；",
+                    "依据《阻断外国法律与措施不当域外适用办法》向商务部报告单边管制断供事实。"
                 ]
             ))
 
@@ -385,14 +472,24 @@ def evaluate_tkdn_compliance(
     gap_pct = max(0.0, min_pct - float(declared_pct)) if declared_pct is not None else 0.0
     overall_status = "compliant" if (declared_pct is not None and gap_pct == 0.0) else ("caution" if (is_id and has_tkdn) else "safe")
     
+    is_solar = any(w in facts_text.lower() for w in ["光伏", "太阳能", "pv", "solar", "逆变器"])
+    is_power = any(w in facts_text.lower() for w in ["电站", "电力", "火电", "水电", "风电", "变电", "power", "energy", "pln", "evn"])
+    
+    if is_solar:
+        main_equipment = "光伏组件 / 逆变器"
+    elif is_power:
+        main_equipment = "主要发电设备与机组"
+    else:
+        main_equipment = "核心工程设备与主材"
+
     components = [
         {
-            "item": "光伏组件 / 逆变器",
+            "item": main_equipment,
             "statutory_min": f"{int(min_pct)}%",
             "current_est": f"{int(declared_pct or 28)}%",
             "status": "compliant" if (declared_pct or 28) >= min_pct else "non_compliant"
         },
-        {"item": "电站升压站主变与开关柜", "statutory_min": "45%", "current_est": "50%", "status": "compliant"},
+        {"item": "电站升压站主变与开关柜" if is_power else "辅机与电气控制设备", "statutory_min": "45%", "current_est": "50%", "status": "compliant"},
         {"item": "土建工程与属地劳务", "statutory_min": "70%", "current_est": "85%", "status": "compliant"}
     ]
     
@@ -552,8 +649,12 @@ def evaluate_sinosure_compliance(
     """中国信保 (Sinosure) 海外工程/特险 30 日出险报损时效审查算子"""
     import re
     params = engineering_params or {}
+    
+    # 真实触发判断：必须案件事实或参数中有明确的信保/政治险/出险报损意向或记录
+    has_sinosure_trigger = any(w in facts_text for w in ["中信保", "信保", "sinosure", "特定合同险", "可能损失通知书", "出险报损"]) or ("sinosure_notice_days" in params and params["sinosure_notice_days"] is not None)
+    
     sinosure_days = params.get("sinosure_notice_days")
-    if sinosure_days is None:
+    if sinosure_days is None and has_sinosure_trigger:
         m = re.search(r'(?:出险|违约|拒付|停工|接管|索兑)[^\d天dD]{0,25}?(\d+)\s*(?:天|days?)', facts_text, re.IGNORECASE)
         if m:
             sinosure_days = int(m.group(1))
@@ -562,28 +663,29 @@ def evaluate_sinosure_compliance(
         else:
             sinosure_days = 15
 
-    has_sinosure_trigger = any(w in facts_text for w in ["中信保", "信保", "保单", "拒付", "拖欠", "国有化", "政治险", "征收", "废约", "保函索兑"]) or (sinosure_days is not None)
     max_days = 30
-    is_overdue = (sinosure_days > max_days) if sinosure_days is not None else False
+    is_overdue = (sinosure_days > max_days) if (has_sinosure_trigger and sinosure_days is not None) else False
 
     return {
         "applicable": has_sinosure_trigger,
-        "is_compliant": not is_overdue,
-        "status": "safe" if not is_overdue else "caution",
-        "notice_days": sinosure_days or 15,
+        "is_compliant": not is_overdue if has_sinosure_trigger else True,
+        "status": "safe" if (not has_sinosure_trigger or not is_overdue) else "caution",
+        "notice_days": sinosure_days if has_sinosure_trigger else None,
         "max_window_days": max_days,
         "is_overdue": is_overdue,
-        "days_remaining": max(0, max_days - (sinosure_days or 15)),
+        "days_remaining": max(0, max_days - (sinosure_days or 0)) if has_sinosure_trigger else max_days,
         "policy_basis": "Sinosure_Policy:Notice_Clause_Art12",
         "recommendation": (
-            "中信保报损时效审查合规（已用时 <= 30天上限），保险追偿权益完好有效"
-            if not is_overdue
-            else f"已超出中信保 30 日出险报损时限 {sinosure_days - max_days} 天，需向保险人递交不可抗力合理抗辩"
+            "本案暂无明确中信保报损时效风险" if not has_sinosure_trigger else (
+                "中信保报损时效审查合规（已用时 <= 30天上限），保险追偿权益完好有效"
+                if not is_overdue
+                else f"已超出中信保 30 日出险报损时限 {sinosure_days - max_days} 天，需向保险人递交不可抗力合理抗辩"
+            )
         ),
         "recommended_action": (
-            "依据中国信保海外投资及工程险通则第12条：在得知业主迟延付款超约定期限或政府隐性征收后，"
-            "必须在30个自然日内向中国信保递交《可能损失通知书》(Notice of Possible Loss)。"
-            "逾期报损将导致保险人免责或扣减赔偿金。"
+            "若项目已投保中国信保，在得知业主违约或征收风险后，须在30个自然日内向中国信保递交《可能损失通知书》。"
+            if not has_sinosure_trigger else
+            "依据中国信保海外投资及工程险通则第12条：在得知业主迟延付款超约定期限或政府隐性征收后，必须在30个自然日内向中国信保递交《可能损失通知书》(Notice of Possible Loss)。逾期报损将导致保险人免责或扣减赔偿金。"
         )
     }
 
@@ -881,6 +983,41 @@ def build_tactical_guidance(
             "script_en": "Contractor firmly rejects Employer's reliance on extraterritorial unilateral sanctions (e.g. OFAC/Entity List) as justification for non-payment or suspension. Such third-country sanctions lack governing law validity and do not constitute legal impossibility under the Lex Loci Solutionis doctrine. Under PRC Anti-Foreign Sanctions Law Art. 12, implementing discriminatory foreign sanctions entitles us to pursue civil damages and asset freezes in Chinese courts. We demand immediate resumption and currency switch within 7 days."
         })
 
+    # 2.6 欧美供应链溯源与涉疆排除承诺反驳话术 (UFLPA / CSDDD)
+    has_supply_chain = (
+        any(getattr(a, "category", "") == "supply_chain_long_arm" for a in (security_alerts or []))
+        or any(kw.lower() in facts_text.lower() for kw in KEYWORDS_SUPPLY_CHAIN_LONG_ARM)
+    )
+    if has_supply_chain:
+        scripts.append({
+            "scenario_title": "欧美涉疆供应链排除承诺长臂反驳与中性合规条款替代口径",
+            "legal_basis": "中国反外国制裁法第3/12条、FIDIC Sub-Clause 13.1 变更机制",
+            "script_zh": "针对贵方强加之单边溯源排除要求，我方明确声明：涉案合同履约地在东盟，合同及设备供应严格遵循东道国及原产国生效强行法，并符合联合国安理会各项有效决议。依据中国《反外国制裁法》第3条及第12条，任何组织不得协助执行第三国歧视性单边制裁。我方提供东盟权威机构签发的原产地证书（Form D/Form E）及绿色碳足迹核查报告，贵方无权以此为由拒付工程款或延误清关验收。",
+            "script_en": "Contractor firmly declines unilateral supply chain exclusion covenants targeted at specific third-country domestic statutes. Performance strictly adheres to governing laws of host jurisdiction, country of origin, and UN Security Council resolutions. Pursuant to PRC Anti-Foreign Sanctions Law, implementing discriminatory third-country measures is legally prohibited. All components carry authenticated Form D/E certificates and verified green footprint dossiers."
+        })
+
+    # 2.7 EAR 出口管制与技术断供不可抗力抗辩话术
+    has_tech_export = (
+        any(getattr(a, "category", "") == "export_control_tech_long_arm" for a in (security_alerts or []))
+        or any(kw.lower() in facts_text.lower() for kw in KEYWORDS_EXPORT_CONTROL_TECH)
+    )
+    if has_tech_export:
+        scripts.append({
+            "scenario_title": "第三国出口管制断供不可抗力与品牌替代变更口径",
+            "legal_basis": "FIDIC 1999 Clause 19 (Force Majeure) / 2017 Clause 18 (Exceptional Events) & Sub-Clause 13.1",
+            "script_zh": "核心主机/控制系统备件断供系因第三国政府单方面修改出口管制规则（EAR/FDP）所致，属于当事人无法预见、不能克服且无法避免的不可抗力/例外事件。依据 FIDIC 第 19.2/18.2 款，我方享有工期顺延及免除误期赔偿金的合法权利；同时我方已依第 13 条提请同等技术规格国产品牌替代方案（Variation Proposal），请工程师在 14 日内核准变更指令。",
+            "script_en": "Critical component supply disruption directly originates from unilateral foreign export control impositions (EAR De Minimis / Foreign Direct Product rules), constituting a bona fide Force Majeure / Exceptional Event under FIDIC Clause 19/18. Contractor is entitled to full extension of time (EOT). In parallel, a formal Variation Proposal under Sub-Clause 13.1 specifying equivalent certified domestic alternatives has been submitted for immediate Engineer determination."
+        })
+
+    # 2.8 跨境金融结算断网与离岸人民币/双边本币清算切换话术 (LCS/CIPS)
+    if has_sanctions or any(kw in facts_text.lower() for kw in ["美元清算", "swift", "cips", "lcs", "本币结算"]):
+        scripts.append({
+            "scenario_title": "跨境结算断网与离岸人民币(CNH)/东道国本币(LCS)双边备用路由切换口径",
+            "legal_basis": "中国-东盟双边本币结算协议 (LCS/LCT) & 国际商会 ICC 保函支付通则",
+            "script_zh": "鉴于美元清算通道受阻或可能面临单边合规审查冻结，依据合同支付条款中关于支付障碍善意替代原则及中资-东道国双边本币互换框架（如中印 LCS / 中马双边货币清算安排），我方已正式提供人民币跨境支付系统 (CIPS) 离岸人民币 (CNH) 账号及东道国属地本币清算专户，请业主自下一期工程进度款起正式切换拨付路由，确保工程款按期足额支付。",
+            "script_en": "In view of clearing impediments affecting USD intermediary rails, Contractor hereby activates the multi-currency fallback routing pursuant to the bilateral Local Currency Settlement (LCS) framework and CIPS offshore RMB clearing channels. Employer is formally notified to execute subsequent interim certified payments via the designated alternate accounts to prevent interest accrual and suspension under Sub-Clause 16.1."
+        })
+
     # 3. 7日内紧急发函与取证清单 (Urgent Actions - 自适应国别)
     urgent_actions = [
         {
@@ -1005,6 +1142,30 @@ def build_tactical_guidance(
                 ]
             }
         ])
+
+    if has_supply_chain:
+        urgent_actions.append({
+            "action_type": "供应链合规",
+            "deadline_tag": "7日内",
+            "document_template_title": "《东盟属地深加工原产地证明 (Form D/E) 与绿色碳足迹核验证明卷宗》",
+            "key_points": [
+                "向东盟驻在国海关与工贸部申领完备的原产地归类证书",
+                "汇编原材料非第三国单边管制区域采买合规尽调档案",
+                "向监理工程师提交中性技术达标证明，阻断溯源违约指控"
+            ]
+        })
+
+    if has_tech_export:
+        urgent_actions.append({
+            "action_type": "不可抗力通知",
+            "deadline_tag": "14日内",
+            "document_template_title": "《FIDIC 19.2/18.2 款第三国出口管制断供不可抗力通知函与品牌替代申请》",
+            "key_points": [
+                "援引第三国 BIS/EAR 出口管制政策突变文件固定不可归责证据",
+                "正式发出工期顺延 (EOT) 意向通知，阻断业主扣除误期违约金 (Delay LD)",
+                "依第 13 条提请等效国产替代物料工程变更令 (Variation Order)"
+            ]
+        })
 
     return {
         "qualitative_verdict": qualitative_verdict,

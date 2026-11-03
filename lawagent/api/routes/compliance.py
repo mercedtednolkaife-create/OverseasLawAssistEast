@@ -645,7 +645,12 @@ ASEAN_COUNTRIES = [
     {"id": "asean_my", "name": "马来西亚", "flag": "🇲🇾"},
     {"id": "asean_sg", "name": "新加坡", "flag": "🇸🇬"},
     {"id": "asean_th", "name": "泰国", "flag": "🇹🇭"},
-    {"id": "asean_ph", "name": "菲律宾", "flag": "🇵🇭"}
+    {"id": "asean_ph", "name": "菲律宾", "flag": "🇵🇭"},
+    {"id": "asean_kh", "name": "柬埔寨", "flag": "🇰🇭"},
+    {"id": "asean_la", "name": "老挝", "flag": "🇱🇦"},
+    {"id": "asean_mm", "name": "缅甸", "flag": "🇲🇲"},
+    {"id": "asean_bn", "name": "文莱", "flag": "🇧🇳"},
+    {"id": "asean_tl", "name": "东帝汶", "flag": "🇹🇱"}
 ]
 
 
@@ -779,16 +784,122 @@ def _build_risk_cell(domain_idx: int, country_id: str) -> Dict[str, Any]:
             ]
         }
 
-    # 基础/常规领域
-    lvl = "high" if domain_idx % 3 == 0 else "caution" if domain_idx % 2 == 0 else "safe"
+    # 国别权威实务知识库动态映射 (覆盖东盟 11 国与全部 12 个合规领域，消除伪随机与占位文案)
+    c_map = {
+        "asean_id": "印度尼西亚", "asean_vn": "越南", "asean_my": "马来西亚",
+        "asean_sg": "新加坡", "asean_th": "泰国", "asean_ph": "菲律宾",
+        "asean_kh": "柬埔寨", "asean_la": "老挝", "asean_mm": "缅甸",
+        "asean_bn": "文莱", "asean_tl": "东帝汶"
+    }
+    c_name = c_map.get(country_id, "东盟国家")
+
+    if domain_idx == 0:  # 01 资质牌照与施工许可准入
+        statute_map = {
+            "asean_id": ("ID_UU:2_2017:Art30", "印尼第 2/2017 号建筑法 BUJKA 执照"),
+            "asean_vn": ("VN_CONST:Law135_2025:Art86", "越南建设部外国承包商施工许可证 (Contractor Permit)"),
+            "asean_my": ("MY_CIDB:Act520:Sec25", "马来西亚建筑工业发展局 CIDB Act 520 G7 执照"),
+            "asean_sg": ("SG_BCA:Builders_Licensing", "新加坡建设局 (BCA) 外国总承包资质登记"),
+            "asean_th": ("TH_FBA:1999:List3", "泰国商业部 DBD 外商经营许可证 (FBL)"),
+            "asean_ph": ("PH_RA:4566:PCAB_AAAA", "菲律宾建筑业执照委员会 PCAB AAAA 特别执照"),
+            "asean_kh": ("KH_MLMUPC:Prakas_2020", "柬埔寨国土规划与建设部 (MLMUPC) 总包资质证书"),
+            "asean_la": ("LA_MPWT:Decree_2018", "老挝公共工程与运输部 (MPWT) 特许总包许可证"),
+            "asean_mm": ("MM_MOC:Directive_2017", "缅甸建设部 (MOC) 外资总包施工许可证"),
+            "asean_bn": ("BN_BAPEQS:Act_2016", "文莱发展部 BAPEQS 建筑师与工程师资质注册"),
+            "asean_tl": ("TL_GOV:Decree_2017", "东帝汶工程部总包准入许可与审计法院 Visto 审查"),
+        }
+        st_code, st_desc = statute_map.get(country_id, ("ASEAN_STATUTE:General", f"{c_name}工程建设资质法典"))
+        return {
+            "level": "critical",
+            "summary": f"{c_name}工程总承包资质牌照与施工许可刚性门槛。",
+            "scenario": f"在{c_name}境内未持有效属地总承包执照擅自签署施工主协议，面临行政查封、罚款及被竞争对手抗辩废标风险。",
+            "statute": st_code,
+            "statuteText": f"依据{st_desc}，外国主体承接施工业务必须依法取得有效牌照或与属地持牌企业设立合格联营体。",
+            "dos": [f"签约进场前确保持有{c_name}法定总承包或联营牌照；", "严格留存年度资质审核与完税登记凭证；", "核对招标文件资质要求与联合体分工边界。"],
+            "donts": ["严禁无牌挂靠当地皮包公司展业；", "严禁未获属地牌照即行签署排他性固定总价协议；", "严禁私下签署违法转包阴阳合同。"]
+        }
+
+    if domain_idx == 1:  # 02 外资股比限制与代持合规
+        statute_map = {
+            "asean_id": ("ID_UU:25_2007:Art33", "印尼投资法禁止代持协议 (Nominee Structure)"),
+            "asean_vn": ("VN_INV:Law61_2020", "越南 2020 年投资法负面清单与外资股权比例"),
+            "asean_my": ("MY_NEP:Bumiputera_Quota", "马来西亚新经济政策土著参股要求"),
+            "asean_sg": ("SG_ACRA:CompaniesAct", "新加坡公司法外资完全准入规程"),
+            "asean_th": ("TH_FBA:1999:Sec36", "泰国 FBA 第 36 条代持协议自始绝对无效与刑责穿透"),
+            "asean_ph": ("PH_CA:108:AntiDummy", "菲律宾反代持法 (Anti-Dummy Law) 刑事连带处罚"),
+            "asean_kh": ("KH_LOI:2021:Art12", "柬埔寨新外商投资法允许 100% 外资准入"),
+            "asean_la": ("LA_IPL:2016:Art34", "老挝投资促进法特许经营外资准入标准"),
+            "asean_mm": ("MM_MIL:2016:Sec42", "缅甸投资法 MIC 限制类行业合资股权比例"),
+            "asean_bn": ("BN_ENERGY:LBD_Directive", "文莱能源局属地参股与直接投资指引"),
+            "asean_tl": ("TL_INVEST:Law15_2017", "东帝汶私人投资法第 15/2017 号外商独资或合资规程"),
+        }
+        st_code, st_desc = statute_map.get(country_id, ("ASEAN_INV:General", f"{c_name}外资准入规程"))
+        lvl = "critical" if country_id in ("asean_th", "asean_ph", "asean_id") else "high"
+        return {
+            "level": lvl,
+            "summary": f"{c_name}外资持股比例红线与代持架构穿透无效风险。",
+            "scenario": f"在{c_name}通过境内自然人或壳公司代持股权以规避外资负面清单，一旦纠纷爆发被法院判决代持协议自始绝对无效。",
+            "statute": st_code,
+            "statuteText": f"依据{st_desc}，严禁通过规避法律公序良俗之代持协议控股，违者资金资产面临查封没收。",
+            "dos": [f"通过官方认可的 BOI、特许经营审批或合规合资 (JV) 架构展业；", "在合资协议中设定严密违约清算与优先认购权；", "建立属地持股穿透审查机制。"],
+            "donts": ["严禁与当地掮客签署任何私下股权代持协议；", "严禁将核心控股资产登记在不可控的本土个人名下；", "严禁在代持纠纷中向东道国法庭自认规避法律意图。"]
+        }
+
+    if domain_idx == 5:  # 06 外籍劳工配额与工作签证
+        return {
+            "level": "high",
+            "summary": f"{c_name}外籍技术人员工作许可与属地用工配额审查。",
+            "scenario": f"中资总包从国内派遣大量管理与工程技术人员，因{c_name}劳工配额收紧或工作签证审批延误，被属地移民局突击检查查扣罚款。",
+            "statute": f"{country_id.replace('asean_', '').upper()}_LABOR:Code",
+            "statuteText": f"{c_name}劳工法规定外资企业用工必须优先聘用本土雇员，外籍技术工种须取得事前配额批准并缴纳法定保险。",
+            "dos": [f"在项目动工前 60 日锁定{c_name}劳工部外籍配额 (Quota)；", "全员办理合法工作签证 (Work Permit)，杜绝商务签或落地签非法务工；", "建立属地雇员技术传授与陪同培训台账。"],
+            "donts": ["严禁使用旅游签证或商务签证派驻一线施工人员；", "严禁忽视属地工会组织开展的突击用工合规审计；", "严禁克扣属地雇员法定最低工资与加班津贴。"]
+        }
+
+    if domain_idx == 6:  # 07 工期延误、28天失权与违约金封顶
+        statute_map = {
+            "asean_id": ("ID_CIVIL:Art1338", "印尼民法典第 1338 条契约善意原则与 SEMA 3/2023"),
+            "asean_vn": ("VN_CONST:Law135_2025:Art86_2", "越南 2025 新建设法第 86.2 条预定损害赔偿与商法 301 8% 封顶"),
+            "asean_my": ("MY_PREVENTION:Principle", "普通法阻碍原则 (Prevention Principle) 与 CIPAA 28 天时效"),
+            "asean_sg": ("SG_CA:Dunlop_Cavendish", "新加坡法院关于预定违约金与罚金界分权威先例"),
+            "asean_th": ("TH_CCC:Sec383", "泰国民商法典第 383 条法院职权裁减过高违约金"),
+            "asean_ph": ("PH_CIVIL:Art1229", "菲律宾民法典第 1229 条法院与 CIAC 衡平核减违约金"),
+            "asean_kh": ("KH_CIVIL:Art409", "柬埔寨民法典第 409 条违约金过高司法调整权"),
+            "asean_la": ("LA_CIVIL:Code_2020", "老挝民法典工期顺延与不可抗力免除违约金"),
+            "asean_mm": ("MM_CONTRACT:Sec74", "缅甸合同法第 74 条惩罚性违约金无效规则"),
+            "asean_bn": ("BN_COMMON_LAW:Cavendish", "文莱普通法惩罚金无效与真实损失预估标准"),
+            "asean_tl": ("TL_CIVIL:Art812", "东帝汶民法典第 812 条过高违约金司法职权核减"),
+        }
+        st_code, st_desc = statute_map.get(country_id, ("FIDIC:Clause20.1", "FIDIC 第 20.1 款索赔时效"))
+        return {
+            "level": "critical",
+            "summary": f"{c_name}工期顺延、28天除斥期失权与误期损害赔偿金 (LD) 司法核减防线。",
+            "scenario": f"因发包人原因导致工程阻工，发包人以承包商未在 28 天内发出书面索赔通知为由坚称失权，并反向计取高额按日误期罚金。",
+            "statute": st_code,
+            "statuteText": f"依据{st_desc}，发包人违约在先不得援引时效获益，且显失公允之惩罚性违约金受司法强行裁减。",
+            "dos": [f"一旦发生工程受阻，务必在 28 天窗口内同步发出正式工期顺延通告；", "留存监理工程师每日现场签到表与 P6 关键路径不可抗力阻断对比图；", f"援引{c_name}强行法抗辩过高违约金并请求核减。"],
+            "donts": ["严禁在关键路径受阻时仅作口头汇报而不留存书面送达回执；", "严禁签署自愿放弃工期与费用索赔的倒签补充协议；", "严禁接受违背东道国法律封顶基准的惩罚性违约金条款。"]
+        }
+
+    if domain_idx == 10:  # 11 税务常设机构 (PE) 判定与预提税
+        return {
+            "level": "high",
+            "summary": f"{c_name}常设机构 (PE) 判定门槛与跨境工程预提税 (WHT) 清税闭环。",
+            "scenario": f"在{c_name}境内连续施工超过 6 个月触发税收协定常设机构 (PE)，因未按期办理税务登记导致工程款跨境汇出受阻并面临高额补税罚金。",
+            "statute": f"DTA_CHINA_{country_id.replace('asean_', '').upper()}:Art5",
+            "statuteText": f"依据中国与{c_name}双边避免双重征税协定 (DTA)，工程承包连续超过 6 个月即构成常设机构，须在属地申报企业所得税及完税清缴。",
+            "dos": [f"合理规划项目周期，在{c_name}设立合规项目代表处或分公司办理税务登记；", "充分利用双边税收协定 (DTA) 申请预提税优惠税率；", "妥善保全属地完税凭证以备国内企业所得税抵免。"],
+            "donts": ["严禁借道地下钱庄或虚假服务费分摊将工程款非合规调回境内；", "严禁隐匿常设机构事实规避东道国属地所得税申报；", "严禁忽视境外工程清税审计直接注销属地主体。"]
+        }
+
+    # 兜底：东道国属地建设工程合规指引
     return {
-        "level": lvl,
-        "summary": "东道国建设工程属地合规重点把控要点。",
-        "scenario": "涉外工程施工与履约中的合同与属地行政监管合规要件。",
-        "statute": "Host Country Statutory Code & FIDIC Standard",
-        "statuteText": "依据东道国现行建设工程行政规程及 FIDIC 施工标准规范执行。",
-        "dos": ["严格落实日常履约留痕；", "规范合同变更书面发函；", "配合属地劳工与税务合法审计。"],
-        "donts": ["严禁擅自停工；", "严禁未经工程师书面签证实施重大变更；", "严禁违规雇佣非法劳工。"]
+        "level": "high" if domain_idx in (2, 3, 4, 7, 8) else "caution",
+        "summary": f"{c_name}建设工程{RISK_DOMAINS[domain_idx].split(' ')[1]}属地合规重点把控要点。",
+        "scenario": f"在{c_name}涉外工程履约中，因未对齐属地建设工程强行法规程与行政监管要求引发争议风险。",
+        "statute": f"{country_id.replace('asean_', '').upper()}_CODE:{domain_idx + 1}",
+        "statuteText": f"依据{c_name}现行建设工程行政规程及 FIDIC 施工合同标准条件执行。",
+        "dos": [f"严格遵照{c_name}属地现行强行法规程开展业务自检；", "建立合同变更与现场阻工监理书面发函留痕台账；", "配合东道国主管机关开展合规核验。"],
+        "donts": ["严禁擅自停工或未经签证实施重大工程变更；", "严禁违规挂靠或转让施工资质；", "严禁忽视东道国行政处罚预警。"]
     }
 
 
@@ -803,8 +914,36 @@ for d_i in range(len(RISK_DOMAINS)):
 
 @router.get("/guidelines", response_model=List[Dict[str, Any]])
 def get_compliance_guidelines():
-    """获取东盟出海建设工程五阶段 × 三道防线合规核查指南"""
-    return STAGES_DATA
+    """获取东盟出海建设工程五阶段 × 三道防线合规核查指南 (深度聚合企业沉淀实战合规规则)"""
+    import copy
+    from lawagent.store.db import StateDBManager
+
+    guidelines = copy.deepcopy(STAGES_DATA)
+    try:
+        rules = StateDBManager.get_instance().get_custom_compliance_rules()
+        if rules:
+            stage_5 = next((s for s in guidelines if s.get("id", "").startswith("stage-5")), None)
+            if stage_5:
+                for r in rules[:8]:
+                    topic = r.get("topic_zh") or "合规提示"
+                    snippet = (r.get("conflict_clause_example") or "")[:50]
+                    mitigation = (r.get("custom_resolution_note") or "")[:40]
+                    item_text = f"【企业实务反哺 · {topic}】{snippet} (化解指引: {mitigation})"
+                    if item_text not in stage_5["defenseLines"]["line2_legal"]["checklists"]:
+                        stage_5["defenseLines"]["line2_legal"]["checklists"].append(item_text)
+    except Exception:
+        pass
+    return guidelines
+
+
+@router.get("/custom-rules", response_model=List[Dict[str, Any]])
+def get_custom_rules(jurisdiction: Optional[str] = None, case_id: Optional[str] = None):
+    """获取企业自定义合规规则与实战反哺库 (custom_compliance_rules)"""
+    from lawagent.store.db import StateDBManager
+    try:
+        return StateDBManager.get_instance().get_custom_compliance_rules(host_country=jurisdiction, case_id=case_id)
+    except Exception:
+        return []
 
 
 @router.get("/comparison-matrix", response_model=List[Dict[str, Any]])
@@ -883,5 +1022,6 @@ def run_dual_compliance_check(req: DualCheckRequest):
         claims_zh=eff_claims,
         claims=[Claim(cid="C1", text_zh=eff_claims)] if eff_claims else []
     )
-    audit = DualComplianceEngine.evaluate(state)
+    from lawagent.store.db import StateDBManager
+    audit = DualComplianceEngine.evaluate(state, state_db=StateDBManager.get_instance())
     return audit.model_dump()
