@@ -541,19 +541,19 @@ export function buildFallbackTacticalGuidance(hostJur: string, isPreInv: boolean
     negotiation_scripts: [
       {
         scenario_title: `FIDIC 20.1 索赔通知逾期反驳与${jurConfig.name_zh}善意履约强行法`,
-        legalBasis: `FIDIC 20.1 · Prevention Principle · ${jurConfig.name_zh}民商法善意履行原则`,
+        legal_basis: `FIDIC 20.1 · Prevention Principle · ${jurConfig.name_zh}民商法善意履行原则`,
         script_zh: `我方坚决驳斥发包人因我方未满足 28 天通知即主张权利灭失之抗辩。根据英美法确立之“阻碍原则 (Prevention Principle)”以及${jurConfig.name_zh}民法所确立的善意履行规则，工期延误系因发包人自身交地与征拆迟延实质导致，发包人无权援引时效除斥条款免除自身违约后果，在卷往来日志已充分证实发包人实际知情，程序瑕疵不构成实质权利灭失。`,
         script_en: `We refute the Employer's contention that contractor remedies are barred under Clause 20.1. Under the Prevention Principle and governing good faith doctrines of ${jurConfig.name_zh}, an employer cannot benefit from its own site handover failure.`,
       },
       {
         scenario_title: `${jurConfig.name_zh}民法预定违约金司法核减法定抗辩`,
-        legalBasis: `${jurConfig.name_zh}民商法典违约救济编 · 预定损害赔偿衡平核减明文`,
+        legal_basis: `${jurConfig.name_zh}民商法典违约救济编 · 预定损害赔偿衡平核减明文`,
         script_zh: `依据东道国 (${jurConfig.name_zh}) 司法实践与强行法规范，若合同约定的误期损害赔偿金显失公允或远超发包人实际遭受的损失，裁判机关拥有法定职权予以调减。发包人单方企图扣发巨额违约金缺乏上位法正当性。`,
         script_en: `Under ${jurConfig.name_zh} law, courts possess statutory discretion to equitably reduce disproportionate liquidated damages exceeding actual incurred loss.`,
       },
       {
         scenario_title: '见索即付保函恶意索兑抗辩与中信保通报口径',
-        legalBasis: '欺诈与显失公平止付规则 · 中信保 30 天报损规程',
+        legal_basis: '欺诈与显失公平止付规则 · 中信保 30 天报损规程',
         script_zh: `严正告知发包人：鉴于工期延误的近因系发包人未尽场地交付义务所致，目前并无任何承包商实质违约。若发包人突击向开证银行发起履约保函全额索兑，将构成极度显失公平。我方将立即向紧急仲裁员提请全额临时止付禁令，且已向中国信保正式提交出险通报。`,
         script_en: `Any call on the Performance Security while delay is solely attributable to site handover default constitutes unconscionability. Contractor shall pursue emergency injunctions and log Sinosure pre-loss notices.`,
       },
@@ -563,7 +563,7 @@ export function buildFallbackTacticalGuidance(hostJur: string, isPreInv: boolean
         action_type: 'FIDIC 20.1 索赔通知补强函',
         deadline_tag: '7日内发出',
         document_template_title: `《关于工程场地受阻导致工期顺延之正式补充通告 (${jurConfig.short_name})》`,
-        keyPoints: [
+        key_points: [
           '正式援引 FIDIC 银皮书第 8.4(c) 款与 20.1 款',
           '随函附送监理工程师每日现场签到表与 P6 关键路径阻断对比图',
           `${jurConfig.name_zh}法域留存书面签收回执与向工程师送达留痕凭证`,
@@ -573,16 +573,16 @@ export function buildFallbackTacticalGuidance(hostJur: string, isPreInv: boolean
         action_type: `${jurConfig.short_name}属地合规批复与资质复核`,
         deadline_tag: '14日内提交',
         document_template_title: `《${jurConfig.name_zh}建设工程强行法与属地配额合规自检报告》`,
-        keyPoints: [
+        key_points: [
           `核对${jurConfig.name_zh}外资总承包持牌资质及本土劳工分包比例`,
           `向东道国投资主管机关申报项目实施合规进展与不可抗力备忘录`,
         ],
       },
       {
         action_type: '中国信保出险事前留痕通报',
-        deadlineTag: '30日除斥期内',
+        deadline_tag: '30日除斥期内',
         document_template_title: '《海外投资/承包工程险可能损失正式通知书 (Notice of Loss)》',
-        keyPoints: [
+        key_points: [
           '向中国出口信用保险公司提交正式书面《可能损失通知书》锁定保全利益',
           '提交东道国发包人迟延提供工作面与突击索兑保函威胁证据链',
         ],

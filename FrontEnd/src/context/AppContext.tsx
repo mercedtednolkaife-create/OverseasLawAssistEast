@@ -149,8 +149,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCaseEntryModalOpen(true);
   }, []);
 
-  // 侧边栏折叠状态 (全局响应式与定位)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  // 侧边栏折叠状态 (默认收起)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(true);
 
   // 浮层法条小弹窗状态
   const [lawModalEid, setLawModalEid] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 /**
- * 东盟基建工程与涉外法查明 Agent 真实业务 API 聚合模块
+ * 澜衡智枢 · 算电协同与域外法查明 Agent 真实业务 API 聚合模块
  * 完全直连后端 FastAPI 服务，已移除所有 Mock 数据
  * 对齐技术方案与前后端 REST & SSE 契约
  */
@@ -26,6 +26,7 @@ import {
   IntakeExtractResponse,
   AttachedArtifact,
   CLAlignResult,
+  DualComplianceAudit,
 } from '../types/lawAgent';
 
 export const lawAgentApi = {

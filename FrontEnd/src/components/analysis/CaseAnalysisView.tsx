@@ -26,6 +26,7 @@ import {
   Share2,
   Sparkles,
   Maximize2,
+  Scale,
 } from 'lucide-react';
 import { GradeBadge } from '../common/GradeBadge';
 import { CitationGraphFullscreenModal } from './CitationGraphFullscreenModal';
@@ -1565,7 +1566,7 @@ export const CaseAnalysisView: React.FC = () => {
             <DualComplianceCompass
               caseState={currentCase}
               onRefreshCase={refreshCurrentCase}
-              showToast={showToast}
+              showToast={(type, msg) => showToast(msg, type)}
             />
           )}
 
@@ -2676,7 +2677,7 @@ export const CaseAnalysisView: React.FC = () => {
             {/* 公文正式落款 */}
             <div className="pt-6 border-t border-slate-200 text-xs font-sans flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 text-slate-500">
               <div>
-                <p>出具机构：OverseasLawAssist 域外法查明联合体专家组</p>
+                <p>出具机构：澜衡智枢 域外法查明联合体专家组</p>
                 <p>法源依据：最高人民法院涉外法查明规范 · 东盟官方公报 · 国际工程与投资公约</p>
               </div>
               <div className="text-right font-mono text-[11px]">

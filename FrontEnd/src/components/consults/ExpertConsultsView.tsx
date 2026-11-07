@@ -519,7 +519,7 @@ export const ExpertConsultsView: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {con.status === 'completed' || con.status === 'issued' || (Boolean(con.reply) && con.status !== 'dispatched') ? (
+                        {con.status === 'replied' || (con.status as string) === 'completed' || (con.status as string) === 'issued' || (Boolean(con.reply) && con.status !== 'dispatched') ? (
                           <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700">
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
                             <span>已出具正式意见书</span>

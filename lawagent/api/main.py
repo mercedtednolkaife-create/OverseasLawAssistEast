@@ -71,8 +71,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="涉外法查明Agent (Overseas Law Assist Agent - ASEAN Engineering)",
-    description="涉外法查明助手：聚焦中国出海基建央国企东盟建设工程合规与风险防范，证据链溯源与客观中立咨询防线",
+    title="澜衡智枢-域外法查明助手 (Lanheng SmartHub - Overseas Law Assist Agent)",
+    description="澜衡智枢-域外法查明助手：聚焦算电协同与海外基建投资合规、涉外法查明、证据链溯源与双向合规审查",
     version="1.0.0",
     lifespan=lifespan
 )

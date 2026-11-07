@@ -98,10 +98,8 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
                       <button
                         key={c.case_id}
                         onClick={() => {
-                          if (c.case_id !== currentCaseId || currentView !== 'analysis') {
-                            loadCase(c.case_id);
-                            setCurrentView('analysis');
-                          }
+                          loadCase(c.case_id);
+                          setCurrentView('analysis');
                           setCaseMenuOpen(false);
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${
@@ -256,10 +254,8 @@ export const TopBar: React.FC<TopBarProps> = ({ collapsed, onToggleCollapse }) =
                       <button
                         key={c.case_id}
                         onClick={() => {
-                          if (c.case_id !== currentCaseId || currentView !== 'analysis') {
-                            loadCase(c.case_id);
-                            setCurrentView('analysis');
-                          }
+                          loadCase(c.case_id);
+                          setCurrentView('analysis');
                           setCaseMenuOpen(false);
                         }}
                         className={`w-full text-left px-2.5 py-2 rounded-lg text-xs flex items-center justify-between transition-colors cursor-pointer ${

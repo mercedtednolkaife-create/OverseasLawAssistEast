@@ -110,25 +110,16 @@ const MainLayout: React.FC = () => {
             </div>
 
             {/* 底部法治合规备案与说明条 (极简克制) */}
-            {(
-              <footer className="border-t border-slate-200/80 bg-white/70 backdrop-blur-md py-4 px-6 text-xs text-slate-500 mt-12">
-                <div className="max-w-[1500px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                    <span className="font-semibold text-slate-800">
-                      OverseasLawAssist 域外法查明与深度研判智能工作台
-                    </span>
-                    <span>·</span>
-                    <span className="font-mono text-[11px] text-slate-400">
-                      东盟官方司法公报 / 司法部法通网 / FIDIC 国际工程范本 / 国资委海外合规
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    最高院《涉外民事关系法律适用法解释（二）》规范 · 智能辅助决策
-                  </div>
+            <footer className="border-t border-slate-200/80 bg-white/70 backdrop-blur-md py-3.5 px-6 text-xs text-slate-500 mt-12">
+              <div className="max-w-[1500px] mx-auto flex items-center justify-center">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="font-semibold text-slate-800">
+                    澜衡智枢-域外法查明助手
+                  </span>
                 </div>
-              </footer>
-            )}
+              </div>
+            </footer>
           </main>
 
           {/* 右侧统一副驾坞 / 对照窗 (Unified Right Dock) - 桌面端右侧分栏 (注入 Apple Spring 物理动效) */}

@@ -135,21 +135,6 @@ export const HomeLandingView: React.FC = () => {
   const [searching, setSearching] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const sampleKeywords = [
-    { label: '印尼外文合同效力 (SEMA 3/2023)', key: 'sema_3_2023' },
-    { label: 'FIDIC 28天索赔时效抗辩', key: 'fidic_20_1' },
-    { label: '马来西亚背靠背支付无效 (CIPAA 35)', key: 'cipaa_sec35' },
-    { label: '新加坡保函显失公平止付', key: 'mount_sophia' },
-  ];
-
-  const handleSelectPreset = (key: string) => {
-    const item = KNOWLEDGE_BASE_PRESETS[key];
-    if (item) {
-      setSearchQuery(item.query);
-      setActiveQA(item);
-    }
-  };
-
   const handleSearchWithQuery = async (queryText: string) => {
     const q = queryText.trim();
     if (!q) return;
@@ -281,11 +266,11 @@ export const HomeLandingView: React.FC = () => {
         <section className="apple-bento-card rounded-[24px] p-5 sm:p-6 shadow-2xs space-y-3">
           <div className="max-w-4xl mx-auto text-center space-y-2.5">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              东盟基建工程与涉外投资法律查明工作台
+              澜衡智枢-域外法查明助手
             </h1>
 
             <p className="text-xs text-slate-500 max-w-xl mx-auto font-normal">
-              涵盖东盟投资准入、涉外合同合规审查、现行法规检索与索赔争议研判
+              涵盖算电协同投资准入、涉外合同合规审查、现行法规检索与索赔争议深度研判
             </p>
 
             {/* 全局检索输入框：统一蓝色行动按钮 */}
@@ -308,21 +293,6 @@ export const HomeLandingView: React.FC = () => {
                 </button>
               </div>
             </form>
-
-            {/* 典型高频法源热词 */}
-            <div className="flex flex-wrap items-center justify-center gap-1.5 pt-0.5 text-xs">
-              <span className="text-[11px] text-slate-400 font-medium">快捷检索：</span>
-              {sampleKeywords.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => handleSelectPreset(item.key)}
-                  className="text-[11px] px-2.5 py-0.5 rounded-lg bg-white/75 hover:bg-white text-slate-700 transition-colors cursor-pointer border border-slate-200/60 font-medium active:scale-[0.98]"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
           </div>
         </section>
 
