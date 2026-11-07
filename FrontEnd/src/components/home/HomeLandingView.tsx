@@ -266,7 +266,7 @@ export const HomeLandingView: React.FC = () => {
         <section className="apple-bento-card rounded-[24px] p-5 sm:p-6 shadow-2xs space-y-3">
           <div className="max-w-4xl mx-auto text-center space-y-2.5">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              澜衡智枢-域外法查明助手
+              澜衡-数字化涉外经贸法律查明平台
             </h1>
 
             <p className="text-xs text-slate-500 max-w-xl mx-auto font-normal">

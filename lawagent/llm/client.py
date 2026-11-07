@@ -85,6 +85,12 @@ class LLMClient:
         eff_temp = temperature if temperature is not None else tcfg.get("temperature", 0.0)
         eff_timeout = tcfg.get("timeout", 60)
 
+        # 针对 OpenAI 与 DashScope 规范：启用 json_object 模式时，messages 必须包含 "json" 关键词
+        sys_p = system_prompt or ""
+        usr_p = user_prompt or ""
+        if "json" not in (sys_p + usr_p).lower():
+            sys_p = (sys_p + "\nPlease output your response in valid JSON format.").strip()
+
         last_err = None
         for model in models_to_try:
             for attempt in range(retries + 1):
@@ -95,8 +101,8 @@ class LLMClient:
                         timeout=eff_timeout,
                         response_format={"type": "json_object"} if "qwen" in model or "deepseek" in model else None,
                         messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt},
+                            {"role": "system", "content": sys_p},
+                            {"role": "user", "content": usr_p},
                         ],
                     )
                     content = response.choices[0].message.content or ""

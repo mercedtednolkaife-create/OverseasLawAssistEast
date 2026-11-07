@@ -71,8 +71,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="澜衡智枢-域外法查明助手 (Lanheng SmartHub - Overseas Law Assist Agent)",
-    description="澜衡智枢-域外法查明助手：聚焦算电协同与海外基建投资合规、涉外法查明、证据链溯源与双向合规审查",
+    title="澜衡-数字化涉外经贸法律查明平台 (Lanheng - Digital Foreign Law Ascertainment Platform)",
+    description="澜衡-数字化涉外经贸法律查明平台：聚焦数字化涉外经贸、算电协同与海外工程投资合规、涉外法查明、证据链溯源与双向合规审查",
     version="1.0.0",
     lifespan=lifespan
 )

@@ -66,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-bold text-slate-900 tracking-tight block truncate group-hover:text-blue-600 transition-colors">
-                  澜衡智枢-域外法查明助手
+                  澜衡-数字化涉外经贸法律查明平台
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono block -mt-0.5">
                   算电协同 · 2026 现行版
